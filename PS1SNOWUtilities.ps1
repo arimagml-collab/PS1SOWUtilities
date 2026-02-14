@@ -53,7 +53,6 @@ try {
     "ja" = @{
       AppTitle="PS1 SNOW Utilities"
       TabExport="Export"
-      TabViewer="Viewer"
       TabSettings="設定"
       TargetTable="Target Table"
       ReloadTables="テーブル再取得"
@@ -71,13 +70,6 @@ try {
       FormatJson="JSON"
       FormatXlsx="Excel (.xlsx)"
       Log="ログ"
-      ViewerTable="閲覧テーブル"
-      ViewerLoad="データ読込"
-      ViewerApplyFilter="検索適用"
-      ViewerClearFilter="検索クリア"
-      ViewerFilter="フィールド検索"
-      ViewerRows="表示件数"
-      ViewerNoData="表示データがありません。先にデータを読込してください。"
       UiLang="UI言語"
       Instance="Servicenowインスタンス名"
       AuthType="認証方式"
@@ -104,7 +96,6 @@ try {
     "en" = @{
       AppTitle="PS1 SNOW Utilities"
       TabExport="Export"
-      TabViewer="Viewer"
       TabSettings="Settings"
       TargetTable="Target Table"
       ReloadTables="Reload Tables"
@@ -122,13 +113,6 @@ try {
       FormatJson="JSON"
       FormatXlsx="Excel (.xlsx)"
       Log="Log"
-      ViewerTable="Viewer Table"
-      ViewerLoad="Load Data"
-      ViewerApplyFilter="Apply Search"
-      ViewerClearFilter="Clear Search"
-      ViewerFilter="Field Search"
-      ViewerRows="Rows"
-      ViewerNoData="No data loaded. Please load data first."
       UiLang="UI Language"
       Instance="ServiceNow Instance"
       AuthType="Authentication"
@@ -315,11 +299,9 @@ try {
   $tabs.Dock = "Fill"
 
   $tabExport = New-Object System.Windows.Forms.TabPage
-  $tabViewer = New-Object System.Windows.Forms.TabPage
   $tabSettings = New-Object System.Windows.Forms.TabPage
 
   [void]$tabs.TabPages.Add($tabExport)
-  [void]$tabs.TabPages.Add($tabViewer)
   [void]$tabs.TabPages.Add($tabSettings)
   $form.Controls.Add($tabs)
 
@@ -432,216 +414,6 @@ try {
     $grpLog
   ))
 
-  # --- Viewer tab layout
-  $panelViewer = New-Object System.Windows.Forms.Panel
-  $panelViewer.Dock = "Fill"
-  $tabViewer.Controls.Add($panelViewer)
-
-  $lblViewerTable = New-Object System.Windows.Forms.Label
-  $lblViewerTable.Location = New-Object System.Drawing.Point(20, 20)
-  $lblViewerTable.AutoSize = $true
-
-  $cmbViewerTable = New-Object System.Windows.Forms.ComboBox
-  $cmbViewerTable.Location = New-Object System.Drawing.Point(160, 16)
-  $cmbViewerTable.Size = New-Object System.Drawing.Size(420, 28)
-  $cmbViewerTable.DropDownStyle = "DropDown"
-
-  $lblViewerRows = New-Object System.Windows.Forms.Label
-  $lblViewerRows.Location = New-Object System.Drawing.Point(600, 20)
-  $lblViewerRows.AutoSize = $true
-
-  $numViewerRows = New-Object System.Windows.Forms.NumericUpDown
-  $numViewerRows.Location = New-Object System.Drawing.Point(660, 16)
-  $numViewerRows.Size = New-Object System.Drawing.Size(100, 28)
-  $numViewerRows.Minimum = 10
-  $numViewerRows.Maximum = 5000
-  $numViewerRows.Value = 300
-
-  $btnViewerLoad = New-Object System.Windows.Forms.Button
-  $btnViewerLoad.Location = New-Object System.Drawing.Point(780, 14)
-  $btnViewerLoad.Size = New-Object System.Drawing.Size(140, 32)
-
-  $grpViewerFilter = New-Object System.Windows.Forms.GroupBox
-  $grpViewerFilter.Location = New-Object System.Drawing.Point(20, 60)
-  $grpViewerFilter.Size = New-Object System.Drawing.Size(900, 180)
-
-  $flowViewerFilter = New-Object System.Windows.Forms.FlowLayoutPanel
-  $flowViewerFilter.Dock = "Fill"
-  $flowViewerFilter.AutoScroll = $true
-  $flowViewerFilter.WrapContents = $true
-  $flowViewerFilter.FlowDirection = [System.Windows.Forms.FlowDirection]::LeftToRight
-  $grpViewerFilter.Controls.Add($flowViewerFilter)
-
-  $btnViewerApplyFilter = New-Object System.Windows.Forms.Button
-  $btnViewerApplyFilter.Location = New-Object System.Drawing.Point(740, 246)
-  $btnViewerApplyFilter.Size = New-Object System.Drawing.Size(85, 32)
-
-  $btnViewerClearFilter = New-Object System.Windows.Forms.Button
-  $btnViewerClearFilter.Location = New-Object System.Drawing.Point(835, 246)
-  $btnViewerClearFilter.Size = New-Object System.Drawing.Size(85, 32)
-
-  $gridViewer = New-Object System.Windows.Forms.DataGridView
-  $gridViewer.Location = New-Object System.Drawing.Point(20, 286)
-  $gridViewer.Size = New-Object System.Drawing.Size(900, 350)
-  $gridViewer.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
-  $gridViewer.ReadOnly = $true
-  $gridViewer.AllowUserToAddRows = $false
-  $gridViewer.AllowUserToDeleteRows = $false
-  $gridViewer.SelectionMode = [System.Windows.Forms.DataGridViewSelectionMode]::FullRowSelect
-  $gridViewer.AutoSizeColumnsMode = [System.Windows.Forms.DataGridViewAutoSizeColumnsMode]::DisplayedCells
-
-  $panelViewer.Controls.AddRange(@(
-    $lblViewerTable, $cmbViewerTable,
-    $lblViewerRows, $numViewerRows, $btnViewerLoad,
-    $grpViewerFilter, $btnViewerApplyFilter, $btnViewerClearFilter,
-    $gridViewer
-  ))
-
-  $script:viewerDataRows = @()
-  $script:viewerFilterInputs = @{}
-  $script:isSyncingTableSelection = $false
-
-  function Get-ViewerSelectedTableName {
-    $text = ""
-    if ($cmbViewerTable.SelectedItem) {
-      $text = [string]$cmbViewerTable.SelectedItem
-    } else {
-      $text = [string]$cmbViewerTable.Text
-    }
-    $idx = $text.IndexOf(" - ")
-    if ($idx -gt 0) { return $text.Substring(0, $idx).Trim() }
-    return $text.Trim()
-  }
-
-  function Get-ViewerRowsAsDataTable([object[]]$rows) {
-    $dt = New-Object System.Data.DataTable
-    if ($null -eq $rows -or $rows.Count -eq 0) { return $dt }
-
-    $colNameSet = New-Object System.Collections.Generic.HashSet[string]
-    foreach ($obj in $rows) {
-      foreach ($p in $obj.PSObject.Properties) { [void]$colNameSet.Add($p.Name) }
-    }
-    $cols = @($colNameSet) | Sort-Object
-
-    foreach ($c in $cols) { [void]$dt.Columns.Add([string]$c, [string]) }
-
-    foreach ($obj in $rows) {
-      $dr = $dt.NewRow()
-      foreach ($c in $cols) {
-        $val = $null
-        try { $val = $obj.$c } catch { $val = $null }
-        if ($null -eq $val) { $dr[$c] = "" }
-        else { $dr[$c] = [string]$val }
-      }
-      [void]$dt.Rows.Add($dr)
-    }
-    return $dt
-  }
-
-  function Rebuild-ViewerFilterControls {
-    $flowViewerFilter.SuspendLayout()
-    $flowViewerFilter.Controls.Clear()
-    $script:viewerFilterInputs = @{}
-
-    if ($script:viewerDataRows.Count -eq 0) {
-      $flowViewerFilter.ResumeLayout()
-      return
-    }
-
-    $colNameSet = New-Object System.Collections.Generic.HashSet[string]
-    foreach ($obj in $script:viewerDataRows) {
-      foreach ($p in $obj.PSObject.Properties) { [void]$colNameSet.Add($p.Name) }
-    }
-    $cols = @($colNameSet) | Sort-Object
-
-    foreach ($c in $cols) {
-      $holder = New-Object System.Windows.Forms.Panel
-      $holder.Width = 280
-      $holder.Height = 56
-
-      $lbl = New-Object System.Windows.Forms.Label
-      $lbl.Text = [string]$c
-      $lbl.Location = New-Object System.Drawing.Point(0, 0)
-      $lbl.AutoSize = $true
-
-      $txt = New-Object System.Windows.Forms.TextBox
-      $txt.Width = 270
-      $txt.Location = New-Object System.Drawing.Point(0, 24)
-
-      $holder.Controls.Add($lbl)
-      $holder.Controls.Add($txt)
-      [void]$flowViewerFilter.Controls.Add($holder)
-      $script:viewerFilterInputs[$c] = $txt
-    }
-
-    $flowViewerFilter.ResumeLayout()
-  }
-
-  function Apply-ViewerFilters {
-    if ($script:viewerDataRows.Count -eq 0) {
-      Add-Log (T "ViewerNoData")
-      return
-    }
-
-    $filtered = @($script:viewerDataRows)
-    foreach ($k in $script:viewerFilterInputs.Keys) {
-      $txtBox = $script:viewerFilterInputs[$k]
-      $needle = ([string]$txtBox.Text).Trim()
-      if ([string]::IsNullOrWhiteSpace($needle)) { continue }
-
-      $filtered = @($filtered | Where-Object {
-        $v = ""
-        try { $v = [string]$_.($k) } catch { $v = "" }
-        $v.IndexOf($needle, [System.StringComparison]::OrdinalIgnoreCase) -ge 0
-      })
-    }
-
-    $gridViewer.DataSource = $null
-    $gridViewer.DataSource = Get-ViewerRowsAsDataTable $filtered
-    Add-Log ("viewer filtered rows={0}" -f $filtered.Count)
-  }
-
-  function Clear-ViewerFilters {
-    foreach ($k in $script:viewerFilterInputs.Keys) {
-      $script:viewerFilterInputs[$k].Text = ""
-    }
-    $gridViewer.DataSource = $null
-    $gridViewer.DataSource = Get-ViewerRowsAsDataTable $script:viewerDataRows
-    Add-Log ("viewer rows={0}" -f $script:viewerDataRows.Count)
-  }
-
-  function Load-ViewerData {
-    $table = Get-ViewerSelectedTableName
-    if ([string]::IsNullOrWhiteSpace((Get-BaseUrl))) {
-      [System.Windows.Forms.MessageBox]::Show((T "WarnInstance")) | Out-Null
-      return
-    }
-    if ([string]::IsNullOrWhiteSpace($table)) {
-      [System.Windows.Forms.MessageBox]::Show((T "WarnTable")) | Out-Null
-      return
-    }
-
-    try {
-      $limit = [int]$numViewerRows.Value
-      Add-Log ("viewer load: table={0}, limit={1}" -f $table, $limit)
-      $path = "/api/now/table/{0}?sysparm_limit={1}&sysparm_display_value=true&sysparm_exclude_reference_link=true" -f $table, $limit
-      $res = Invoke-SnowGet $path
-
-      $results = $null
-      if ($res -and ($res.PSObject.Properties.Name -contains "result")) { $results = $res.result }
-      if ($null -eq $results) { $results = @() }
-
-      $script:viewerDataRows = @($results)
-      Rebuild-ViewerFilterControls
-      $gridViewer.DataSource = $null
-      $gridViewer.DataSource = Get-ViewerRowsAsDataTable $script:viewerDataRows
-      Add-Log ("viewer loaded rows={0}" -f $script:viewerDataRows.Count)
-    } catch {
-      Add-Log ("{0}: {1}" -f (T "Failed"), $_.Exception.Message)
-      [System.Windows.Forms.MessageBox]::Show( ("{0}`r`n{1}" -f (T "Failed"), $_.Exception.Message) ) | Out-Null
-    }
-  }
-
   # --- Settings tab layout
   $panelSettings = New-Object System.Windows.Forms.Panel
   $panelSettings.Dock = "Fill"
@@ -748,7 +520,6 @@ try {
   function Apply-Language {
     $form.Text = T "AppTitle"
     $tabExport.Text = T "TabExport"
-    $tabViewer.Text = T "TabViewer"
     $tabSettings.Text = T "TabSettings"
 
     $lblTable.Text = T "TargetTable"
@@ -765,13 +536,6 @@ try {
     $lblOutputFormat.Text = T "OutputFormat"
     $grpLog.Text = T "Log"
     $btnOpenFolder.Text = T "OpenFolder"
-
-    $lblViewerTable.Text = T "ViewerTable"
-    $lblViewerRows.Text = T "ViewerRows"
-    $btnViewerLoad.Text = T "ViewerLoad"
-    $grpViewerFilter.Text = T "ViewerFilter"
-    $btnViewerApplyFilter.Text = T "ViewerApplyFilter"
-    $btnViewerClearFilter.Text = T "ViewerClearFilter"
 
     $lblUiLang.Text = T "UiLang"
     $lblInstance.Text = T "Instance"
@@ -848,15 +612,11 @@ try {
       Save-Settings
 
       $cmbTable.BeginUpdate()
-      $cmbViewerTable.BeginUpdate()
       $cmbTable.Items.Clear()
-      $cmbViewerTable.Items.Clear()
       foreach ($t in $list) {
         [void]$cmbTable.Items.Add(("{0} - {1}" -f $t.name, $t.label))
-        [void]$cmbViewerTable.Items.Add(("{0} - {1}" -f $t.name, $t.label))
       }
       $cmbTable.EndUpdate()
-      $cmbViewerTable.EndUpdate()
 
       $targetName = ([string]$script:Settings.selectedTableName).Trim()
       if (-not [string]::IsNullOrWhiteSpace($targetName)) {
@@ -870,10 +630,8 @@ try {
         }
         if ($candidate) {
           $cmbTable.SelectedItem = $candidate
-          $cmbViewerTable.SelectedItem = $candidate
         } else {
           $cmbTable.Text = $targetName
-          $cmbViewerTable.Text = $targetName
         }
       }
 
@@ -1131,15 +889,11 @@ try {
 
   if ($script:Settings.cachedTables -and $script:Settings.cachedTables.Count -gt 0) {
     $cmbTable.BeginUpdate()
-    $cmbViewerTable.BeginUpdate()
     $cmbTable.Items.Clear()
-    $cmbViewerTable.Items.Clear()
     foreach ($t in $script:Settings.cachedTables) {
       [void]$cmbTable.Items.Add(("{0} - {1}" -f $t.name, $t.label))
-      [void]$cmbViewerTable.Items.Add(("{0} - {1}" -f $t.name, $t.label))
     }
     $cmbTable.EndUpdate()
-    $cmbViewerTable.EndUpdate()
   }
 
   $initialTableName = ([string]$script:Settings.selectedTableName).Trim()
@@ -1154,10 +908,8 @@ try {
     }
     if ($candidate) {
       $cmbTable.SelectedItem = $candidate
-      $cmbViewerTable.SelectedItem = $candidate
     } else {
       $cmbTable.Text = $initialTableName
-      $cmbViewerTable.Text = $initialTableName
     }
   }
 
@@ -1234,51 +986,13 @@ try {
   })
 
   $cmbTable.add_SelectedIndexChanged({
-    if ($script:isSyncingTableSelection) { return }
-    $script:isSyncingTableSelection = $true
-    try {
-      $script:Settings.selectedTableName = Get-SelectedTableName
-      $cmbViewerTable.Text = $cmbTable.Text
-      Save-Settings
-    } finally {
-      $script:isSyncingTableSelection = $false
-    }
+    $script:Settings.selectedTableName = Get-SelectedTableName
+    Save-Settings
   })
 
   $cmbTable.add_TextChanged({
-    if ($script:isSyncingTableSelection) { return }
-    $script:isSyncingTableSelection = $true
-    try {
-      $script:Settings.selectedTableName = Get-SelectedTableName
-      $cmbViewerTable.Text = $cmbTable.Text
-      Save-Settings
-    } finally {
-      $script:isSyncingTableSelection = $false
-    }
-  })
-
-  $cmbViewerTable.add_SelectedIndexChanged({
-    if ($script:isSyncingTableSelection) { return }
-    $script:isSyncingTableSelection = $true
-    try {
-      $script:Settings.selectedTableName = Get-ViewerSelectedTableName
-      $cmbTable.Text = $cmbViewerTable.Text
-      Save-Settings
-    } finally {
-      $script:isSyncingTableSelection = $false
-    }
-  })
-
-  $cmbViewerTable.add_TextChanged({
-    if ($script:isSyncingTableSelection) { return }
-    $script:isSyncingTableSelection = $true
-    try {
-      $script:Settings.selectedTableName = Get-ViewerSelectedTableName
-      $cmbTable.Text = $cmbViewerTable.Text
-      Save-Settings
-    } finally {
-      $script:isSyncingTableSelection = $false
-    }
+    $script:Settings.selectedTableName = Get-SelectedTableName
+    Save-Settings
   })
 
   $txtDir.add_TextChanged({
@@ -1325,9 +1039,6 @@ try {
 
   $btnReloadTables.add_Click({ Fetch-Tables })
   $btnExecute.add_Click({ Export-Table })
-  $btnViewerLoad.add_Click({ Load-ViewerData })
-  $btnViewerApplyFilter.add_Click({ Apply-ViewerFilters })
-  $btnViewerClearFilter.add_Click({ Clear-ViewerFilters })
 
   # First-run export dir
   try { [void](Ensure-ExportDir $txtDir.Text) } catch { }
