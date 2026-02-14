@@ -758,10 +758,12 @@ try {
 
       $file = Join-Path $exportDir ("{0}{1}_{2}.csv" -f $table, $suffix, $stamp)
 
+      $recordCount = @($outRows).Count
+
       $outRows | Export-Csv -Path $file -NoTypeInformation -Encoding UTF8
       Add-Log ("{0}: {1}" -f (T "Done"), $file)
 
-      [System.Windows.Forms.MessageBox]::Show(("OK`r`n{0}`r`nRecords: {1}" -f $file, $outRows.Count)) | Out-Null
+      [System.Windows.Forms.MessageBox]::Show(("OK`r`n{0}`r`nRecords: {1}" -f $file, $recordCount)) | Out-Null
     } catch {
       Add-Log ("{0}: {1}" -f (T "Failed"), $_.Exception.Message)
       [System.Windows.Forms.MessageBox]::Show(("{0}`r`n{1}" -f (T "Failed"), $_.Exception.Message)) | Out-Null
