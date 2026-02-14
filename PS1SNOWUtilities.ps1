@@ -53,6 +53,7 @@ try {
     "ja" = @{
       AppTitle="PS1 SNOW Utilities"
       TabExport="Export"
+      TabViewEditor="DataBase View Editor"
       TabSettings="設定"
       TargetTable="Target Table"
       ReloadTables="テーブル再取得"
@@ -92,10 +93,33 @@ try {
       OpenFolder="フォルダを開く"
       TableFetchFallback="テーブル一覧を取得できないため、Target Tableを手動入力してください。"
       CopyrightLink="Copyright (c) ixam.net"
+      ViewName="View内部名"
+      ViewLabel="Viewラベル"
+      BaseTable="ベーステーブル"
+      ReloadColumns="カラム再取得"
+      ViewColumns="表示カラム"
+      AddCondition="条件追加"
+      RemoveCondition="条件削除"
+      WhereClausePreview="Where句プレビュー"
+      CreateView="View作成"
+      ConditionColumn="カラム"
+      ConditionOperator="演算子"
+      ConditionValue="値"
+      WarnViewName="View内部名を入力してください。"
+      WarnViewLabel="Viewラベルを入力してください。"
+      WarnBaseTable="ベーステーブルを選択してください。"
+      WarnConditionColumn="条件のカラムが未選択です。"
+      WarnConditionValue="値が必要な条件があります。"
+      FetchingColumns="カラム一覧を取得中..."
+      ColumnsFetched="カラム一覧を取得"
+      ViewCreated="Viewを作成しました"
+      ViewCreateFailed="View作成に失敗しました"
+      ViewWhereFallback="この環境ではWhere句保存フィールドを特定できませんでした。Viewは作成されましたが、Where句は手動設定してください。"
     }
     "en" = @{
       AppTitle="PS1 SNOW Utilities"
       TabExport="Export"
+      TabViewEditor="DataBase View Editor"
       TabSettings="Settings"
       TargetTable="Target Table"
       ReloadTables="Reload Tables"
@@ -135,6 +159,28 @@ try {
       OpenFolder="Open Folder"
       TableFetchFallback="Could not fetch table list. Please type Target Table manually."
       CopyrightLink="Copyright (c) ixam.net"
+      ViewName="View Name"
+      ViewLabel="View Label"
+      BaseTable="Base Table"
+      ReloadColumns="Reload Columns"
+      ViewColumns="Visible Columns"
+      AddCondition="Add Condition"
+      RemoveCondition="Remove Condition"
+      WhereClausePreview="Where Clause Preview"
+      CreateView="Create View"
+      ConditionColumn="Column"
+      ConditionOperator="Operator"
+      ConditionValue="Value"
+      WarnViewName="View name is required."
+      WarnViewLabel="View label is required."
+      WarnBaseTable="Base table must be selected."
+      WarnConditionColumn="One or more conditions have no column selected."
+      WarnConditionValue="One or more conditions require a value."
+      FetchingColumns="Fetching columns..."
+      ColumnsFetched="Fetched columns"
+      ViewCreated="View created"
+      ViewCreateFailed="Failed to create view"
+      ViewWhereFallback="Could not detect a writable where-clause field in this instance. View was created, but set the where clause manually."
     }
   }
 
@@ -186,6 +232,10 @@ try {
       exportFields = ""          # optional: comma separated sysparm_fields
       pageSize = 1000
       outputFormat = "csv"       # csv | json | xlsx
+      viewEditorViewName = ""
+      viewEditorViewLabel = ""
+      viewEditorBaseTable = ""
+      viewEditorWhereClause = ""
     }
     return $o
   }
@@ -271,6 +321,46 @@ try {
     }
   }
 
+  function Invoke-SnowPost([string]$path, [hashtable]$body) {
+    $base = Get-BaseUrl
+    if ([string]::IsNullOrWhiteSpace($base)) { throw (T "WarnInstance") }
+
+    $uri = $base + $path
+    $headers = New-SnowHeaders
+    $jsonBody = ($body | ConvertTo-Json -Depth 8)
+
+    if ($script:Settings.authType -eq "userpass") {
+      $user = ([string]$script:Settings.userId).Trim()
+      $pass = Unprotect-Secret ([string]$script:Settings.passwordEnc)
+      if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($pass)) { throw (T "WarnAuth") }
+      $sec = ConvertTo-SecureString $pass -AsPlainText -Force
+      $cred = New-Object System.Management.Automation.PSCredential($user, $sec)
+      return Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -Credential $cred -TimeoutSec 120 -Body $jsonBody
+    } else {
+      return Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -TimeoutSec 120 -Body $jsonBody
+    }
+  }
+
+  function Invoke-SnowPatch([string]$path, [hashtable]$body) {
+    $base = Get-BaseUrl
+    if ([string]::IsNullOrWhiteSpace($base)) { throw (T "WarnInstance") }
+
+    $uri = $base + $path
+    $headers = New-SnowHeaders
+    $jsonBody = ($body | ConvertTo-Json -Depth 8)
+
+    if ($script:Settings.authType -eq "userpass") {
+      $user = ([string]$script:Settings.userId).Trim()
+      $pass = Unprotect-Secret ([string]$script:Settings.passwordEnc)
+      if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($pass)) { throw (T "WarnAuth") }
+      $sec = ConvertTo-SecureString $pass -AsPlainText -Force
+      $cred = New-Object System.Management.Automation.PSCredential($user, $sec)
+      return Invoke-RestMethod -Method Patch -Uri $uri -Headers $headers -Credential $cred -TimeoutSec 120 -Body $jsonBody
+    } else {
+      return Invoke-RestMethod -Method Patch -Uri $uri -Headers $headers -TimeoutSec 120 -Body $jsonBody
+    }
+  }
+
   # ----------------------------
   # UI helpers
   # ----------------------------
@@ -299,9 +389,11 @@ try {
   $tabs.Dock = "Fill"
 
   $tabExport = New-Object System.Windows.Forms.TabPage
+  $tabViewEditor = New-Object System.Windows.Forms.TabPage
   $tabSettings = New-Object System.Windows.Forms.TabPage
 
   [void]$tabs.TabPages.Add($tabExport)
+  [void]$tabs.TabPages.Add($tabViewEditor)
   [void]$tabs.TabPages.Add($tabSettings)
   $form.Controls.Add($tabs)
 
@@ -414,6 +506,120 @@ try {
     $grpLog
   ))
 
+  # --- DataBase View Editor tab layout
+  $panelViewEditor = New-Object System.Windows.Forms.Panel
+  $panelViewEditor.Dock = "Fill"
+  $tabViewEditor.Controls.Add($panelViewEditor)
+
+  $lblViewName = New-Object System.Windows.Forms.Label
+  $lblViewName.Location = New-Object System.Drawing.Point(20, 20)
+  $lblViewName.AutoSize = $true
+
+  $txtViewName = New-Object System.Windows.Forms.TextBox
+  $txtViewName.Location = New-Object System.Drawing.Point(190, 16)
+  $txtViewName.Size = New-Object System.Drawing.Size(330, 28)
+
+  $lblViewLabel = New-Object System.Windows.Forms.Label
+  $lblViewLabel.Location = New-Object System.Drawing.Point(540, 20)
+  $lblViewLabel.AutoSize = $true
+
+  $txtViewLabel = New-Object System.Windows.Forms.TextBox
+  $txtViewLabel.Location = New-Object System.Drawing.Point(650, 16)
+  $txtViewLabel.Size = New-Object System.Drawing.Size(270, 28)
+
+  $lblBaseTable = New-Object System.Windows.Forms.Label
+  $lblBaseTable.Location = New-Object System.Drawing.Point(20, 60)
+  $lblBaseTable.AutoSize = $true
+
+  $cmbBaseTable = New-Object System.Windows.Forms.ComboBox
+  $cmbBaseTable.Location = New-Object System.Drawing.Point(190, 56)
+  $cmbBaseTable.Size = New-Object System.Drawing.Size(520, 28)
+  $cmbBaseTable.DropDownStyle = "DropDown"
+
+  $btnReloadColumns = New-Object System.Windows.Forms.Button
+  $btnReloadColumns.Location = New-Object System.Drawing.Point(740, 54)
+  $btnReloadColumns.Size = New-Object System.Drawing.Size(180, 32)
+
+  $lblViewColumns = New-Object System.Windows.Forms.Label
+  $lblViewColumns.Location = New-Object System.Drawing.Point(20, 100)
+  $lblViewColumns.AutoSize = $true
+
+  $clbViewColumns = New-Object System.Windows.Forms.CheckedListBox
+  $clbViewColumns.Location = New-Object System.Drawing.Point(190, 100)
+  $clbViewColumns.Size = New-Object System.Drawing.Size(730, 120)
+
+  $btnAddCondition = New-Object System.Windows.Forms.Button
+  $btnAddCondition.Location = New-Object System.Drawing.Point(190, 230)
+  $btnAddCondition.Size = New-Object System.Drawing.Size(170, 32)
+
+  $btnRemoveCondition = New-Object System.Windows.Forms.Button
+  $btnRemoveCondition.Location = New-Object System.Drawing.Point(370, 230)
+  $btnRemoveCondition.Size = New-Object System.Drawing.Size(170, 32)
+
+  $gridConditions = New-Object System.Windows.Forms.DataGridView
+  $gridConditions.Location = New-Object System.Drawing.Point(190, 270)
+  $gridConditions.Size = New-Object System.Drawing.Size(730, 200)
+  $gridConditions.AllowUserToAddRows = $false
+  $gridConditions.AllowUserToDeleteRows = $false
+  $gridConditions.RowHeadersVisible = $false
+  $gridConditions.SelectionMode = "FullRowSelect"
+  $gridConditions.MultiSelect = $false
+  $gridConditions.AutoSizeColumnsMode = "Fill"
+
+  $colCondColumn = New-Object System.Windows.Forms.DataGridViewComboBoxColumn
+  $colCondColumn.Name = "ConditionColumn"
+  $colCondColumn.FlatStyle = "Popup"
+  $colCondColumn.DisplayStyle = "DropDownButton"
+  $colCondColumn.FillWeight = 45
+
+  $colCondOperator = New-Object System.Windows.Forms.DataGridViewComboBoxColumn
+  $colCondOperator.Name = "ConditionOperator"
+  $colCondOperator.FlatStyle = "Popup"
+  $colCondOperator.DisplayStyle = "DropDownButton"
+  $colCondOperator.FillWeight = 20
+  [void]$colCondOperator.Items.Add("=")
+  [void]$colCondOperator.Items.Add("!=")
+  [void]$colCondOperator.Items.Add("LIKE")
+  [void]$colCondOperator.Items.Add("STARTSWITH")
+  [void]$colCondOperator.Items.Add("ENDSWITH")
+  [void]$colCondOperator.Items.Add("IN")
+  [void]$colCondOperator.Items.Add("ISEMPTY")
+  [void]$colCondOperator.Items.Add("ISNOTEMPTY")
+
+  $colCondValue = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
+  $colCondValue.Name = "ConditionValue"
+  $colCondValue.FillWeight = 35
+
+  [void]$gridConditions.Columns.Add($colCondColumn)
+  [void]$gridConditions.Columns.Add($colCondOperator)
+  [void]$gridConditions.Columns.Add($colCondValue)
+
+  $lblWherePreview = New-Object System.Windows.Forms.Label
+  $lblWherePreview.Location = New-Object System.Drawing.Point(20, 485)
+  $lblWherePreview.AutoSize = $true
+
+  $txtWherePreview = New-Object System.Windows.Forms.TextBox
+  $txtWherePreview.Location = New-Object System.Drawing.Point(190, 482)
+  $txtWherePreview.Size = New-Object System.Drawing.Size(730, 60)
+  $txtWherePreview.Multiline = $true
+  $txtWherePreview.ReadOnly = $true
+  $txtWherePreview.ScrollBars = "Vertical"
+
+  $btnCreateView = New-Object System.Windows.Forms.Button
+  $btnCreateView.Location = New-Object System.Drawing.Point(740, 550)
+  $btnCreateView.Size = New-Object System.Drawing.Size(180, 42)
+
+  $panelViewEditor.Controls.AddRange(@(
+    $lblViewName, $txtViewName,
+    $lblViewLabel, $txtViewLabel,
+    $lblBaseTable, $cmbBaseTable, $btnReloadColumns,
+    $lblViewColumns, $clbViewColumns,
+    $btnAddCondition, $btnRemoveCondition,
+    $gridConditions,
+    $lblWherePreview, $txtWherePreview,
+    $btnCreateView
+  ))
+
   # --- Settings tab layout
   $panelSettings = New-Object System.Windows.Forms.Panel
   $panelSettings.Dock = "Fill"
@@ -520,6 +726,7 @@ try {
   function Apply-Language {
     $form.Text = T "AppTitle"
     $tabExport.Text = T "TabExport"
+    $tabViewEditor.Text = T "TabViewEditor"
     $tabSettings.Text = T "TabSettings"
 
     $lblTable.Text = T "TargetTable"
@@ -536,6 +743,19 @@ try {
     $lblOutputFormat.Text = T "OutputFormat"
     $grpLog.Text = T "Log"
     $btnOpenFolder.Text = T "OpenFolder"
+
+    $lblViewName.Text = T "ViewName"
+    $lblViewLabel.Text = T "ViewLabel"
+    $lblBaseTable.Text = T "BaseTable"
+    $btnReloadColumns.Text = T "ReloadColumns"
+    $lblViewColumns.Text = T "ViewColumns"
+    $btnAddCondition.Text = T "AddCondition"
+    $btnRemoveCondition.Text = T "RemoveCondition"
+    $lblWherePreview.Text = T "WhereClausePreview"
+    $btnCreateView.Text = T "CreateView"
+    $colCondColumn.HeaderText = T "ConditionColumn"
+    $colCondOperator.HeaderText = T "ConditionOperator"
+    $colCondValue.HeaderText = T "ConditionValue"
 
     $lblUiLang.Text = T "UiLang"
     $lblInstance.Text = T "Instance"
@@ -617,6 +837,7 @@ try {
         [void]$cmbTable.Items.Add(("{0} - {1}" -f $t.name, $t.label))
       }
       $cmbTable.EndUpdate()
+      Refresh-BaseTableItems
 
       $targetName = ([string]$script:Settings.selectedTableName).Trim()
       if (-not [string]::IsNullOrWhiteSpace($targetName)) {
@@ -654,6 +875,165 @@ try {
     $idx = $text.IndexOf(" - ")
     if ($idx -gt 0) { return $text.Substring(0, $idx).Trim() }
     return $text.Trim()
+  }
+
+  function Get-SelectedBaseTableName {
+    $text = ""
+    if ($cmbBaseTable.SelectedItem) {
+      $text = [string]$cmbBaseTable.SelectedItem
+    } else {
+      $text = [string]$cmbBaseTable.Text
+    }
+    $idx = $text.IndexOf(" - ")
+    if ($idx -gt 0) { return $text.Substring(0, $idx).Trim() }
+    return $text.Trim()
+  }
+
+  function Refresh-BaseTableItems {
+    $cmbBaseTable.BeginUpdate()
+    $cmbBaseTable.Items.Clear()
+    if ($script:Settings.cachedTables) {
+      foreach ($t in $script:Settings.cachedTables) {
+        [void]$cmbBaseTable.Items.Add(("{0} - {1}" -f $t.name, $t.label))
+      }
+    }
+    $cmbBaseTable.EndUpdate()
+  }
+
+  function Build-ViewWhereClause {
+    $parts = New-Object System.Collections.Generic.List[string]
+    foreach ($row in $gridConditions.Rows) {
+      if ($row.IsNewRow) { continue }
+      $columnCell = $row.Cells[0].Value
+      $opCell = $row.Cells[1].Value
+      $valueCell = $row.Cells[2].Value
+
+      $column = if ($null -eq $columnCell) { "" } else { [string]$columnCell }
+      $op = if ($null -eq $opCell -or [string]::IsNullOrWhiteSpace([string]$opCell)) { "=" } else { [string]$opCell }
+      $value = if ($null -eq $valueCell) { "" } else { [string]$valueCell }
+
+      if ([string]::IsNullOrWhiteSpace($column)) { continue }
+      if ((@("ISEMPTY","ISNOTEMPTY") -contains $op)) {
+        [void]$parts.Add(("{0}{1}" -f $column, $op))
+      } else {
+        [void]$parts.Add(("{0}{1}{2}" -f $column, $op, $value))
+      }
+    }
+    return ($parts -join "^")
+  }
+
+  function Update-WherePreview {
+    $txtWherePreview.Text = Build-ViewWhereClause
+    $script:Settings.viewEditorWhereClause = $txtWherePreview.Text
+    Save-Settings
+  }
+
+  function Fetch-ColumnsForBaseTable {
+    $table = Get-SelectedBaseTableName
+    if ([string]::IsNullOrWhiteSpace($table)) {
+      [System.Windows.Forms.MessageBox]::Show((T "WarnBaseTable")) | Out-Null
+      return
+    }
+
+    Add-Log ("{0} [{1}]" -f (T "FetchingColumns"), $table)
+    try {
+      $q = "name=$table^elementISNOTEMPTY"
+      $fields = "element,column_label"
+      $path = "/api/now/table/sys_dictionary?sysparm_fields=$fields&sysparm_limit=5000&sysparm_query=$(UrlEncode $q)"
+      $res = Invoke-SnowGet $path
+
+      $results = if ($res -and ($res.PSObject.Properties.Name -contains "result")) { $res.result } else { @() }
+      $list = @()
+      foreach ($r in @($results)) {
+        $name = [string]$r.element
+        if ([string]::IsNullOrWhiteSpace($name)) { continue }
+        $label = [string]$r.column_label
+        if ([string]::IsNullOrWhiteSpace($label)) { $label = $name }
+        $list += [pscustomobject]@{ name=$name; label=$label }
+      }
+      $list = $list | Sort-Object name -Unique
+
+      $clbViewColumns.BeginUpdate()
+      $clbViewColumns.Items.Clear()
+      foreach ($c in $list) {
+        [void]$clbViewColumns.Items.Add(("{0} - {1}" -f $c.name, $c.label), $true)
+      }
+      $clbViewColumns.EndUpdate()
+
+      $colCondColumn.Items.Clear()
+      foreach ($c in $list) {
+        [void]$colCondColumn.Items.Add(("{0} - {1}" -f $c.name, $c.label))
+      }
+
+      Add-Log ("{0}: {1}" -f (T "ColumnsFetched"), $list.Count)
+    } catch {
+      Add-Log ("{0}: {1}" -f (T "Failed"), $_.Exception.Message)
+    }
+  }
+
+  function Create-DatabaseView {
+    $viewName = ([string]$txtViewName.Text).Trim()
+    $viewLabel = ([string]$txtViewLabel.Text).Trim()
+    $baseTable = Get-SelectedBaseTableName
+
+    if ([string]::IsNullOrWhiteSpace($viewName)) { [System.Windows.Forms.MessageBox]::Show((T "WarnViewName")) | Out-Null; return }
+    if ([string]::IsNullOrWhiteSpace($viewLabel)) { [System.Windows.Forms.MessageBox]::Show((T "WarnViewLabel")) | Out-Null; return }
+    if ([string]::IsNullOrWhiteSpace($baseTable)) { [System.Windows.Forms.MessageBox]::Show((T "WarnBaseTable")) | Out-Null; return }
+
+    foreach ($row in $gridConditions.Rows) {
+      if ($row.IsNewRow) { continue }
+      $cVal = $row.Cells[0].Value
+      $oVal = $row.Cells[1].Value
+      $vVal = $row.Cells[2].Value
+      $columnText = if ($null -eq $cVal) { "" } else { [string]$cVal }
+      $opText = if ($null -eq $oVal -or [string]::IsNullOrWhiteSpace([string]$oVal)) { "=" } else { [string]$oVal }
+      $valueText = if ($null -eq $vVal) { "" } else { [string]$vVal }
+      if ([string]::IsNullOrWhiteSpace($columnText)) { [System.Windows.Forms.MessageBox]::Show((T "WarnConditionColumn")) | Out-Null; return }
+      if ((@("ISEMPTY","ISNOTEMPTY") -notcontains $opText) -and [string]::IsNullOrWhiteSpace($valueText)) { [System.Windows.Forms.MessageBox]::Show((T "WarnConditionValue")) | Out-Null; return }
+    }
+
+    $whereClause = Build-ViewWhereClause
+    $selectedColumns = New-Object System.Collections.Generic.List[string]
+    foreach ($item in $clbViewColumns.CheckedItems) {
+      $itemText = [string]$item
+      $idx = $itemText.IndexOf(" - ")
+      if ($idx -gt 0) { [void]$selectedColumns.Add($itemText.Substring(0, $idx).Trim()) }
+      elseif (-not [string]::IsNullOrWhiteSpace($itemText)) { [void]$selectedColumns.Add($itemText.Trim()) }
+    }
+
+    Add-Log ("Creating DB view: {0}, base={1}" -f $viewName, $baseTable)
+    try {
+      $body = @{ name = $viewName; label = $viewLabel; table = $baseTable }
+      if ($selectedColumns.Count -gt 0) { $body["view_fields"] = ($selectedColumns -join ",") }
+      $createRes = Invoke-SnowPost "/api/now/table/sys_db_view" $body
+      $created = if ($createRes -and ($createRes.PSObject.Properties.Name -contains "result")) { $createRes.result } else { $null }
+      $sysId = if ($created) { [string]$created.sys_id } else { "" }
+
+      $whereSaved = $false
+      if (-not [string]::IsNullOrWhiteSpace($sysId) -and -not [string]::IsNullOrWhiteSpace($whereClause)) {
+        foreach ($whereField in @("where_clause", "where", "condition")) {
+          try {
+            [void](Invoke-SnowPatch ("/api/now/table/sys_db_view/{0}" -f $sysId) @{ $whereField = $whereClause })
+            $whereSaved = $true
+            break
+          } catch {
+          }
+        }
+      } else {
+        $whereSaved = $true
+      }
+
+      if (-not $whereSaved) {
+        Add-Log (T "ViewWhereFallback")
+        [System.Windows.Forms.MessageBox]::Show((T "ViewWhereFallback")) | Out-Null
+      }
+
+      Add-Log ("{0}: {1}" -f (T "ViewCreated"), $viewName)
+      [System.Windows.Forms.MessageBox]::Show(("{0}`r`n{1}" -f (T "ViewCreated"), $viewName)) | Out-Null
+    } catch {
+      Add-Log ("{0}: {1}" -f (T "ViewCreateFailed"), $_.Exception.Message)
+      [System.Windows.Forms.MessageBox]::Show(("{0}`r`n{1}" -f (T "ViewCreateFailed"), $_.Exception.Message)) | Out-Null
+    }
   }
 
   # ----------------------------
@@ -894,6 +1274,7 @@ try {
       [void]$cmbTable.Items.Add(("{0} - {1}" -f $t.name, $t.label))
     }
     $cmbTable.EndUpdate()
+    Refresh-BaseTableItems
   }
 
   $initialTableName = ([string]$script:Settings.selectedTableName).Trim()
@@ -912,6 +1293,28 @@ try {
       $cmbTable.Text = $initialTableName
     }
   }
+
+  $txtViewName.Text = [string]$script:Settings.viewEditorViewName
+  $txtViewLabel.Text = [string]$script:Settings.viewEditorViewLabel
+
+  $initialBaseTableName = ([string]$script:Settings.viewEditorBaseTable).Trim()
+  if (-not [string]::IsNullOrWhiteSpace($initialBaseTableName)) {
+    $baseCandidate = $null
+    foreach ($item in $cmbBaseTable.Items) {
+      $itemText = [string]$item
+      if ($itemText.StartsWith($initialBaseTableName + " - ")) {
+        $baseCandidate = $item
+        break
+      }
+    }
+    if ($baseCandidate) {
+      $cmbBaseTable.SelectedItem = $baseCandidate
+    } else {
+      $cmbBaseTable.Text = $initialBaseTableName
+    }
+  }
+
+  $txtWherePreview.Text = [string]$script:Settings.viewEditorWhereClause
 
   Update-AuthUI
   Update-FilterUI
@@ -999,6 +1402,53 @@ try {
     $script:Settings.exportDirectory = $txtDir.Text
     Save-Settings
   })
+
+  $txtViewName.add_TextChanged({
+    $script:Settings.viewEditorViewName = $txtViewName.Text
+    Save-Settings
+  })
+
+  $txtViewLabel.add_TextChanged({
+    $script:Settings.viewEditorViewLabel = $txtViewLabel.Text
+    Save-Settings
+  })
+
+  $cmbBaseTable.add_SelectedIndexChanged({
+    $script:Settings.viewEditorBaseTable = Get-SelectedBaseTableName
+    Save-Settings
+  })
+
+  $cmbBaseTable.add_TextChanged({
+    $script:Settings.viewEditorBaseTable = Get-SelectedBaseTableName
+    Save-Settings
+  })
+
+  $btnReloadColumns.add_Click({ Fetch-ColumnsForBaseTable })
+
+  $btnAddCondition.add_Click({
+    $rowIndex = $gridConditions.Rows.Add()
+    if ($rowIndex -ge 0) {
+      $gridConditions.Rows[$rowIndex].Cells[1].Value = "="
+      Update-WherePreview
+    }
+  })
+
+  $btnRemoveCondition.add_Click({
+    if ($gridConditions.SelectedRows.Count -gt 0) {
+      $gridConditions.Rows.Remove($gridConditions.SelectedRows[0])
+      Update-WherePreview
+    }
+  })
+
+  $gridConditions.add_CellValueChanged({ Update-WherePreview })
+  $gridConditions.add_RowsRemoved({ Update-WherePreview })
+  $gridConditions.add_CurrentCellDirtyStateChanged({
+    if ($gridConditions.IsCurrentCellDirty) {
+      [void]$gridConditions.CommitEdit([System.Windows.Forms.DataGridViewDataErrorContexts]::Commit)
+    }
+  })
+
+  $btnCreateView.add_Click({ Create-DatabaseView })
 
   $cmbOutputFormat.add_SelectedIndexChanged({
     $script:Settings.outputFormat = [string]$cmbOutputFormat.SelectedItem
