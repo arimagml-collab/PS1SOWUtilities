@@ -102,6 +102,12 @@ try {
       RemoveCondition="条件削除"
       WhereClausePreview="Where句プレビュー"
       CreateView="View作成"
+      JoinDefinitions="JOIN定義"
+      AddJoin="JOIN追加"
+      RemoveJoin="JOIN削除"
+      JoinTable="JOINテーブル"
+      JoinBaseColumn="左カラム(ベース)"
+      JoinTargetColumn="右カラム(JOIN先)"
       ConditionColumn="カラム"
       ConditionOperator="演算子"
       ConditionValue="値"
@@ -110,11 +116,15 @@ try {
       WarnBaseTable="ベーステーブルを選択してください。"
       WarnConditionColumn="条件のカラムが未選択です。"
       WarnConditionValue="値が必要な条件があります。"
+      WarnJoinTable="JOINテーブルを選択してください。"
+      WarnJoinBaseColumn="JOINの左カラム(ベース)を選択してください。"
+      WarnJoinTargetColumn="JOINの右カラム(JOIN先)を選択してください。"
       FetchingColumns="カラム一覧を取得中..."
       ColumnsFetched="カラム一覧を取得"
       ViewCreated="Viewを作成しました"
       ViewCreateFailed="View作成に失敗しました"
       ViewWhereFallback="この環境ではWhere句保存フィールドを特定できませんでした。Viewは作成されましたが、Where句は手動設定してください。"
+      ViewJoinFallback="JOIN定義の保存に失敗しました。View本体は作成されましたが、JOINは手動設定してください。"
     }
     "en" = @{
       AppTitle="PS1 SNOW Utilities"
@@ -168,6 +178,12 @@ try {
       RemoveCondition="Remove Condition"
       WhereClausePreview="Where Clause Preview"
       CreateView="Create View"
+      JoinDefinitions="Join Definitions"
+      AddJoin="Add Join"
+      RemoveJoin="Remove Join"
+      JoinTable="Join Table"
+      JoinBaseColumn="Left Column (Base)"
+      JoinTargetColumn="Right Column (Join)"
       ConditionColumn="Column"
       ConditionOperator="Operator"
       ConditionValue="Value"
@@ -176,11 +192,15 @@ try {
       WarnBaseTable="Base table must be selected."
       WarnConditionColumn="One or more conditions have no column selected."
       WarnConditionValue="One or more conditions require a value."
+      WarnJoinTable="Join table is required."
+      WarnJoinBaseColumn="Left join column (base table) is required."
+      WarnJoinTargetColumn="Right join column (join table) is required."
       FetchingColumns="Fetching columns..."
       ColumnsFetched="Fetched columns"
       ViewCreated="View created"
       ViewCreateFailed="Failed to create view"
       ViewWhereFallback="Could not detect a writable where-clause field in this instance. View was created, but set the where clause manually."
+      ViewJoinFallback="Failed to persist join definitions. View was created, but set joins manually."
     }
   }
 
@@ -236,6 +256,7 @@ try {
       viewEditorViewLabel = ""
       viewEditorBaseTable = ""
       viewEditorWhereClause = ""
+      viewEditorJoinsJson = "[]"
     }
     return $o
   }
@@ -548,17 +569,61 @@ try {
   $clbViewColumns.Location = New-Object System.Drawing.Point(190, 100)
   $clbViewColumns.Size = New-Object System.Drawing.Size(730, 120)
 
+  $lblJoinDefinitions = New-Object System.Windows.Forms.Label
+  $lblJoinDefinitions.Location = New-Object System.Drawing.Point(20, 230)
+  $lblJoinDefinitions.AutoSize = $true
+
+  $btnAddJoin = New-Object System.Windows.Forms.Button
+  $btnAddJoin.Location = New-Object System.Drawing.Point(190, 226)
+  $btnAddJoin.Size = New-Object System.Drawing.Size(170, 32)
+
+  $btnRemoveJoin = New-Object System.Windows.Forms.Button
+  $btnRemoveJoin.Location = New-Object System.Drawing.Point(370, 226)
+  $btnRemoveJoin.Size = New-Object System.Drawing.Size(170, 32)
+
+  $gridJoins = New-Object System.Windows.Forms.DataGridView
+  $gridJoins.Location = New-Object System.Drawing.Point(190, 264)
+  $gridJoins.Size = New-Object System.Drawing.Size(730, 120)
+  $gridJoins.AllowUserToAddRows = $false
+  $gridJoins.AllowUserToDeleteRows = $false
+  $gridJoins.RowHeadersVisible = $false
+  $gridJoins.SelectionMode = "FullRowSelect"
+  $gridJoins.MultiSelect = $false
+  $gridJoins.AutoSizeColumnsMode = "Fill"
+
+  $colJoinTable = New-Object System.Windows.Forms.DataGridViewComboBoxColumn
+  $colJoinTable.Name = "JoinTable"
+  $colJoinTable.FlatStyle = "Popup"
+  $colJoinTable.DisplayStyle = "DropDownButton"
+  $colJoinTable.FillWeight = 34
+
+  $colJoinBaseColumn = New-Object System.Windows.Forms.DataGridViewComboBoxColumn
+  $colJoinBaseColumn.Name = "JoinBaseColumn"
+  $colJoinBaseColumn.FlatStyle = "Popup"
+  $colJoinBaseColumn.DisplayStyle = "DropDownButton"
+  $colJoinBaseColumn.FillWeight = 33
+
+  $colJoinTargetColumn = New-Object System.Windows.Forms.DataGridViewComboBoxColumn
+  $colJoinTargetColumn.Name = "JoinTargetColumn"
+  $colJoinTargetColumn.FlatStyle = "Popup"
+  $colJoinTargetColumn.DisplayStyle = "DropDownButton"
+  $colJoinTargetColumn.FillWeight = 33
+
+  [void]$gridJoins.Columns.Add($colJoinTable)
+  [void]$gridJoins.Columns.Add($colJoinBaseColumn)
+  [void]$gridJoins.Columns.Add($colJoinTargetColumn)
+
   $btnAddCondition = New-Object System.Windows.Forms.Button
-  $btnAddCondition.Location = New-Object System.Drawing.Point(190, 230)
+  $btnAddCondition.Location = New-Object System.Drawing.Point(190, 392)
   $btnAddCondition.Size = New-Object System.Drawing.Size(170, 32)
 
   $btnRemoveCondition = New-Object System.Windows.Forms.Button
-  $btnRemoveCondition.Location = New-Object System.Drawing.Point(370, 230)
+  $btnRemoveCondition.Location = New-Object System.Drawing.Point(370, 392)
   $btnRemoveCondition.Size = New-Object System.Drawing.Size(170, 32)
 
   $gridConditions = New-Object System.Windows.Forms.DataGridView
-  $gridConditions.Location = New-Object System.Drawing.Point(190, 270)
-  $gridConditions.Size = New-Object System.Drawing.Size(730, 200)
+  $gridConditions.Location = New-Object System.Drawing.Point(190, 432)
+  $gridConditions.Size = New-Object System.Drawing.Size(730, 160)
   $gridConditions.AllowUserToAddRows = $false
   $gridConditions.AllowUserToDeleteRows = $false
   $gridConditions.RowHeadersVisible = $false
@@ -595,18 +660,18 @@ try {
   [void]$gridConditions.Columns.Add($colCondValue)
 
   $lblWherePreview = New-Object System.Windows.Forms.Label
-  $lblWherePreview.Location = New-Object System.Drawing.Point(20, 485)
+  $lblWherePreview.Location = New-Object System.Drawing.Point(20, 600)
   $lblWherePreview.AutoSize = $true
 
   $txtWherePreview = New-Object System.Windows.Forms.TextBox
-  $txtWherePreview.Location = New-Object System.Drawing.Point(190, 482)
+  $txtWherePreview.Location = New-Object System.Drawing.Point(190, 596)
   $txtWherePreview.Size = New-Object System.Drawing.Size(730, 60)
   $txtWherePreview.Multiline = $true
   $txtWherePreview.ReadOnly = $true
   $txtWherePreview.ScrollBars = "Vertical"
 
   $btnCreateView = New-Object System.Windows.Forms.Button
-  $btnCreateView.Location = New-Object System.Drawing.Point(740, 550)
+  $btnCreateView.Location = New-Object System.Drawing.Point(740, 662)
   $btnCreateView.Size = New-Object System.Drawing.Size(180, 42)
 
   $panelViewEditor.Controls.AddRange(@(
@@ -614,6 +679,8 @@ try {
     $lblViewLabel, $txtViewLabel,
     $lblBaseTable, $cmbBaseTable, $btnReloadColumns,
     $lblViewColumns, $clbViewColumns,
+    $lblJoinDefinitions, $btnAddJoin, $btnRemoveJoin,
+    $gridJoins,
     $btnAddCondition, $btnRemoveCondition,
     $gridConditions,
     $lblWherePreview, $txtWherePreview,
@@ -749,10 +816,16 @@ try {
     $lblBaseTable.Text = T "BaseTable"
     $btnReloadColumns.Text = T "ReloadColumns"
     $lblViewColumns.Text = T "ViewColumns"
+    $lblJoinDefinitions.Text = T "JoinDefinitions"
+    $btnAddJoin.Text = T "AddJoin"
+    $btnRemoveJoin.Text = T "RemoveJoin"
     $btnAddCondition.Text = T "AddCondition"
     $btnRemoveCondition.Text = T "RemoveCondition"
     $lblWherePreview.Text = T "WhereClausePreview"
     $btnCreateView.Text = T "CreateView"
+    $colJoinTable.HeaderText = T "JoinTable"
+    $colJoinBaseColumn.HeaderText = T "JoinBaseColumn"
+    $colJoinTargetColumn.HeaderText = T "JoinTargetColumn"
     $colCondColumn.HeaderText = T "ConditionColumn"
     $colCondOperator.HeaderText = T "ConditionOperator"
     $colCondValue.HeaderText = T "ConditionValue"
@@ -898,6 +971,122 @@ try {
       }
     }
     $cmbBaseTable.EndUpdate()
+
+    $colJoinTable.Items.Clear()
+    if ($script:Settings.cachedTables) {
+      foreach ($t in @($script:Settings.cachedTables)) {
+        [void]$colJoinTable.Items.Add([string]$t.name)
+      }
+    }
+  }
+
+  function Get-JoinDefinitions {
+    $defs = New-Object System.Collections.Generic.List[object]
+    foreach ($row in $gridJoins.Rows) {
+      if ($row.IsNewRow) { continue }
+      $tableCell = $row.Cells[0].Value
+      $baseCell = $row.Cells[1].Value
+      $targetCell = $row.Cells[2].Value
+      $joinTable = if ($null -eq $tableCell) { "" } else { ([string]$tableCell).Trim() }
+      $baseColumn = if ($null -eq $baseCell) { "" } else { ([string]$baseCell).Trim() }
+      $targetColumn = if ($null -eq $targetCell) { "" } else { ([string]$targetCell).Trim() }
+      if ([string]::IsNullOrWhiteSpace($joinTable) -and [string]::IsNullOrWhiteSpace($baseColumn) -and [string]::IsNullOrWhiteSpace($targetColumn)) { continue }
+      [void]$defs.Add([pscustomobject]@{
+        joinTable = $joinTable
+        baseColumn = $baseColumn
+        targetColumn = $targetColumn
+      })
+    }
+    return @($defs)
+  }
+
+  function Save-JoinDefinitionsToSettings {
+    $defs = Get-JoinDefinitions
+    $script:Settings.viewEditorJoinsJson = ($defs | ConvertTo-Json -Depth 4 -Compress)
+    Save-Settings
+  }
+
+  function Fetch-ColumnsForTable([string]$table) {
+    if ([string]::IsNullOrWhiteSpace($table)) { return @() }
+
+    $tableNames = New-Object System.Collections.Generic.List[string]
+    [void]$tableNames.Add($table)
+    $visited = @{}
+    $currentTable = $table
+    while (-not [string]::IsNullOrWhiteSpace($currentTable) -and -not $visited.ContainsKey($currentTable)) {
+      $visited[$currentTable] = $true
+      $objQuery = UrlEncode ("name={0}" -f $currentTable)
+      $objPath = "/api/now/table/sys_db_object?sysparm_fields=name,super_class&sysparm_limit=1&sysparm_query=$objQuery"
+      $objRes = Invoke-SnowGet $objPath
+      $objResults = if ($objRes -and ($objRes.PSObject.Properties.Name -contains "result")) { @($objRes.result) } else { @() }
+      $obj = if ((@($objResults)).Count -gt 0) { (@($objResults))[0] } else { $null }
+      if (-not $obj) { break }
+
+      $superSysId = ""
+      if ($obj.super_class) {
+        if ($obj.super_class -is [string]) {
+          $superSysId = [string]$obj.super_class
+        } elseif ($obj.super_class.PSObject.Properties.Name -contains "value") {
+          $superSysId = [string]$obj.super_class.value
+        }
+      }
+      if ([string]::IsNullOrWhiteSpace($superSysId)) { break }
+
+      $superPath = "/api/now/table/sys_db_object/{0}?sysparm_fields=name" -f $superSysId
+      $superRes = Invoke-SnowGet $superPath
+      $superObj = if ($superRes -and ($superRes.PSObject.Properties.Name -contains "result")) { $superRes.result } else { $null }
+      $superName = if ($superObj) { [string]$superObj.name } else { "" }
+      if ([string]::IsNullOrWhiteSpace($superName)) { break }
+      [void]$tableNames.Add($superName)
+      $currentTable = $superName
+    }
+
+    $q = "nameIN{0}^elementISNOTEMPTY" -f (($tableNames | Select-Object -Unique) -join ",")
+    $fields = "element,column_label"
+    $path = "/api/now/table/sys_dictionary?sysparm_fields=$fields&sysparm_limit=5000&sysparm_query=$(UrlEncode $q)"
+    $res = Invoke-SnowGet $path
+
+    $results = if ($res -and ($res.PSObject.Properties.Name -contains "result")) { $res.result } else { @() }
+    $list = @()
+    foreach ($r in @($results)) {
+      $name = [string]$r.element
+      if ([string]::IsNullOrWhiteSpace($name)) { continue }
+      $label = [string]$r.column_label
+      if ([string]::IsNullOrWhiteSpace($label)) { $label = $name }
+      $list += [pscustomobject]@{ name=$name; label=$label }
+    }
+    return @($list | Sort-Object name -Unique)
+  }
+
+  function Populate-JoinColumnsForRow([int]$rowIndex) {
+    if ($rowIndex -lt 0 -or $rowIndex -ge $gridJoins.Rows.Count) { return }
+    $row = $gridJoins.Rows[$rowIndex]
+    if ($null -eq $row) { return }
+
+    $baseTable = Get-SelectedBaseTableName
+    $joinTableCell = $row.Cells[0].Value
+    $joinTable = if ($null -eq $joinTableCell) { "" } else { ([string]$joinTableCell).Trim() }
+
+    $baseColumns = @()
+    $joinColumns = @()
+    if (-not [string]::IsNullOrWhiteSpace($baseTable)) { $baseColumns = @(Fetch-ColumnsForTable $baseTable) }
+    if (-not [string]::IsNullOrWhiteSpace($joinTable)) { $joinColumns = @(Fetch-ColumnsForTable $joinTable) }
+
+    $baseCell = [System.Windows.Forms.DataGridViewComboBoxCell]$row.Cells[1]
+    $targetCell = [System.Windows.Forms.DataGridViewComboBoxCell]$row.Cells[2]
+
+    $selectedBase = if ($null -eq $baseCell.Value) { "" } else { [string]$baseCell.Value }
+    $selectedTarget = if ($null -eq $targetCell.Value) { "" } else { [string]$targetCell.Value }
+
+    $baseCell.Items.Clear()
+    foreach ($c in $baseColumns) { [void]$baseCell.Items.Add([string]$c.name) }
+    if (-not [string]::IsNullOrWhiteSpace($selectedBase) -and $baseCell.Items.Contains($selectedBase)) { $baseCell.Value = $selectedBase }
+    else { $baseCell.Value = $null }
+
+    $targetCell.Items.Clear()
+    foreach ($c in $joinColumns) { [void]$targetCell.Items.Add([string]$c.name) }
+    if (-not [string]::IsNullOrWhiteSpace($selectedTarget) -and $targetCell.Items.Contains($selectedTarget)) { $targetCell.Value = $selectedTarget }
+    else { $targetCell.Value = $null }
   }
 
   function Build-ViewWhereClause {
@@ -937,53 +1126,7 @@ try {
 
     Add-Log ("{0} [{1}]" -f (T "FetchingColumns"), $table)
     try {
-      $tableNames = New-Object System.Collections.Generic.List[string]
-      [void]$tableNames.Add($table)
-      $visited = @{}
-      $currentTable = $table
-      while (-not [string]::IsNullOrWhiteSpace($currentTable) -and -not $visited.ContainsKey($currentTable)) {
-        $visited[$currentTable] = $true
-        $objQuery = UrlEncode ("name={0}" -f $currentTable)
-        $objPath = "/api/now/table/sys_db_object?sysparm_fields=name,super_class&sysparm_limit=1&sysparm_query=$objQuery"
-        $objRes = Invoke-SnowGet $objPath
-        $objResults = if ($objRes -and ($objRes.PSObject.Properties.Name -contains "result")) { @($objRes.result) } else { @() }
-        $obj = if ((@($objResults)).Count -gt 0) { (@($objResults))[0] } else { $null }
-        if (-not $obj) { break }
-
-        $superSysId = ""
-        if ($obj.super_class) {
-          if ($obj.super_class -is [string]) {
-            $superSysId = [string]$obj.super_class
-          } elseif ($obj.super_class.PSObject.Properties.Name -contains "value") {
-            $superSysId = [string]$obj.super_class.value
-          }
-        }
-        if ([string]::IsNullOrWhiteSpace($superSysId)) { break }
-
-        $superPath = "/api/now/table/sys_db_object/{0}?sysparm_fields=name" -f $superSysId
-        $superRes = Invoke-SnowGet $superPath
-        $superObj = if ($superRes -and ($superRes.PSObject.Properties.Name -contains "result")) { $superRes.result } else { $null }
-        $superName = if ($superObj) { [string]$superObj.name } else { "" }
-        if ([string]::IsNullOrWhiteSpace($superName)) { break }
-        [void]$tableNames.Add($superName)
-        $currentTable = $superName
-      }
-
-      $q = "nameIN{0}^elementISNOTEMPTY" -f (($tableNames | Select-Object -Unique) -join ",")
-      $fields = "element,column_label"
-      $path = "/api/now/table/sys_dictionary?sysparm_fields=$fields&sysparm_limit=5000&sysparm_query=$(UrlEncode $q)"
-      $res = Invoke-SnowGet $path
-
-      $results = if ($res -and ($res.PSObject.Properties.Name -contains "result")) { $res.result } else { @() }
-      $list = @()
-      foreach ($r in @($results)) {
-        $name = [string]$r.element
-        if ([string]::IsNullOrWhiteSpace($name)) { continue }
-        $label = [string]$r.column_label
-        if ([string]::IsNullOrWhiteSpace($label)) { $label = $name }
-        $list += [pscustomobject]@{ name=$name; label=$label }
-      }
-      $list = @($list | Sort-Object name -Unique)
+      $list = @(Fetch-ColumnsForTable $table)
 
       $clbViewColumns.BeginUpdate()
       $clbViewColumns.Items.Clear()
@@ -996,6 +1139,10 @@ try {
       $gridConditions.Rows.Clear()
       foreach ($c in $list) {
         [void]$colCondColumn.Items.Add($c.name)
+      }
+
+      for ($i = 0; $i -lt $gridJoins.Rows.Count; $i++) {
+        Populate-JoinColumnsForRow $i
       }
 
       Add-Log ("{0}: {1}" -f (T "ColumnsFetched"), (@($list)).Count)
@@ -1012,6 +1159,13 @@ try {
     if ([string]::IsNullOrWhiteSpace($viewName)) { [System.Windows.Forms.MessageBox]::Show((T "WarnViewName")) | Out-Null; return }
     if ([string]::IsNullOrWhiteSpace($viewLabel)) { [System.Windows.Forms.MessageBox]::Show((T "WarnViewLabel")) | Out-Null; return }
     if ([string]::IsNullOrWhiteSpace($baseTable)) { [System.Windows.Forms.MessageBox]::Show((T "WarnBaseTable")) | Out-Null; return }
+
+    $joinDefs = @(Get-JoinDefinitions)
+    foreach ($j in $joinDefs) {
+      if ([string]::IsNullOrWhiteSpace([string]$j.joinTable)) { [System.Windows.Forms.MessageBox]::Show((T "WarnJoinTable")) | Out-Null; return }
+      if ([string]::IsNullOrWhiteSpace([string]$j.baseColumn)) { [System.Windows.Forms.MessageBox]::Show((T "WarnJoinBaseColumn")) | Out-Null; return }
+      if ([string]::IsNullOrWhiteSpace([string]$j.targetColumn)) { [System.Windows.Forms.MessageBox]::Show((T "WarnJoinTargetColumn")) | Out-Null; return }
+    }
 
     foreach ($row in $gridConditions.Rows) {
       if ($row.IsNewRow) { continue }
@@ -1034,7 +1188,7 @@ try {
       elseif (-not [string]::IsNullOrWhiteSpace($itemText)) { [void]$selectedColumns.Add($itemText.Trim()) }
     }
 
-    Add-Log ("Creating DB view: {0}, base={1}" -f $viewName, $baseTable)
+    Add-Log ("Creating DB view: {0}, base={1}, joins={2}" -f $viewName, $baseTable, $joinDefs.Count)
     try {
       $body = @{ name = $viewName; label = $viewLabel; table = $baseTable }
       if ($selectedColumns.Count -gt 0) { $body["view_fields"] = ($selectedColumns -join ",") }
@@ -1056,9 +1210,55 @@ try {
         $whereSaved = $true
       }
 
+      $joinsSaved = $true
+      if (-not [string]::IsNullOrWhiteSpace($sysId) -and $joinDefs.Count -gt 0) {
+        $joinsSaved = $false
+        foreach ($joinDef in $joinDefs) {
+          $joinBody = @{
+            view = $sysId
+            table = [string]$joinDef.joinTable
+            left_field = [string]$joinDef.baseColumn
+            right_field = [string]$joinDef.targetColumn
+            join_condition = ("{0}={1}" -f [string]$joinDef.baseColumn, [string]$joinDef.targetColumn)
+          }
+
+          $saved = $false
+          try {
+            [void](Invoke-SnowPost "/api/now/table/sys_db_view_table" $joinBody)
+            $saved = $true
+          } catch {
+            foreach ($leftField in @("left_field", "left_column", "field")) {
+              foreach ($rightField in @("right_field", "right_column", "join_field")) {
+                try {
+                  $fallbackBody = @{ view = $sysId; table = [string]$joinDef.joinTable }
+                  $fallbackBody[$leftField] = [string]$joinDef.baseColumn
+                  $fallbackBody[$rightField] = [string]$joinDef.targetColumn
+                  [void](Invoke-SnowPost "/api/now/table/sys_db_view_table" $fallbackBody)
+                  $saved = $true
+                  break
+                } catch {
+                }
+              }
+              if ($saved) { break }
+            }
+          }
+
+          if (-not $saved) {
+            $joinsSaved = $false
+            break
+          }
+          $joinsSaved = $true
+        }
+      }
+
       if (-not $whereSaved) {
         Add-Log (T "ViewWhereFallback")
         [System.Windows.Forms.MessageBox]::Show((T "ViewWhereFallback")) | Out-Null
+      }
+
+      if (-not $joinsSaved) {
+        Add-Log (T "ViewJoinFallback")
+        [System.Windows.Forms.MessageBox]::Show((T "ViewJoinFallback")) | Out-Null
       }
 
       Add-Log ("{0}: {1}" -f (T "ViewCreated"), $viewName)
@@ -1349,6 +1549,23 @@ try {
 
   $txtWherePreview.Text = [string]$script:Settings.viewEditorWhereClause
 
+  try {
+    $joinsText = [string]$script:Settings.viewEditorJoinsJson
+    if (-not [string]::IsNullOrWhiteSpace($joinsText)) {
+      $loadedJoinDefs = @($joinsText | ConvertFrom-Json)
+      foreach ($j in $loadedJoinDefs) {
+        if ($null -eq $j) { continue }
+        $rowIndex = $gridJoins.Rows.Add()
+        if ($rowIndex -lt 0) { continue }
+        $gridJoins.Rows[$rowIndex].Cells[0].Value = [string]$j.joinTable
+        Populate-JoinColumnsForRow $rowIndex
+        $gridJoins.Rows[$rowIndex].Cells[1].Value = [string]$j.baseColumn
+        $gridJoins.Rows[$rowIndex].Cells[2].Value = [string]$j.targetColumn
+      }
+    }
+  } catch {
+  }
+
   Update-AuthUI
   Update-FilterUI
   Apply-Language
@@ -1449,14 +1666,35 @@ try {
   $cmbBaseTable.add_SelectedIndexChanged({
     $script:Settings.viewEditorBaseTable = Get-SelectedBaseTableName
     Save-Settings
+    for ($i = 0; $i -lt $gridJoins.Rows.Count; $i++) {
+      Populate-JoinColumnsForRow $i
+    }
   })
 
   $cmbBaseTable.add_TextChanged({
     $script:Settings.viewEditorBaseTable = Get-SelectedBaseTableName
     Save-Settings
+    for ($i = 0; $i -lt $gridJoins.Rows.Count; $i++) {
+      Populate-JoinColumnsForRow $i
+    }
   })
 
   $btnReloadColumns.add_Click({ Fetch-ColumnsForBaseTable })
+
+  $btnAddJoin.add_Click({
+    $rowIndex = $gridJoins.Rows.Add()
+    if ($rowIndex -ge 0) {
+      Populate-JoinColumnsForRow $rowIndex
+      Save-JoinDefinitionsToSettings
+    }
+  })
+
+  $btnRemoveJoin.add_Click({
+    if ($gridJoins.SelectedRows.Count -gt 0) {
+      $gridJoins.Rows.Remove($gridJoins.SelectedRows[0])
+      Save-JoinDefinitionsToSettings
+    }
+  })
 
   $btnAddCondition.add_Click({
     $rowIndex = $gridConditions.Rows.Add()
@@ -1478,6 +1716,19 @@ try {
   $gridConditions.add_CurrentCellDirtyStateChanged({
     if ($gridConditions.IsCurrentCellDirty) {
       [void]$gridConditions.CommitEdit([System.Windows.Forms.DataGridViewDataErrorContexts]::Commit)
+    }
+  })
+
+  $gridJoins.add_CellValueChanged({
+    if ($_.ColumnIndex -eq 0 -and $_.RowIndex -ge 0) {
+      Populate-JoinColumnsForRow $_.RowIndex
+    }
+    Save-JoinDefinitionsToSettings
+  })
+  $gridJoins.add_RowsRemoved({ Save-JoinDefinitionsToSettings })
+  $gridJoins.add_CurrentCellDirtyStateChanged({
+    if ($gridJoins.IsCurrentCellDirty) {
+      [void]$gridJoins.CommitEdit([System.Windows.Forms.DataGridViewDataErrorContexts]::Commit)
     }
   })
 
