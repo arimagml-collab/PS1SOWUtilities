@@ -81,6 +81,7 @@ try {
       Done="完了"
       Failed="失敗"
       OpenFolder="フォルダを開く"
+      TableFetchFallback="テーブル一覧を取得できないため、Target Tableを手動入力してください。"
     }
     "en" = @{
       AppTitle="PS1 SNOW Utilities"
@@ -118,6 +119,7 @@ try {
       Done="Done"
       Failed="Failed"
       OpenFolder="Open Folder"
+      TableFetchFallback="Could not fetch table list. Please type Target Table manually."
     }
   }
 
@@ -165,6 +167,7 @@ try {
       endDateTime   = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
       cachedTables = @()
       cachedTablesFetchedAt = ""
+      selectedTableName = ""
       exportFields = ""          # optional: comma separated sysparm_fields
       pageSize = 1000
     }
@@ -298,7 +301,7 @@ try {
   $cmbTable = New-Object System.Windows.Forms.ComboBox
   $cmbTable.Location = New-Object System.Drawing.Point(160, 16)
   $cmbTable.Size = New-Object System.Drawing.Size(560, 28)
-  $cmbTable.DropDownStyle = "DropDownList"
+  $cmbTable.DropDownStyle = "DropDown"
 
   $btnReloadTables = New-Object System.Windows.Forms.Button
   $btnReloadTables.Location = New-Object System.Drawing.Point(740, 14)
@@ -559,15 +562,39 @@ try {
       }
       $cmbTable.EndUpdate()
 
+      $targetName = ([string]$script:Settings.selectedTableName).Trim()
+      if (-not [string]::IsNullOrWhiteSpace($targetName)) {
+        $candidate = $null
+        foreach ($item in $cmbTable.Items) {
+          $itemText = [string]$item
+          if ($itemText.StartsWith($targetName + " - ")) {
+            $candidate = $item
+            break
+          }
+        }
+        if ($candidate) {
+          $cmbTable.SelectedItem = $candidate
+        } else {
+          $cmbTable.Text = $targetName
+        }
+      }
+
       Add-Log ("{0}: {1}" -f (T "Done"), $list.Count)
     } catch {
       Add-Log ("{0}: {1}" -f (T "Failed"), $_.Exception.Message)
+      Add-Log (T "TableFetchFallback")
+      $cmbTable.DroppedDown = $false
+      $cmbTable.Select()
     }
   }
 
   function Get-SelectedTableName {
-    if (-not $cmbTable.SelectedItem) { return "" }
-    $text = [string]$cmbTable.SelectedItem
+    $text = ""
+    if ($cmbTable.SelectedItem) {
+      $text = [string]$cmbTable.SelectedItem
+    } else {
+      $text = [string]$cmbTable.Text
+    }
     $idx = $text.IndexOf(" - ")
     if ($idx -gt 0) { return $text.Substring(0, $idx).Trim() }
     return $text.Trim()
@@ -751,6 +778,23 @@ try {
     $cmbTable.EndUpdate()
   }
 
+  $initialTableName = ([string]$script:Settings.selectedTableName).Trim()
+  if (-not [string]::IsNullOrWhiteSpace($initialTableName)) {
+    $candidate = $null
+    foreach ($item in $cmbTable.Items) {
+      $itemText = [string]$item
+      if ($itemText.StartsWith($initialTableName + " - ")) {
+        $candidate = $item
+        break
+      }
+    }
+    if ($candidate) {
+      $cmbTable.SelectedItem = $candidate
+    } else {
+      $cmbTable.Text = $initialTableName
+    }
+  }
+
   Update-AuthUI
   Update-FilterUI
   Apply-Language
@@ -820,6 +864,16 @@ try {
   })
   $dtEnd.add_ValueChanged({
     $script:Settings.endDateTime = $dtEnd.Value.ToString("yyyy-MM-dd HH:mm:ss")
+    Save-Settings
+  })
+
+  $cmbTable.add_SelectedIndexChanged({
+    $script:Settings.selectedTableName = Get-SelectedTableName
+    Save-Settings
+  })
+
+  $cmbTable.add_TextChanged({
+    $script:Settings.selectedTableName = Get-SelectedTableName
     Save-Settings
   })
 
