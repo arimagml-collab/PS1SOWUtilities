@@ -87,6 +87,7 @@ try {
       Failed="失敗"
       OpenFolder="フォルダを開く"
       TableFetchFallback="テーブル一覧を取得できないため、Target Tableを手動入力してください。"
+      CopyrightLink="Copyright (c) ixam.net"
     }
     "en" = @{
       AppTitle="PS1 SNOW Utilities"
@@ -125,6 +126,7 @@ try {
       Failed="Failed"
       OpenFolder="Open Folder"
       TableFetchFallback="Could not fetch table list. Please type Target Table manually."
+      CopyrightLink="Copyright (c) ixam.net"
     }
   }
 
@@ -470,6 +472,12 @@ try {
   $lblTablesHint.Size = New-Object System.Drawing.Size(900, 60)
   $lblTablesHint.ForeColor = [System.Drawing.Color]::FromArgb(70,70,70)
 
+  $lnkCopyright = New-Object System.Windows.Forms.LinkLabel
+  $lnkCopyright.Location = New-Object System.Drawing.Point(20, 610)
+  $lnkCopyright.AutoSize = $true
+  $lnkCopyright.Anchor = [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Bottom
+  $lnkCopyright.LinkBehavior = [System.Windows.Forms.LinkBehavior]::HoverUnderline
+
   $panelSettings.Controls.AddRange(@(
     $lblUiLang, $cmbLang,
     $lblInstance, $txtInstance,
@@ -477,7 +485,8 @@ try {
     $lblUser, $txtUser,
     $lblPass, $txtPass, $btnTogglePass,
     $lblKey,  $txtKey,  $btnToggleKey,
-    $lblSaveHint, $lblTablesHint
+    $lblSaveHint, $lblTablesHint,
+    $lnkCopyright
   ))
 
   function Apply-Language {
@@ -512,7 +521,17 @@ try {
 
     $lblSaveHint.Text = T "SaveHint"
     $lblTablesHint.Text = T "TestTablesHint"
+    $lnkCopyright.Text = T "CopyrightLink"
+    $lnkCopyright.Links.Clear()
+    [void]$lnkCopyright.Links.Add(0, $lnkCopyright.Text.Length, "https://www.ixam.net")
   }
+
+  $lnkCopyright.add_LinkClicked({
+    param($sender, $e)
+    $target = [string]$e.Link.LinkData
+    if ([string]::IsNullOrWhiteSpace($target)) { $target = "https://www.ixam.net" }
+    Start-Process $target | Out-Null
+  })
 
   function Update-AuthUI {
     $isUserPass = $rbUserPass.Checked
