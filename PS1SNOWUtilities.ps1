@@ -473,10 +473,16 @@ try {
   $lblTablesHint.ForeColor = [System.Drawing.Color]::FromArgb(70,70,70)
 
   $lnkCopyright = New-Object System.Windows.Forms.LinkLabel
-  $lnkCopyright.Location = New-Object System.Drawing.Point(20, 610)
+  $lnkCopyright.Location = New-Object System.Drawing.Point(20, 0)
   $lnkCopyright.AutoSize = $true
   $lnkCopyright.Anchor = [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Bottom
   $lnkCopyright.LinkBehavior = [System.Windows.Forms.LinkBehavior]::HoverUnderline
+
+  function Position-CopyrightLink {
+    $top = $panelSettings.ClientSize.Height - $lnkCopyright.Height - 16
+    if ($top -lt 16) { $top = 16 }
+    $lnkCopyright.Location = New-Object System.Drawing.Point(20, $top)
+  }
 
   $panelSettings.Controls.AddRange(@(
     $lblUiLang, $cmbLang,
@@ -524,6 +530,7 @@ try {
     $lnkCopyright.Text = T "CopyrightLink"
     $lnkCopyright.Links.Clear()
     [void]$lnkCopyright.Links.Add(0, $lnkCopyright.Text.Length, "https://www.ixam.net")
+    Position-CopyrightLink
   }
 
   $lnkCopyright.add_LinkClicked({
@@ -532,6 +539,8 @@ try {
     if ([string]::IsNullOrWhiteSpace($target)) { $target = "https://www.ixam.net" }
     Start-Process $target | Out-Null
   })
+
+  $panelSettings.add_Resize({ Position-CopyrightLink })
 
   function Update-AuthUI {
     $isUserPass = $rbUserPass.Checked
