@@ -5,6 +5,11 @@ GUI tool for exporting ServiceNow table to CSV.
 Stores settings in settings.json next to this script.
 Secrets (password/apiKey) are stored encrypted via DPAPI (ConvertFrom-SecureString).
 
+License: MIT License
+Copyright (c) ixam.net (https://www.ixam.net)
+Disclaimer: This software is an independent utility and is not affiliated with,
+endorsed by, or guaranteed by ServiceNow.
+
 Recommended shortcut target:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File "C:\path\PS1SNOWUtilities.ps1"
 #>
@@ -921,6 +926,8 @@ try {
   try { [void](Ensure-ExportDir $txtDir.Text) } catch { }
 
   Add-Log "Ready."
+  Add-Log "Notice: MIT License / https://www.ixam.net"
+  Add-Log "Disclaimer: Not affiliated with or guaranteed by ServiceNow."
   [void]$form.ShowDialog()
 
 } catch {
