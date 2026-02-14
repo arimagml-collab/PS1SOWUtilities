@@ -1723,7 +1723,7 @@ try {
   $gridConditions.add_RowsRemoved({ Update-WherePreview })
   $gridConditions.add_CurrentCellDirtyStateChanged({
     if ($gridConditions.IsCurrentCellDirty) {
-      [void]$gridConditions.EndEdit()
+      [void]$gridConditions.EndEdit([System.Windows.Forms.DataGridViewDataErrorContexts]::Commit)
     }
   })
 
@@ -1736,7 +1736,7 @@ try {
   $gridJoins.add_RowsRemoved({ Save-JoinDefinitionsToSettings })
   $gridJoins.add_CurrentCellDirtyStateChanged({
     if ($gridJoins.IsCurrentCellDirty) {
-      [void]$gridJoins.EndEdit()
+      [void]$gridJoins.EndEdit([System.Windows.Forms.DataGridViewDataErrorContexts]::Commit)
     }
   })
 
