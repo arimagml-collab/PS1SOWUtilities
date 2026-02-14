@@ -1723,7 +1723,7 @@ try {
   $gridConditions.add_RowsRemoved({ Update-WherePreview })
   $gridConditions.add_CurrentCellDirtyStateChanged({
     if ($gridConditions.IsCurrentCellDirty) {
-      [void]$gridConditions.CommitEdit([System.Windows.Forms.DataGridViewDataErrorContexts]::Commit)
+      [void]$gridConditions.EndEdit()
     }
   })
 
@@ -1736,8 +1736,20 @@ try {
   $gridJoins.add_RowsRemoved({ Save-JoinDefinitionsToSettings })
   $gridJoins.add_CurrentCellDirtyStateChanged({
     if ($gridJoins.IsCurrentCellDirty) {
-      [void]$gridJoins.CommitEdit([System.Windows.Forms.DataGridViewDataErrorContexts]::Commit)
+      [void]$gridJoins.EndEdit()
     }
+  })
+
+  $gridConditions.add_DataError({
+    param($sender, $e)
+    $e.ThrowException = $false
+    Add-Log ("Condition grid input error: {0}" -f $e.Exception.Message)
+  })
+
+  $gridJoins.add_DataError({
+    param($sender, $e)
+    $e.ThrowException = $false
+    Add-Log ("Join grid input error: {0}" -f $e.Exception.Message)
   })
 
   $btnCreateView.add_Click({ Create-DatabaseView })
