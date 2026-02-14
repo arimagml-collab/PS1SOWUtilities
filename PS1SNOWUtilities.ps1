@@ -947,7 +947,7 @@ try {
         $objPath = "/api/now/table/sys_db_object?sysparm_fields=name,super_class&sysparm_limit=1&sysparm_query=$objQuery"
         $objRes = Invoke-SnowGet $objPath
         $objResults = if ($objRes -and ($objRes.PSObject.Properties.Name -contains "result")) { @($objRes.result) } else { @() }
-        $obj = if ($objResults.Count -gt 0) { $objResults[0] } else { $null }
+        $obj = if ((@($objResults)).Count -gt 0) { (@($objResults))[0] } else { $null }
         if (-not $obj) { break }
 
         $superSysId = ""
@@ -998,7 +998,7 @@ try {
         [void]$colCondColumn.Items.Add($c.name)
       }
 
-      Add-Log ("{0}: {1}" -f (T "ColumnsFetched"), $list.Count)
+      Add-Log ("{0}: {1}" -f (T "ColumnsFetched"), (@($list)).Count)
     } catch {
       Add-Log ("{0}: {1}" -f (T "Failed"), $_.Exception.Message)
     }
