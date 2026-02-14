@@ -838,8 +838,16 @@ try {
     $lblUser.Text = T "UserId"
     $lblPass.Text = T "Password"
     $lblKey.Text  = T "ApiKey"
-    $btnTogglePass.Text = if ($txtPass.UseSystemPasswordChar) { T "Show" } else { T "Hide" }
-    $btnToggleKey.Text  = if ($txtKey.UseSystemPasswordChar)  { T "Show" } else { T "Hide" }
+    if ($txtPass.UseSystemPasswordChar) {
+      $btnTogglePass.Text = T "Show"
+    } else {
+      $btnTogglePass.Text = T "Hide"
+    }
+    if ($txtKey.UseSystemPasswordChar) {
+      $btnToggleKey.Text = T "Show"
+    } else {
+      $btnToggleKey.Text = T "Hide"
+    }
 
     $lblSaveHint.Text = T "SaveHint"
     $lblTablesHint.Text = T "TestTablesHint"
@@ -1741,11 +1749,19 @@ try {
 
   $btnTogglePass.add_Click({
     $txtPass.UseSystemPasswordChar = -not $txtPass.UseSystemPasswordChar
-    $btnTogglePass.Text = if ($txtPass.UseSystemPasswordChar) { T "Show" } else { T "Hide" }
+    if ($txtPass.UseSystemPasswordChar) {
+      $btnTogglePass.Text = T "Show"
+    } else {
+      $btnTogglePass.Text = T "Hide"
+    }
   })
   $btnToggleKey.add_Click({
     $txtKey.UseSystemPasswordChar = -not $txtKey.UseSystemPasswordChar
-    $btnToggleKey.Text = if ($txtKey.UseSystemPasswordChar) { T "Show" } else { T "Hide" }
+    if ($txtKey.UseSystemPasswordChar) {
+      $btnToggleKey.Text = T "Show"
+    } else {
+      $btnToggleKey.Text = T "Hide"
+    }
   })
 
   $btnBrowse.add_Click({
