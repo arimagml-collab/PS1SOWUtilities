@@ -1728,8 +1728,9 @@ try {
   })
 
   $gridJoins.add_CellValueChanged({
-    if ($_.ColumnIndex -eq 0 -and $_.RowIndex -ge 0) {
-      Populate-JoinColumnsForRow $_.RowIndex
+    param($sender, $e)
+    if ($e.ColumnIndex -eq 0 -and $e.RowIndex -ge 0) {
+      Populate-JoinColumnsForRow $e.RowIndex
     }
     Save-JoinDefinitionsToSettings
   })
