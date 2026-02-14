@@ -1116,7 +1116,7 @@ try {
         [void]$parts.Add(("{0}{1}{2}" -f $column, $op, $value))
       }
     }
-    return ($parts -join "^")
+    return [string]::Join("^", @($parts))
   }
 
   function Update-WherePreview {
@@ -1199,7 +1199,7 @@ try {
     Add-Log ("Creating DB view: {0}, base={1}, joins={2}" -f $viewName, $baseTable, $joinDefs.Count)
     try {
       $body = @{ name = $viewName; label = $viewLabel; table = $baseTable }
-      if ($selectedColumns.Count -gt 0) { $body["view_fields"] = ($selectedColumns -join ",") }
+      if ($selectedColumns.Count -gt 0) { $body["view_fields"] = [string]::Join(",", @($selectedColumns)) }
       $createRes = Invoke-SnowPost "/api/now/table/sys_db_view" $body
       $created = if ($createRes -and ($createRes.PSObject.Properties.Name -contains "result")) { $createRes.result } else { $null }
       $sysId = if ($created) { [string]$created.sys_id } else { "" }
