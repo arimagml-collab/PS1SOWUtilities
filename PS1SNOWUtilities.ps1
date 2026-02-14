@@ -826,8 +826,8 @@ try {
         }
       }
 
-      $list = $list | Sort-Object name
-      $script:Settings.cachedTables = $list
+      $list = @($list | Sort-Object name)
+      $script:Settings.cachedTables = @($list)
       $script:Settings.cachedTablesFetchedAt = (Get-Date).ToString("o")
       Save-Settings
 
@@ -893,7 +893,7 @@ try {
     $cmbBaseTable.BeginUpdate()
     $cmbBaseTable.Items.Clear()
     if ($script:Settings.cachedTables) {
-      foreach ($t in $script:Settings.cachedTables) {
+      foreach ($t in @($script:Settings.cachedTables)) {
         [void]$cmbBaseTable.Items.Add(("{0} - {1}" -f $t.name, $t.label))
       }
     }
@@ -983,7 +983,7 @@ try {
         if ([string]::IsNullOrWhiteSpace($label)) { $label = $name }
         $list += [pscustomobject]@{ name=$name; label=$label }
       }
-      $list = $list | Sort-Object name -Unique
+      $list = @($list | Sort-Object name -Unique)
 
       $clbViewColumns.BeginUpdate()
       $clbViewColumns.Items.Clear()
@@ -1300,10 +1300,10 @@ try {
   $txtPass.Text = Unprotect-Secret ([string]$script:Settings.passwordEnc)
   $txtKey.Text  = Unprotect-Secret ([string]$script:Settings.apiKeyEnc)
 
-  if ($script:Settings.cachedTables -and $script:Settings.cachedTables.Count -gt 0) {
+  if (@($script:Settings.cachedTables).Count -gt 0) {
     $cmbTable.BeginUpdate()
     $cmbTable.Items.Clear()
-    foreach ($t in $script:Settings.cachedTables) {
+    foreach ($t in @($script:Settings.cachedTables)) {
       [void]$cmbTable.Items.Add(("{0} - {1}" -f $t.name, $t.label))
     }
     $cmbTable.EndUpdate()
