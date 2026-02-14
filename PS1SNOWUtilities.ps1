@@ -102,6 +102,7 @@ try {
       RemoveCondition="条件削除"
       WhereClausePreview="Where句プレビュー"
       CreateView="View作成"
+      ViewEditorLimitHint="※この画面で作成できるのは単一ベーステーブルのViewとWhere句です。JOIN / LEFT JOIN の定義には現在未対応です。"
       ConditionColumn="カラム"
       ConditionOperator="演算子"
       ConditionValue="値"
@@ -168,6 +169,7 @@ try {
       RemoveCondition="Remove Condition"
       WhereClausePreview="Where Clause Preview"
       CreateView="Create View"
+      ViewEditorLimitHint="Note: this editor currently supports only a single base table + where clause. JOIN / LEFT JOIN definitions are not supported yet."
       ConditionColumn="Column"
       ConditionOperator="Operator"
       ConditionValue="Value"
@@ -540,24 +542,29 @@ try {
   $btnReloadColumns.Location = New-Object System.Drawing.Point(740, 54)
   $btnReloadColumns.Size = New-Object System.Drawing.Size(180, 32)
 
+  $lblViewEditorLimitHint = New-Object System.Windows.Forms.Label
+  $lblViewEditorLimitHint.Location = New-Object System.Drawing.Point(190, 90)
+  $lblViewEditorLimitHint.Size = New-Object System.Drawing.Size(730, 18)
+  $lblViewEditorLimitHint.ForeColor = [System.Drawing.Color]::FromArgb(120, 80, 0)
+
   $lblViewColumns = New-Object System.Windows.Forms.Label
-  $lblViewColumns.Location = New-Object System.Drawing.Point(20, 100)
+  $lblViewColumns.Location = New-Object System.Drawing.Point(20, 116)
   $lblViewColumns.AutoSize = $true
 
   $clbViewColumns = New-Object System.Windows.Forms.CheckedListBox
-  $clbViewColumns.Location = New-Object System.Drawing.Point(190, 100)
+  $clbViewColumns.Location = New-Object System.Drawing.Point(190, 116)
   $clbViewColumns.Size = New-Object System.Drawing.Size(730, 120)
 
   $btnAddCondition = New-Object System.Windows.Forms.Button
-  $btnAddCondition.Location = New-Object System.Drawing.Point(190, 230)
+  $btnAddCondition.Location = New-Object System.Drawing.Point(190, 246)
   $btnAddCondition.Size = New-Object System.Drawing.Size(170, 32)
 
   $btnRemoveCondition = New-Object System.Windows.Forms.Button
-  $btnRemoveCondition.Location = New-Object System.Drawing.Point(370, 230)
+  $btnRemoveCondition.Location = New-Object System.Drawing.Point(370, 246)
   $btnRemoveCondition.Size = New-Object System.Drawing.Size(170, 32)
 
   $gridConditions = New-Object System.Windows.Forms.DataGridView
-  $gridConditions.Location = New-Object System.Drawing.Point(190, 270)
+  $gridConditions.Location = New-Object System.Drawing.Point(190, 286)
   $gridConditions.Size = New-Object System.Drawing.Size(730, 200)
   $gridConditions.AllowUserToAddRows = $false
   $gridConditions.AllowUserToDeleteRows = $false
@@ -595,11 +602,11 @@ try {
   [void]$gridConditions.Columns.Add($colCondValue)
 
   $lblWherePreview = New-Object System.Windows.Forms.Label
-  $lblWherePreview.Location = New-Object System.Drawing.Point(20, 485)
+  $lblWherePreview.Location = New-Object System.Drawing.Point(20, 500)
   $lblWherePreview.AutoSize = $true
 
   $txtWherePreview = New-Object System.Windows.Forms.TextBox
-  $txtWherePreview.Location = New-Object System.Drawing.Point(190, 482)
+  $txtWherePreview.Location = New-Object System.Drawing.Point(190, 497)
   $txtWherePreview.Size = New-Object System.Drawing.Size(730, 60)
   $txtWherePreview.Multiline = $true
   $txtWherePreview.ReadOnly = $true
@@ -613,6 +620,7 @@ try {
     $lblViewName, $txtViewName,
     $lblViewLabel, $txtViewLabel,
     $lblBaseTable, $cmbBaseTable, $btnReloadColumns,
+    $lblViewEditorLimitHint,
     $lblViewColumns, $clbViewColumns,
     $btnAddCondition, $btnRemoveCondition,
     $gridConditions,
@@ -753,6 +761,7 @@ try {
     $btnRemoveCondition.Text = T "RemoveCondition"
     $lblWherePreview.Text = T "WhereClausePreview"
     $btnCreateView.Text = T "CreateView"
+    $lblViewEditorLimitHint.Text = T "ViewEditorLimitHint"
     $colCondColumn.HeaderText = T "ConditionColumn"
     $colCondOperator.HeaderText = T "ConditionOperator"
     $colCondValue.HeaderText = T "ConditionValue"

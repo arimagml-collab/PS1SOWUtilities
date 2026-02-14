@@ -20,6 +20,11 @@ PS1 SNOW Utilities は、ServiceNow テーブルを CSV / JSON / Excel (.xlsx) �
 5. エクスポート先フォルダと出力形式（CSV / JSON / Excel）を指定して **実行** を押します。
 6. ログを確認し、必要に応じて **フォルダを開く** で出力先を開きます。
 
+### DataBase View Editor の制限
+
+現行版の DataBase View Editor は、**ベーステーブル 1 つ** と **Where 句** の作成に対応しています。  
+**JOIN / LEFT JOIN の定義は未対応**です。
+
 ### 免責事項
 
 本ソフトウェアは ServiceNow 社とは無関係であり、ServiceNow 社による承認・保証・サポートを受けていません。
@@ -47,6 +52,11 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
 4. Optionally set filters (All records or `sys_updated_on` date range).
 5. Choose an export directory and output format (CSV / JSON / Excel), then click **Execute**.
 6. Check logs, and use **Open Folder** to view exported files.
+
+### DataBase View Editor limitation
+
+The current DataBase View Editor supports creating a view with **one base table** and a **where clause**.  
+**JOIN / LEFT JOIN definitions are not supported** yet.
 
 ### Disclaimer
 
