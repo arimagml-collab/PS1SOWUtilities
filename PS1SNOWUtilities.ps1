@@ -937,7 +937,39 @@ try {
 
     Add-Log ("{0} [{1}]" -f (T "FetchingColumns"), $table)
     try {
-      $q = "name=$table^elementISNOTEMPTY"
+      $tableNames = New-Object System.Collections.Generic.List[string]
+      [void]$tableNames.Add($table)
+      $visited = @{}
+      $currentTable = $table
+      while (-not [string]::IsNullOrWhiteSpace($currentTable) -and -not $visited.ContainsKey($currentTable)) {
+        $visited[$currentTable] = $true
+        $objQuery = UrlEncode ("name={0}" -f $currentTable)
+        $objPath = "/api/now/table/sys_db_object?sysparm_fields=name,super_class&sysparm_limit=1&sysparm_query=$objQuery"
+        $objRes = Invoke-SnowGet $objPath
+        $objResults = if ($objRes -and ($objRes.PSObject.Properties.Name -contains "result")) { @($objRes.result) } else { @() }
+        $obj = if ($objResults.Count -gt 0) { $objResults[0] } else { $null }
+        if (-not $obj) { break }
+
+        $superSysId = ""
+        if ($obj.super_class) {
+          if ($obj.super_class -is [string]) {
+            $superSysId = [string]$obj.super_class
+          } elseif ($obj.super_class.PSObject.Properties.Name -contains "value") {
+            $superSysId = [string]$obj.super_class.value
+          }
+        }
+        if ([string]::IsNullOrWhiteSpace($superSysId)) { break }
+
+        $superPath = "/api/now/table/sys_db_object/{0}?sysparm_fields=name" -f $superSysId
+        $superRes = Invoke-SnowGet $superPath
+        $superObj = if ($superRes -and ($superRes.PSObject.Properties.Name -contains "result")) { $superRes.result } else { $null }
+        $superName = if ($superObj) { [string]$superObj.name } else { "" }
+        if ([string]::IsNullOrWhiteSpace($superName)) { break }
+        [void]$tableNames.Add($superName)
+        $currentTable = $superName
+      }
+
+      $q = "nameIN{0}^elementISNOTEMPTY" -f (($tableNames | Select-Object -Unique) -join ",")
       $fields = "element,column_label"
       $path = "/api/now/table/sys_dictionary?sysparm_fields=$fields&sysparm_limit=5000&sysparm_query=$(UrlEncode $q)"
       $res = Invoke-SnowGet $path
@@ -961,8 +993,9 @@ try {
       $clbViewColumns.EndUpdate()
 
       $colCondColumn.Items.Clear()
+      $gridConditions.Rows.Clear()
       foreach ($c in $list) {
-        [void]$colCondColumn.Items.Add(("{0} - {1}" -f $c.name, $c.label))
+        [void]$colCondColumn.Items.Add($c.name)
       }
 
       Add-Log ("{0}: {1}" -f (T "ColumnsFetched"), $list.Count)
