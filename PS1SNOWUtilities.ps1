@@ -65,6 +65,10 @@ try {
       ExportDir="エクスポートDirectory"
       Browse="参照..."
       Execute="実行"
+      OutputFormat="出力形式"
+      FormatCsv="CSV"
+      FormatJson="JSON"
+      FormatXlsx="Excel (.xlsx)"
       Log="ログ"
       UiLang="UI言語"
       Instance="Servicenowインスタンス名"
@@ -104,6 +108,10 @@ try {
       ExportDir="Export Directory"
       Browse="Browse..."
       Execute="Execute"
+      OutputFormat="Output Format"
+      FormatCsv="CSV"
+      FormatJson="JSON"
+      FormatXlsx="Excel (.xlsx)"
       Log="Log"
       UiLang="UI Language"
       Instance="ServiceNow Instance"
@@ -177,6 +185,7 @@ try {
       selectedTableName = ""
       exportFields = ""          # optional: comma separated sysparm_fields
       pageSize = 1000
+      outputFormat = "csv"       # csv | json | xlsx
     }
     return $o
   }
@@ -364,17 +373,29 @@ try {
   $btnBrowse.Location = New-Object System.Drawing.Point(740, 134)
   $btnBrowse.Size = New-Object System.Drawing.Size(180, 32)
 
+  $lblOutputFormat = New-Object System.Windows.Forms.Label
+  $lblOutputFormat.Location = New-Object System.Drawing.Point(20, 184)
+  $lblOutputFormat.AutoSize = $true
+
+  $cmbOutputFormat = New-Object System.Windows.Forms.ComboBox
+  $cmbOutputFormat.Location = New-Object System.Drawing.Point(160, 180)
+  $cmbOutputFormat.Size = New-Object System.Drawing.Size(220, 28)
+  $cmbOutputFormat.DropDownStyle = "DropDownList"
+  [void]$cmbOutputFormat.Items.Add("csv")
+  [void]$cmbOutputFormat.Items.Add("json")
+  [void]$cmbOutputFormat.Items.Add("xlsx")
+
   $btnExecute = New-Object System.Windows.Forms.Button
   $btnExecute.Location = New-Object System.Drawing.Point(740, 180)
   $btnExecute.Size = New-Object System.Drawing.Size(180, 42)
 
   $btnOpenFolder = New-Object System.Windows.Forms.Button
-  $btnOpenFolder.Location = New-Object System.Drawing.Point(540, 180)
+  $btnOpenFolder.Location = New-Object System.Drawing.Point(540, 220)
   $btnOpenFolder.Size = New-Object System.Drawing.Size(180, 42)
 
   $grpLog = New-Object System.Windows.Forms.GroupBox
-  $grpLog.Location = New-Object System.Drawing.Point(20, 235)
-  $grpLog.Size = New-Object System.Drawing.Size(900, 400)
+  $grpLog.Location = New-Object System.Drawing.Point(20, 275)
+  $grpLog.Size = New-Object System.Drawing.Size(900, 360)
 
   $script:txtLog = New-Object System.Windows.Forms.TextBox
   $script:txtLog.Multiline = $true
@@ -388,6 +409,7 @@ try {
     $lblFilter, $rbAll, $rbBetween,
     $lblStart, $dtStart, $lblEnd, $dtEnd, $btnLast30Days,
     $lblDir, $txtDir, $btnBrowse,
+    $lblOutputFormat, $cmbOutputFormat,
     $btnOpenFolder, $btnExecute,
     $grpLog
   ))
@@ -511,6 +533,7 @@ try {
     $lblDir.Text = T "ExportDir"
     $btnBrowse.Text = T "Browse"
     $btnExecute.Text = T "Execute"
+    $lblOutputFormat.Text = T "OutputFormat"
     $grpLog.Text = T "Log"
     $btnOpenFolder.Text = T "OpenFolder"
 
@@ -690,6 +713,7 @@ try {
 
     Add-Log (T "Exporting")
     Add-Log ("table={0}, pageSize={1}" -f $table, $pageSize)
+    Add-Log ("outputFormat={0}" -f [string]$script:Settings.outputFormat)
     if (-not [string]::IsNullOrWhiteSpace($query)) { Add-Log ("query={0}" -f $query) }
 
     try {
@@ -765,11 +789,66 @@ try {
         ("_{0}-{1}" -f $dtStart.Value.ToString("yyyyMMddHHmmss"), $dtEnd.Value.ToString("yyyyMMddHHmmss"))
       } else { "" }
 
-      $file = Join-Path $exportDir ("{0}{1}_{2}.csv" -f $table, $suffix, $stamp)
+      $formatVal = [string]$script:Settings.outputFormat
+      if ([string]::IsNullOrWhiteSpace($formatVal)) { $formatVal = "csv" }
+      $format = $formatVal.Trim().ToLowerInvariant()
+      if ((@("csv","json","xlsx") -notcontains $format)) { $format = "csv" }
+
+      $ext = switch ($format) {
+        "json" { "json" }
+        "xlsx" { "xlsx" }
+        default { "csv" }
+      }
+
+      $file = Join-Path $exportDir ("{0}{1}_{2}.{3}" -f $table, $suffix, $stamp, $ext)
 
       $recordCount = @($outRows).Count
 
-      $outRows | Export-Csv -Path $file -NoTypeInformation -Encoding UTF8
+      switch ($format) {
+        "json" {
+          $outRows | ConvertTo-Json -Depth 10 | Set-Content -Path $file -Encoding UTF8
+        }
+        "xlsx" {
+          $excel = $null
+          $workbook = $null
+          $worksheet = $null
+          try {
+            $excel = New-Object -ComObject Excel.Application
+            $excel.Visible = $false
+            $excel.DisplayAlerts = $false
+            $workbook = $excel.Workbooks.Add()
+            $worksheet = $workbook.Worksheets.Item(1)
+
+            for ($i = 0; $i -lt $cols.Count; $i++) {
+              $worksheet.Cells.Item(1, $i + 1) = [string]$cols[$i]
+            }
+
+            $rowIndex = 2
+            foreach ($row in $outRows) {
+              for ($i = 0; $i -lt $cols.Count; $i++) {
+                $v = $row.($cols[$i])
+                if ($null -eq $v) { $worksheet.Cells.Item($rowIndex, $i + 1) = "" }
+                else { $worksheet.Cells.Item($rowIndex, $i + 1) = [string]$v }
+              }
+              $rowIndex++
+            }
+
+            $xlOpenXmlWorkbook = 51
+            $workbook.SaveAs($file, $xlOpenXmlWorkbook)
+          } finally {
+            if ($workbook) { $workbook.Close($false) | Out-Null }
+            if ($excel) { $excel.Quit() }
+            foreach ($obj in @($worksheet, $workbook, $excel)) {
+              if ($obj) { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($obj) }
+            }
+            [GC]::Collect()
+            [GC]::WaitForPendingFinalizers()
+          }
+        }
+        default {
+          $outRows | Export-Csv -Path $file -NoTypeInformation -Encoding UTF8
+        }
+      }
       Add-Log ("{0}: {1}" -f (T "Done"), $file)
 
       [System.Windows.Forms.MessageBox]::Show(("OK`r`n{0}`r`nRecords: {1}" -f $file, $recordCount)) | Out-Null
@@ -795,6 +874,10 @@ try {
   }
 
   if ([string]$script:Settings.filterMode -eq "updated_between") { $rbBetween.Checked = $true } else { $rbAll.Checked = $true }
+
+  $initialOutputFormat = ([string]$script:Settings.outputFormat).Trim().ToLowerInvariant()
+  if ((@("csv","json","xlsx") -notcontains $initialOutputFormat)) { $initialOutputFormat = "csv" }
+  $cmbOutputFormat.SelectedItem = $initialOutputFormat
 
   try { $dtStart.Value = [datetime]::Parse([string]$script:Settings.startDateTime) } catch { }
   try { $dtEnd.Value   = [datetime]::Parse([string]$script:Settings.endDateTime) } catch { }
@@ -914,6 +997,11 @@ try {
 
   $txtDir.add_TextChanged({
     $script:Settings.exportDirectory = $txtDir.Text
+    Save-Settings
+  })
+
+  $cmbOutputFormat.add_SelectedIndexChanged({
+    $script:Settings.outputFormat = [string]$cmbOutputFormat.SelectedItem
     Save-Settings
   })
 

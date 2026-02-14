@@ -6,7 +6,7 @@
 
 ## 日本語
 
-PS1 SNOW Utilities は、ServiceNow テーブルを CSV としてエクスポートするための PowerShell (WinForms) ユーティリティです。
+PS1 SNOW Utilities は、ServiceNow テーブルを CSV / JSON / Excel (.xlsx) としてエクスポートするための PowerShell (WinForms) ユーティリティです。
 
 ### 基本的な使い方
 
@@ -17,7 +17,7 @@ PS1 SNOW Utilities は、ServiceNow テーブルを CSV としてエクスポー
    - 必要に応じて UI 言語
 3. **Export**タブで対象テーブルを選択します。
 4. 必要に応じてフィルタ（全件 or `sys_updated_on` 期間指定）を設定します。
-5. エクスポート先フォルダを指定して **実行** を押します。
+5. エクスポート先フォルダと出力形式（CSV / JSON / Excel）を指定して **実行** を押します。
 6. ログを確認し、必要に応じて **フォルダを開く** で出力先を開きます。
 
 ### 免責事項
@@ -34,7 +34,7 @@ https://www.ixam.net
 
 ## English
 
-PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow table data to CSV.
+PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow table data to CSV / JSON / Excel (.xlsx).
 
 ### Basic Usage
 
@@ -45,7 +45,7 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
    - UI language if needed
 3. In the **Export** tab, select the target table.
 4. Optionally set filters (All records or `sys_updated_on` date range).
-5. Choose an export directory and click **Execute**.
+5. Choose an export directory and output format (CSV / JSON / Excel), then click **Execute**.
 6. Check logs, and use **Open Folder** to view exported files.
 
 ### Disclaimer
