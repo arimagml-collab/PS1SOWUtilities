@@ -56,6 +56,7 @@ try {
       FilterUpdatedBetween="sys_updated_on 開始～終了"
       Start="開始"
       End="終了"
+      Last30Days="過去30日"
       ExportDir="エクスポートDirectory"
       Browse="参照..."
       Execute="実行"
@@ -92,6 +93,7 @@ try {
       FilterUpdatedBetween="sys_updated_on Between"
       Start="Start"
       End="End"
+      Last30Days="Last 30 Days"
       ExportDir="Export Directory"
       Browse="Browse..."
       Execute="Execute"
@@ -331,10 +333,14 @@ try {
 
   $dtEnd = New-Object System.Windows.Forms.DateTimePicker
   $dtEnd.Location = New-Object System.Drawing.Point(525, 92)
-  $dtEnd.Size = New-Object System.Drawing.Size(250, 28)
+  $dtEnd.Size = New-Object System.Drawing.Size(200, 28)
   $dtEnd.Format = "Custom"
   $dtEnd.CustomFormat = "yyyy-MM-dd HH:mm:ss"
   $dtEnd.ShowUpDown = $true
+
+  $btnLast30Days = New-Object System.Windows.Forms.Button
+  $btnLast30Days.Location = New-Object System.Drawing.Point(740, 90)
+  $btnLast30Days.Size = New-Object System.Drawing.Size(180, 32)
 
   $lblDir = New-Object System.Windows.Forms.Label
   $lblDir.Location = New-Object System.Drawing.Point(20, 140)
@@ -370,7 +376,7 @@ try {
   $panelExport.Controls.AddRange(@(
     $lblTable, $cmbTable, $btnReloadTables,
     $lblFilter, $rbAll, $rbBetween,
-    $lblStart, $dtStart, $lblEnd, $dtEnd,
+    $lblStart, $dtStart, $lblEnd, $dtEnd, $btnLast30Days,
     $lblDir, $txtDir, $btnBrowse,
     $btnOpenFolder, $btnExecute,
     $grpLog
@@ -478,6 +484,7 @@ try {
     $rbBetween.Text = T "FilterUpdatedBetween"
     $lblStart.Text = T "Start"
     $lblEnd.Text = T "End"
+    $btnLast30Days.Text = T "Last30Days"
     $lblDir.Text = T "ExportDir"
     $btnBrowse.Text = T "Browse"
     $btnExecute.Text = T "Execute"
@@ -833,8 +840,19 @@ try {
   $btnBrowse.add_Click({
     $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
     $dlg.Description = (T "ExportDir")
-    $dlg.SelectedPath = (if (Test-Path $txtDir.Text) { $txtDir.Text } else { $DefaultExportDir })
+    if (Test-Path $txtDir.Text) {
+      $dlg.SelectedPath = $txtDir.Text
+    } else {
+      $dlg.SelectedPath = $DefaultExportDir
+    }
     if ($dlg.ShowDialog() -eq "OK") { $txtDir.Text = $dlg.SelectedPath }
+  })
+
+  $btnLast30Days.add_Click({
+    $now = Get-Date
+    $dtStart.Value = $now.AddDays(-30)
+    $dtEnd.Value = $now
+    $rbBetween.Checked = $true
   })
 
   $btnOpenFolder.add_Click({
