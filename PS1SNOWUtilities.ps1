@@ -314,6 +314,7 @@ try {
   $script:Settings = Load-Settings
   $script:ColumnCache = @{}
   $script:ActiveWorkers = New-Object System.Collections.Generic.List[object]
+  $script:SettingsSaveTimer = $null
 
   # ----------------------------
   # ServiceNow REST helper
