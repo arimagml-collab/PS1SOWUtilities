@@ -1045,36 +1045,56 @@ try {
     $defs = New-Object System.Collections.Generic.List[object]
     foreach ($row in $gridJoins.Rows) {
       if ($row.IsNewRow) { continue }
-      $tableCell = $row.Cells[0].Value
-      $sourceCell = $row.Cells[1].Value
-      $baseCell = $row.Cells[2].Value
-      $targetCell = $row.Cells[3].Value
-      $prefixCell = $row.Cells[4].Value
-      $leftJoinCell = $row.Cells[5].Value
-      $joinSource = if ($null -eq $sourceCell) { "" } else { ([string]$sourceCell).Trim() }
-      $joinTable = if ($null -eq $tableCell) { "" } else { ([string]$tableCell).Trim() }
-      $baseColumn = if ($null -eq $baseCell) { "" } else { ([string]$baseCell).Trim() }
-      $targetColumn = if ($null -eq $targetCell) { "" } else { ([string]$targetCell).Trim() }
-      $joinPrefix = if ($null -eq $prefixCell) { "" } else { ([string]$prefixCell).Trim() }
-      $leftJoin = $false
-      if ($null -ne $leftJoinCell) { $leftJoin = [System.Convert]::ToBoolean($leftJoinCell) }
-      if ([string]::IsNullOrWhiteSpace($joinTable) -and [string]::IsNullOrWhiteSpace($baseColumn) -and [string]::IsNullOrWhiteSpace($targetColumn) -and [string]::IsNullOrWhiteSpace($joinPrefix) -and (-not $leftJoin)) { continue }
-      [void]$defs.Add([pscustomobject]@{
-        joinTable = $joinTable
-        joinSource = $joinSource
-        baseColumn = $baseColumn
-        targetColumn = $targetColumn
-        joinPrefix = $joinPrefix
-        leftJoin = $leftJoin
-      })
+      try {
+        $tableCell = $row.Cells[0].Value
+        $sourceCell = $row.Cells[1].Value
+        $baseCell = $row.Cells[2].Value
+        $targetCell = $row.Cells[3].Value
+        $prefixCell = $row.Cells[4].Value
+        $leftJoinCell = $row.Cells[5].Value
+
+        $joinSource = if ($null -eq $sourceCell) { "" } else { ([string]$sourceCell).Trim() }
+        $joinTable = if ($null -eq $tableCell) { "" } else { ([string]$tableCell).Trim() }
+        $baseColumn = if ($null -eq $baseCell) { "" } else { ([string]$baseCell).Trim() }
+        $targetColumn = if ($null -eq $targetCell) { "" } else { ([string]$targetCell).Trim() }
+        $joinPrefix = if ($null -eq $prefixCell) { "" } else { ([string]$prefixCell).Trim() }
+
+        $leftJoin = $false
+        if ($leftJoinCell -is [bool]) {
+          $leftJoin = [bool]$leftJoinCell
+        } elseif ($leftJoinCell -is [System.Windows.Forms.CheckState]) {
+          $leftJoin = ([System.Windows.Forms.CheckState]$leftJoinCell -eq [System.Windows.Forms.CheckState]::Checked)
+        } elseif ($null -ne $leftJoinCell) {
+          $text = ([string]$leftJoinCell).Trim()
+          if (-not [string]::IsNullOrWhiteSpace($text)) {
+            try { $leftJoin = [System.Convert]::ToBoolean($text) } catch { $leftJoin = $false }
+          }
+        }
+
+        if ([string]::IsNullOrWhiteSpace($joinTable) -and [string]::IsNullOrWhiteSpace($baseColumn) -and [string]::IsNullOrWhiteSpace($targetColumn) -and [string]::IsNullOrWhiteSpace($joinPrefix) -and (-not $leftJoin)) { continue }
+        [void]$defs.Add([pscustomobject]@{
+          joinTable = $joinTable
+          joinSource = $joinSource
+          baseColumn = $baseColumn
+          targetColumn = $targetColumn
+          joinPrefix = $joinPrefix
+          leftJoin = $leftJoin
+        })
+      } catch {
+        Add-Log ("Skip invalid join row: {0}" -f $_.Exception.Message)
+      }
     }
     return @($defs)
   }
 
   function Save-JoinDefinitionsToSettings {
-    $defs = Get-JoinDefinitions
-    $script:Settings.viewEditorJoinsJson = ($defs | ConvertTo-Json -Depth 4 -Compress)
-    Save-Settings
+    try {
+      $defs = @(Get-JoinDefinitions)
+      $script:Settings.viewEditorJoinsJson = ($defs | ConvertTo-Json -Depth 4 -Compress)
+      Save-Settings
+    } catch {
+      Add-Log ("Failed to save join definitions: {0}" -f $_.Exception.Message)
+    }
   }
 
   function Fetch-ColumnsForTable([string]$table) {
