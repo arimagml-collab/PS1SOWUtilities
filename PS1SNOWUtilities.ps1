@@ -440,7 +440,14 @@ try {
       param($sender, $e)
       try {
         if ($e.Error) {
-          Add-Log ("{0}: {1}" -f (T "Failed"), $e.Error.Exception.Message)
+          $errorMessage = if ($e.Error -is [System.Management.Automation.ErrorRecord]) {
+            $e.Error.Exception.Message
+          } elseif ($e.Error.PSObject.Properties.Name -contains "Message") {
+            [string]$e.Error.Message
+          } else {
+            [string]$e.Error
+          }
+          Add-Log ("{0}: {1}" -f (T "Failed"), $errorMessage)
         } else {
           & $onCompleted $e.Result
         }
