@@ -1211,6 +1211,12 @@ try {
       return ("t{0}" -f $index)
     }
 
+    function Build-JoinWhereClause([string]$basePrefix, [string]$baseColumn, [string]$joinPrefix, [string]$joinColumn) {
+      $left = if ([string]::IsNullOrWhiteSpace($basePrefix)) { [string]$baseColumn } else { "{0}.{1}" -f [string]$basePrefix, [string]$baseColumn }
+      $right = if ([string]::IsNullOrWhiteSpace($joinPrefix)) { [string]$joinColumn } else { "{0}.{1}" -f [string]$joinPrefix, [string]$joinColumn }
+      return ("{0}={1}" -f $left, $right)
+    }
+
     function Save-ViewTableMetadata([string]$viewTableSysId, [string]$prefix, [string]$whereText) {
       if ([string]::IsNullOrWhiteSpace($viewTableSysId)) { return $false }
 
@@ -1250,15 +1256,30 @@ try {
       $baseTableMetadataSaved = $true
       if (-not [string]::IsNullOrWhiteSpace($sysId)) {
         $baseTableMetadataSaved = $false
+        $basePrefix = Get-ViewTablePrefix 0
+        $baseTableRowId = ""
         try {
           $query = "view={0}^table={1}" -f $sysId, $baseTable
           $path = "/api/now/table/sys_db_view_table?sysparm_fields=sys_id&sysparm_limit=1&sysparm_query={0}" -f (UrlEncode $query)
           $baseTableRes = Invoke-SnowGet $path
           $baseTableRow = if ($baseTableRes -and ($baseTableRes.PSObject.Properties.Name -contains "result") -and @($baseTableRes.result).Count -gt 0) { $baseTableRes.result[0] } else { $null }
-          $baseTableRowId = if ($baseTableRow) { [string]$baseTableRow.sys_id } else { "" }
-          $baseTableMetadataSaved = Save-ViewTableMetadata $baseTableRowId (Get-ViewTablePrefix 0) $whereClause
+          if ($baseTableRow) {
+            $baseTableRowId = [string]$baseTableRow.sys_id
+          }
         } catch {
         }
+
+        if ([string]::IsNullOrWhiteSpace($baseTableRowId)) {
+          try {
+            $baseCreate = Invoke-SnowPost "/api/now/table/sys_db_view_table" @{ view = $sysId; table = $baseTable; order = 0; variable_prefix = $basePrefix }
+            if ($baseCreate -and ($baseCreate.PSObject.Properties.Name -contains "result") -and $baseCreate.result) {
+              $baseTableRowId = [string]$baseCreate.result.sys_id
+            }
+          } catch {
+          }
+        }
+
+        $baseTableMetadataSaved = Save-ViewTableMetadata $baseTableRowId $basePrefix $whereClause
       }
 
       if (-not [string]::IsNullOrWhiteSpace($whereClause)) {
@@ -1270,14 +1291,16 @@ try {
         $joinsSaved = $false
         $joinIndex = 1
         foreach ($joinDef in $joinDefs) {
-          $joinWhereClause = ("{0}={1}" -f [string]$joinDef.baseColumn, [string]$joinDef.targetColumn)
+          $basePrefix = Get-ViewTablePrefix 0
+          $joinPrefix = Get-ViewTablePrefix $joinIndex
+          $joinWhereClause = Build-JoinWhereClause $basePrefix ([string]$joinDef.baseColumn) $joinPrefix ([string]$joinDef.targetColumn)
           $joinBody = @{
             view = $sysId
             table = [string]$joinDef.joinTable
             left_field = [string]$joinDef.baseColumn
             right_field = [string]$joinDef.targetColumn
             join_condition = $joinWhereClause
-            variable_prefix = Get-ViewTablePrefix $joinIndex
+            variable_prefix = $joinPrefix
           }
 
           $saved = $false
@@ -1314,7 +1337,7 @@ try {
           }
 
           if (-not [string]::IsNullOrWhiteSpace($joinRowId)) {
-            [void](Save-ViewTableMetadata $joinRowId (Get-ViewTablePrefix $joinIndex) $joinWhereClause)
+            [void](Save-ViewTableMetadata $joinRowId $joinPrefix $joinWhereClause)
           }
 
           $joinIndex++
