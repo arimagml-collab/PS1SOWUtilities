@@ -1129,6 +1129,86 @@ try {
     return @($list | Sort-Object name -Unique)
   }
 
+  function Build-ViewEditorColumnDisplay([string]$token, [string]$label, [string]$sourceTable, [string]$sourcePrefix) {
+    $left = if ([string]::IsNullOrWhiteSpace($token)) { "" } else { $token }
+    $right = if ([string]::IsNullOrWhiteSpace($label)) { $left } else { $label }
+    if (-not [string]::IsNullOrWhiteSpace($sourcePrefix)) {
+      return ("{0} - [{1}] {2}" -f $left, $sourcePrefix, $right)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($sourceTable)) {
+      return ("{0} - [{1}] {2}" -f $left, $sourceTable, $right)
+    }
+    return ("{0} - {1}" -f $left, $right)
+  }
+
+  function Get-SelectedViewFieldTokens {
+    $tokens = New-Object System.Collections.Generic.List[string]
+    foreach ($item in $clbViewColumns.CheckedItems) {
+      $text = [string]$item
+      if ([string]::IsNullOrWhiteSpace($text)) { continue }
+      $idx = $text.IndexOf(" - ")
+      $token = if ($idx -gt 0) { $text.Substring(0, $idx).Trim() } else { $text.Trim() }
+      if (-not [string]::IsNullOrWhiteSpace($token) -and -not $tokens.Contains($token)) {
+        [void]$tokens.Add($token)
+      }
+    }
+    return @($tokens.ToArray())
+  }
+
+  function Update-ViewEditorColumnChoices {
+    $previousChecked = @(Get-SelectedViewFieldTokens)
+    $scopes = New-Object System.Collections.Generic.List[object]
+
+    $baseTable = Get-SelectedBaseTableName
+    if (-not [string]::IsNullOrWhiteSpace($baseTable)) {
+      try {
+        foreach ($col in @(Fetch-ColumnsForTable $baseTable)) {
+          [void]$scopes.Add([pscustomobject]@{
+            token = [string]$col.name
+            display = Build-ViewEditorColumnDisplay ([string]$col.name) ([string]$col.label) $baseTable ""
+          })
+        }
+      } catch {
+      }
+    }
+
+    for ($i = 0; $i -lt $gridJoins.Rows.Count; $i++) {
+      $joinRow = $gridJoins.Rows[$i]
+      if ($joinRow.IsNewRow) { continue }
+      $joinTableCell = $joinRow.Cells[0].Value
+      $joinTable = if ($null -eq $joinTableCell) { "" } else { ([string]$joinTableCell).Trim() }
+      if ([string]::IsNullOrWhiteSpace($joinTable)) { continue }
+      $prefix = Get-JoinRowPrefix $i
+      if ([string]::IsNullOrWhiteSpace($prefix)) { continue }
+
+      try {
+        foreach ($col in @(Fetch-ColumnsForTable $joinTable)) {
+          $token = ("{0}_{1}" -f $prefix, [string]$col.name)
+          [void]$scopes.Add([pscustomobject]@{
+            token = $token
+            display = Build-ViewEditorColumnDisplay $token ([string]$col.label) $joinTable $prefix
+          })
+        }
+      } catch {
+      }
+    }
+
+    $uniqueScopes = @($scopes | Group-Object token | ForEach-Object { $_.Group[0] } | Sort-Object token)
+
+    $clbViewColumns.BeginUpdate()
+    $clbViewColumns.Items.Clear()
+    foreach ($scope in $uniqueScopes) {
+      $isChecked = ($previousChecked -contains [string]$scope.token)
+      [void]$clbViewColumns.Items.Add([string]$scope.display, $isChecked)
+    }
+    $clbViewColumns.EndUpdate()
+
+    $colCondColumn.Items.Clear()
+    foreach ($scope in $uniqueScopes) {
+      [void]$colCondColumn.Items.Add([string]$scope.token)
+    }
+  }
+
   function Get-JoinRowPrefix([int]$rowIndex) {
     if ($rowIndex -lt 0 -or $rowIndex -ge $gridJoins.Rows.Count) { return "" }
     $prefixCell = $gridJoins.Rows[$rowIndex].Cells[4].Value
@@ -1236,6 +1316,134 @@ try {
     return ($parts.ToArray() -join "^")
   }
 
+  function Build-JoinWhereClause([string]$leftPrefix, [string]$baseColumn, [string]$joinPrefix, [string]$joinColumn) {
+    $left = if ([string]::IsNullOrWhiteSpace($leftPrefix)) { [string]$baseColumn } else { "{0}_{1}" -f [string]$leftPrefix, [string]$baseColumn }
+    $right = if ([string]::IsNullOrWhiteSpace($joinPrefix)) { [string]$joinColumn } else { "{0}_{1}" -f [string]$joinPrefix, [string]$joinColumn }
+    return ("{0}={1}" -f $left, $right)
+  }
+
+  function Test-ViewTableMetadata([psobject]$record, [string]$expectedPrefix, [string]$expectedWhereText, [bool]$expectedLeftJoin, [bool]$shouldCheckLeftJoin) {
+    if ($null -eq $record) { return $false }
+
+    if (-not [string]::IsNullOrWhiteSpace($expectedPrefix)) {
+      $prefixOk = $false
+      if ($record.PSObject.Properties.Name -contains "variable_prefix") {
+        $prefixOk = ([string]$record.variable_prefix -eq $expectedPrefix)
+      }
+      if (-not $prefixOk -and ($record.PSObject.Properties.Name -contains "prefix")) {
+        $prefixOk = ([string]$record.prefix -eq $expectedPrefix)
+      }
+      if (-not $prefixOk) { return $false }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($expectedWhereText)) {
+      $whereOk = $false
+      if ($record.PSObject.Properties.Name -contains "where_clause") {
+        $whereOk = ([string]$record.where_clause -eq $expectedWhereText)
+      }
+      if (-not $whereOk -and ($record.PSObject.Properties.Name -contains "where")) {
+        $whereOk = ([string]$record.where -eq $expectedWhereText)
+      }
+      if (-not $whereOk) { return $false }
+    }
+
+    if ($shouldCheckLeftJoin) {
+      if (-not ($record.PSObject.Properties.Name -contains "left_join")) { return $false }
+      if ([System.Convert]::ToBoolean($record.left_join) -ne $expectedLeftJoin) { return $false }
+    }
+
+    return $true
+  }
+
+  function Save-ViewTableMetadata([string]$viewTableSysId, [string]$prefix, [string]$whereText, [bool]$leftJoin, [bool]$hasLeftJoin) {
+    if ([string]::IsNullOrWhiteSpace($viewTableSysId)) { return $false }
+
+    $payloads = @()
+    $prefixCandidates = @(
+      @{ variable_prefix = $prefix },
+      @{ prefix = $prefix },
+      @{ prefix = $prefix; variable_prefix = $prefix },
+      @{}
+    )
+    $whereCandidates = @(
+      @{ where_clause = $whereText },
+      @{ where = $whereText },
+      @{ where = $whereText; where_clause = $whereText },
+      @{}
+    )
+
+    foreach ($pPayload in $prefixCandidates) {
+      foreach ($wPayload in $whereCandidates) {
+        $payload = @{}
+        foreach ($k in $pPayload.Keys) {
+          if (-not [string]::IsNullOrWhiteSpace([string]$pPayload[$k])) { $payload[$k] = $pPayload[$k] }
+        }
+        foreach ($k in $wPayload.Keys) {
+          if (-not [string]::IsNullOrWhiteSpace([string]$wPayload[$k])) { $payload[$k] = $wPayload[$k] }
+        }
+        if ($hasLeftJoin) { $payload["left_join"] = $leftJoin }
+        if ($payload.Count -gt 0) { $payloads += $payload }
+      }
+    }
+
+    foreach ($payload in $payloads) {
+      try {
+        [void](Invoke-SnowPatch ("/api/now/table/sys_db_view_table/{0}" -f $viewTableSysId) $payload)
+
+        $verifyPath = "/api/now/table/sys_db_view_table/{0}?sysparm_fields=prefix,variable_prefix,where,where_clause,left_join" -f $viewTableSysId
+        $verifyRes = Invoke-SnowGet $verifyPath
+        $verifyRecord = if ($verifyRes -and ($verifyRes.PSObject.Properties.Name -contains "result")) { $verifyRes.result } else { $null }
+        if (Test-ViewTableMetadata $verifyRecord $prefix $whereText $leftJoin $hasLeftJoin) {
+          return $true
+        }
+      } catch {
+      }
+    }
+    return $false
+  }
+
+  function Try-CreateViewJoinRow([string]$sysId, [psobject]$joinDef, [string]$joinWhereClause, [string]$joinPrefix, [bool]$isLeftJoin) {
+    $joinBody = @{
+      view = $sysId
+      table = [string]$joinDef.joinTable
+      left_field = [string]$joinDef.baseColumn
+      right_field = [string]$joinDef.targetColumn
+      join_condition = $joinWhereClause
+      variable_prefix = $joinPrefix
+      left_join = $isLeftJoin
+    }
+
+    $saved = $false
+    $joinRowId = ""
+    try {
+      $joinRes = Invoke-SnowPost "/api/now/table/sys_db_view_table" $joinBody
+      if ($joinRes -and ($joinRes.PSObject.Properties.Name -contains "result") -and $joinRes.result) {
+        $joinRowId = [string]$joinRes.result.sys_id
+      }
+      $saved = $true
+    } catch {
+      foreach ($leftField in @("left_field", "left_column", "field")) {
+        foreach ($rightField in @("right_field", "right_column", "join_field")) {
+          try {
+            $fallbackBody = @{ view = $sysId; table = [string]$joinDef.joinTable }
+            $fallbackBody[$leftField] = [string]$joinDef.baseColumn
+            $fallbackBody[$rightField] = [string]$joinDef.targetColumn
+            $joinRes = Invoke-SnowPost "/api/now/table/sys_db_view_table" $fallbackBody
+            if ($joinRes -and ($joinRes.PSObject.Properties.Name -contains "result") -and $joinRes.result) {
+              $joinRowId = [string]$joinRes.result.sys_id
+            }
+            $saved = $true
+            break
+          } catch {
+          }
+        }
+        if ($saved) { break }
+      }
+    }
+
+    return [pscustomobject]@{ saved = $saved; rowId = $joinRowId }
+  }
+
   function Update-WherePreview {
     $txtWherePreview.Text = Build-ViewWhereClause
     $script:Settings.viewEditorWhereClause = $txtWherePreview.Text
@@ -1253,18 +1461,8 @@ try {
     try {
       $list = @(Fetch-ColumnsForTable $table)
 
-      $clbViewColumns.BeginUpdate()
-      $clbViewColumns.Items.Clear()
-      foreach ($c in $list) {
-        [void]$clbViewColumns.Items.Add(("{0} - {1}" -f $c.name, $c.label), $true)
-      }
-      $clbViewColumns.EndUpdate()
-
-      $colCondColumn.Items.Clear()
       $gridConditions.Rows.Clear()
-      foreach ($c in $list) {
-        [void]$colCondColumn.Items.Add($c.name)
-      }
+      Update-ViewEditorColumnChoices
 
       for ($i = 0; $i -lt $gridJoins.Rows.Count; $i++) {
         Populate-JoinColumnsForRow $i
@@ -1307,99 +1505,7 @@ try {
     $whereClause = Build-ViewWhereClause
     $basePrefix = ([string]$txtBasePrefix.Text).Trim()
     if ([string]::IsNullOrWhiteSpace($basePrefix)) { $basePrefix = "t0" }
-    $selectedColumns = New-Object System.Collections.Generic.List[string]
-    foreach ($item in $clbViewColumns.CheckedItems) {
-      $itemText = [string]$item
-      $idx = $itemText.IndexOf(" - ")
-      if ($idx -gt 0) { [void]$selectedColumns.Add($itemText.Substring(0, $idx).Trim()) }
-      elseif (-not [string]::IsNullOrWhiteSpace($itemText)) { [void]$selectedColumns.Add($itemText.Trim()) }
-    }
-
-    function Build-JoinWhereClause([string]$leftPrefix, [string]$baseColumn, [string]$joinPrefix, [string]$joinColumn) {
-      $left = if ([string]::IsNullOrWhiteSpace($leftPrefix)) { [string]$baseColumn } else { "{0}_{1}" -f [string]$leftPrefix, [string]$baseColumn }
-      $right = if ([string]::IsNullOrWhiteSpace($joinPrefix)) { [string]$joinColumn } else { "{0}_{1}" -f [string]$joinPrefix, [string]$joinColumn }
-      return ("{0}={1}" -f $left, $right)
-    }
-
-    function Save-ViewTableMetadata([string]$viewTableSysId, [string]$prefix, [string]$whereText, [bool]$leftJoin, [bool]$hasLeftJoin) {
-      if ([string]::IsNullOrWhiteSpace($viewTableSysId)) { return $false }
-
-      $payloads = @()
-      $prefixCandidates = @(
-        @{ variable_prefix = $prefix },
-        @{ prefix = $prefix },
-        @{ prefix = $prefix; variable_prefix = $prefix },
-        @{}
-      )
-      $whereCandidates = @(
-        @{ where_clause = $whereText },
-        @{ where = $whereText },
-        @{ where = $whereText; where_clause = $whereText },
-        @{}
-      )
-
-      foreach ($pPayload in $prefixCandidates) {
-        foreach ($wPayload in $whereCandidates) {
-          $payload = @{}
-          foreach ($k in $pPayload.Keys) {
-            if (-not [string]::IsNullOrWhiteSpace([string]$pPayload[$k])) { $payload[$k] = $pPayload[$k] }
-          }
-          foreach ($k in $wPayload.Keys) {
-            if (-not [string]::IsNullOrWhiteSpace([string]$wPayload[$k])) { $payload[$k] = $wPayload[$k] }
-          }
-          if ($hasLeftJoin) { $payload["left_join"] = $leftJoin }
-          if ($payload.Count -gt 0) { $payloads += $payload }
-        }
-      }
-
-      function Test-ViewTableMetadata([psobject]$record, [string]$expectedPrefix, [string]$expectedWhereText, [bool]$expectedLeftJoin, [bool]$shouldCheckLeftJoin) {
-        if ($null -eq $record) { return $false }
-
-        if (-not [string]::IsNullOrWhiteSpace($expectedPrefix)) {
-          $prefixOk = $false
-          if ($record.PSObject.Properties.Name -contains "variable_prefix") {
-            $prefixOk = ([string]$record.variable_prefix -eq $expectedPrefix)
-          }
-          if (-not $prefixOk -and ($record.PSObject.Properties.Name -contains "prefix")) {
-            $prefixOk = ([string]$record.prefix -eq $expectedPrefix)
-          }
-          if (-not $prefixOk) { return $false }
-        }
-
-        if (-not [string]::IsNullOrWhiteSpace($expectedWhereText)) {
-          $whereOk = $false
-          if ($record.PSObject.Properties.Name -contains "where_clause") {
-            $whereOk = ([string]$record.where_clause -eq $expectedWhereText)
-          }
-          if (-not $whereOk -and ($record.PSObject.Properties.Name -contains "where")) {
-            $whereOk = ([string]$record.where -eq $expectedWhereText)
-          }
-          if (-not $whereOk) { return $false }
-        }
-
-        if ($shouldCheckLeftJoin) {
-          if (-not ($record.PSObject.Properties.Name -contains "left_join")) { return $false }
-          if ([System.Convert]::ToBoolean($record.left_join) -ne $expectedLeftJoin) { return $false }
-        }
-
-        return $true
-      }
-
-      foreach ($payload in $payloads) {
-        try {
-          [void](Invoke-SnowPatch ("/api/now/table/sys_db_view_table/{0}" -f $viewTableSysId) $payload)
-
-          $verifyPath = "/api/now/table/sys_db_view_table/{0}?sysparm_fields=prefix,variable_prefix,where,where_clause,left_join" -f $viewTableSysId
-          $verifyRes = Invoke-SnowGet $verifyPath
-          $verifyRecord = if ($verifyRes -and ($verifyRes.PSObject.Properties.Name -contains "result")) { $verifyRes.result } else { $null }
-          if (Test-ViewTableMetadata $verifyRecord $prefix $whereText $leftJoin $hasLeftJoin) {
-            return $true
-          }
-        } catch {
-        }
-      }
-      return $false
-    }
+    $selectedColumns = @(Get-SelectedViewFieldTokens)
 
     Add-Log ("Creating DB view: {0}, base={1}, joins={2}" -f $viewName, $baseTable, $joinDefs.Count)
     try {
@@ -1455,43 +1561,9 @@ try {
           $isLeftJoin = $false
           if ($joinDef.PSObject.Properties.Name -contains "leftJoin") { $isLeftJoin = [System.Convert]::ToBoolean($joinDef.leftJoin) }
           $joinWhereClause = Build-JoinWhereClause $leftPrefix ([string]$joinDef.baseColumn) $joinPrefix ([string]$joinDef.targetColumn)
-          $joinBody = @{
-            view = $sysId
-            table = [string]$joinDef.joinTable
-            left_field = [string]$joinDef.baseColumn
-            right_field = [string]$joinDef.targetColumn
-            join_condition = $joinWhereClause
-            variable_prefix = $joinPrefix
-            left_join = $isLeftJoin
-          }
-
-          $saved = $false
-          $joinRowId = ""
-          try {
-            $joinRes = Invoke-SnowPost "/api/now/table/sys_db_view_table" $joinBody
-            if ($joinRes -and ($joinRes.PSObject.Properties.Name -contains "result") -and $joinRes.result) {
-              $joinRowId = [string]$joinRes.result.sys_id
-            }
-            $saved = $true
-          } catch {
-            foreach ($leftField in @("left_field", "left_column", "field")) {
-              foreach ($rightField in @("right_field", "right_column", "join_field")) {
-                try {
-                  $fallbackBody = @{ view = $sysId; table = [string]$joinDef.joinTable }
-                  $fallbackBody[$leftField] = [string]$joinDef.baseColumn
-                  $fallbackBody[$rightField] = [string]$joinDef.targetColumn
-                  $joinRes = Invoke-SnowPost "/api/now/table/sys_db_view_table" $fallbackBody
-                  if ($joinRes -and ($joinRes.PSObject.Properties.Name -contains "result") -and $joinRes.result) {
-                    $joinRowId = [string]$joinRes.result.sys_id
-                  }
-                  $saved = $true
-                  break
-                } catch {
-                }
-              }
-              if ($saved) { break }
-            }
-          }
+          $joinCreate = Try-CreateViewJoinRow $sysId $joinDef $joinWhereClause $joinPrefix $isLeftJoin
+          $saved = [bool]$joinCreate.saved
+          $joinRowId = [string]$joinCreate.rowId
 
           if (-not $saved) {
             $joinsSaved = $false
@@ -1830,6 +1902,8 @@ try {
   } catch {
   }
 
+  Update-ViewEditorColumnChoices
+
   Update-AuthUI
   Update-FilterUI
   Apply-Language
@@ -1938,6 +2012,7 @@ try {
     for ($i = 0; $i -lt $gridJoins.Rows.Count; $i++) {
       Populate-JoinColumnsForRow $i
     }
+    Update-ViewEditorColumnChoices
   })
 
   $cmbBaseTable.add_TextChanged({
@@ -1946,6 +2021,7 @@ try {
     for ($i = 0; $i -lt $gridJoins.Rows.Count; $i++) {
       Populate-JoinColumnsForRow $i
     }
+    Update-ViewEditorColumnChoices
   })
 
   $btnReloadColumns.add_Click({ Fetch-ColumnsForBaseTable })
@@ -1957,6 +2033,7 @@ try {
       $gridJoins.Rows[$rowIndex].Cells[1].Value = "__base__"
       $gridJoins.Rows[$rowIndex].Cells[4].Value = ("t{0}" -f ($rowIndex + 1))
       $gridJoins.Rows[$rowIndex].Cells[5].Value = $false
+      Update-ViewEditorColumnChoices
       Save-JoinDefinitionsToSettings
     }
   })
@@ -1964,6 +2041,7 @@ try {
   $btnRemoveJoin.add_Click({
     if ($gridJoins.SelectedRows.Count -gt 0) {
       $gridJoins.Rows.Remove($gridJoins.SelectedRows[0])
+      Update-ViewEditorColumnChoices
       Save-JoinDefinitionsToSettings
     }
   })
@@ -1996,11 +2074,15 @@ try {
         for ($i = $e.RowIndex; $i -lt $gridJoins.Rows.Count; $i++) {
           Populate-JoinColumnsForRow $i
         }
+        Update-ViewEditorColumnChoices
       }
     }
     Save-JoinDefinitionsToSettings
   })
-  $gridJoins.add_RowsRemoved({ Save-JoinDefinitionsToSettings })
+  $gridJoins.add_RowsRemoved({
+    Update-ViewEditorColumnChoices
+    Save-JoinDefinitionsToSettings
+  })
   $gridJoins.add_CurrentCellDirtyStateChanged({
     Complete-GridCurrentEdit $gridJoins "Join"
   })
