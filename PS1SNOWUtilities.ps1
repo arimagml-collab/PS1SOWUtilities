@@ -1800,7 +1800,6 @@ try {
           $jsonWriter.Write("[")
         } elseif ($state.format -eq "csv") {
           $csvWriter = New-Object System.IO.StreamWriter($state.file, $false, (New-Object System.Text.UTF8Encoding($false)))
-              $csvWriter.WriteLine(("`"{0}`"" -f $itemJson))
         }
 
         while ($true) {
