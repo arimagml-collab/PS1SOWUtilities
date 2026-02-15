@@ -108,6 +108,9 @@ try {
       JoinTable="JOINテーブル"
       JoinBaseColumn="左カラム(ベース)"
       JoinTargetColumn="右カラム(JOIN先)"
+      BasePrefix="ベース Prefix"
+      JoinPrefix="Variable Prefix"
+      LeftJoin="LEFT JOIN"
       ConditionColumn="カラム"
       ConditionOperator="演算子"
       ConditionValue="値"
@@ -184,6 +187,9 @@ try {
       JoinTable="Join Table"
       JoinBaseColumn="Left Column (Base)"
       JoinTargetColumn="Right Column (Join)"
+      BasePrefix="Base Prefix"
+      JoinPrefix="Variable Prefix"
+      LeftJoin="LEFT JOIN"
       ConditionColumn="Column"
       ConditionOperator="Operator"
       ConditionValue="Value"
@@ -255,6 +261,7 @@ try {
       viewEditorViewName = ""
       viewEditorViewLabel = ""
       viewEditorBaseTable = ""
+      viewEditorBasePrefix = "t0"
       viewEditorWhereClause = ""
       viewEditorJoinsJson = "[]"
     }
@@ -581,6 +588,14 @@ try {
   $btnRemoveJoin.Location = New-Object System.Drawing.Point(370, 226)
   $btnRemoveJoin.Size = New-Object System.Drawing.Size(170, 32)
 
+  $lblBasePrefix = New-Object System.Windows.Forms.Label
+  $lblBasePrefix.Location = New-Object System.Drawing.Point(560, 232)
+  $lblBasePrefix.AutoSize = $true
+
+  $txtBasePrefix = New-Object System.Windows.Forms.TextBox
+  $txtBasePrefix.Location = New-Object System.Drawing.Point(670, 228)
+  $txtBasePrefix.Size = New-Object System.Drawing.Size(120, 28)
+
   $gridJoins = New-Object System.Windows.Forms.DataGridView
   $gridJoins.Location = New-Object System.Drawing.Point(190, 264)
   $gridJoins.Size = New-Object System.Drawing.Size(730, 120)
@@ -607,11 +622,21 @@ try {
   $colJoinTargetColumn.Name = "JoinTargetColumn"
   $colJoinTargetColumn.FlatStyle = "Popup"
   $colJoinTargetColumn.DisplayStyle = "DropDownButton"
-  $colJoinTargetColumn.FillWeight = 33
+  $colJoinTargetColumn.FillWeight = 22
+
+  $colJoinPrefix = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
+  $colJoinPrefix.Name = "JoinPrefix"
+  $colJoinPrefix.FillWeight = 16
+
+  $colJoinLeftJoin = New-Object System.Windows.Forms.DataGridViewCheckBoxColumn
+  $colJoinLeftJoin.Name = "LeftJoin"
+  $colJoinLeftJoin.FillWeight = 10
 
   [void]$gridJoins.Columns.Add($colJoinTable)
   [void]$gridJoins.Columns.Add($colJoinBaseColumn)
   [void]$gridJoins.Columns.Add($colJoinTargetColumn)
+  [void]$gridJoins.Columns.Add($colJoinPrefix)
+  [void]$gridJoins.Columns.Add($colJoinLeftJoin)
 
   $btnAddCondition = New-Object System.Windows.Forms.Button
   $btnAddCondition.Location = New-Object System.Drawing.Point(190, 392)
@@ -679,7 +704,7 @@ try {
     $lblViewLabel, $txtViewLabel,
     $lblBaseTable, $cmbBaseTable, $btnReloadColumns,
     $lblViewColumns, $clbViewColumns,
-    $lblJoinDefinitions, $btnAddJoin, $btnRemoveJoin,
+    $lblJoinDefinitions, $btnAddJoin, $btnRemoveJoin, $lblBasePrefix, $txtBasePrefix,
     $gridJoins,
     $btnAddCondition, $btnRemoveCondition,
     $gridConditions,
@@ -819,6 +844,7 @@ try {
     $lblJoinDefinitions.Text = T "JoinDefinitions"
     $btnAddJoin.Text = T "AddJoin"
     $btnRemoveJoin.Text = T "RemoveJoin"
+    $lblBasePrefix.Text = T "BasePrefix"
     $btnAddCondition.Text = T "AddCondition"
     $btnRemoveCondition.Text = T "RemoveCondition"
     $lblWherePreview.Text = T "WhereClausePreview"
@@ -826,6 +852,8 @@ try {
     $colJoinTable.HeaderText = T "JoinTable"
     $colJoinBaseColumn.HeaderText = T "JoinBaseColumn"
     $colJoinTargetColumn.HeaderText = T "JoinTargetColumn"
+    $colJoinPrefix.HeaderText = T "JoinPrefix"
+    $colJoinLeftJoin.HeaderText = T "LeftJoin"
     $colCondColumn.HeaderText = T "ConditionColumn"
     $colCondOperator.HeaderText = T "ConditionOperator"
     $colCondValue.HeaderText = T "ConditionValue"
@@ -1006,14 +1034,21 @@ try {
       $tableCell = $row.Cells[0].Value
       $baseCell = $row.Cells[1].Value
       $targetCell = $row.Cells[2].Value
+      $prefixCell = $row.Cells[3].Value
+      $leftJoinCell = $row.Cells[4].Value
       $joinTable = if ($null -eq $tableCell) { "" } else { ([string]$tableCell).Trim() }
       $baseColumn = if ($null -eq $baseCell) { "" } else { ([string]$baseCell).Trim() }
       $targetColumn = if ($null -eq $targetCell) { "" } else { ([string]$targetCell).Trim() }
-      if ([string]::IsNullOrWhiteSpace($joinTable) -and [string]::IsNullOrWhiteSpace($baseColumn) -and [string]::IsNullOrWhiteSpace($targetColumn)) { continue }
+      $joinPrefix = if ($null -eq $prefixCell) { "" } else { ([string]$prefixCell).Trim() }
+      $leftJoin = $false
+      if ($null -ne $leftJoinCell) { $leftJoin = [System.Convert]::ToBoolean($leftJoinCell) }
+      if ([string]::IsNullOrWhiteSpace($joinTable) -and [string]::IsNullOrWhiteSpace($baseColumn) -and [string]::IsNullOrWhiteSpace($targetColumn) -and [string]::IsNullOrWhiteSpace($joinPrefix) -and (-not $leftJoin)) { continue }
       [void]$defs.Add([pscustomobject]@{
         joinTable = $joinTable
         baseColumn = $baseColumn
         targetColumn = $targetColumn
+        joinPrefix = $joinPrefix
+        leftJoin = $leftJoin
       })
     }
     return @($defs.ToArray())
@@ -1199,6 +1234,8 @@ try {
     }
 
     $whereClause = Build-ViewWhereClause
+    $basePrefix = ([string]$txtBasePrefix.Text).Trim()
+    if ([string]::IsNullOrWhiteSpace($basePrefix)) { $basePrefix = "t0" }
     $selectedColumns = New-Object System.Collections.Generic.List[string]
     foreach ($item in $clbViewColumns.CheckedItems) {
       $itemText = [string]$item
@@ -1207,31 +1244,31 @@ try {
       elseif (-not [string]::IsNullOrWhiteSpace($itemText)) { [void]$selectedColumns.Add($itemText.Trim()) }
     }
 
-    function Get-ViewTablePrefix([int]$index) {
-      return ("t{0}" -f $index)
-    }
-
     function Build-JoinWhereClause([string]$basePrefix, [string]$baseColumn, [string]$joinPrefix, [string]$joinColumn) {
       $left = if ([string]::IsNullOrWhiteSpace($basePrefix)) { [string]$baseColumn } else { "{0}_{1}" -f [string]$basePrefix, [string]$baseColumn }
       $right = if ([string]::IsNullOrWhiteSpace($joinPrefix)) { [string]$joinColumn } else { "{0}_{1}" -f [string]$joinPrefix, [string]$joinColumn }
       return ("{0}={1}" -f $left, $right)
     }
 
-    function Save-ViewTableMetadata([string]$viewTableSysId, [string]$prefix, [string]$whereText) {
+    function Save-ViewTableMetadata([string]$viewTableSysId, [string]$prefix, [string]$whereText, [bool]$leftJoin, [bool]$hasLeftJoin) {
       if ([string]::IsNullOrWhiteSpace($viewTableSysId)) { return $false }
 
       $payloads = @()
-      if (-not [string]::IsNullOrWhiteSpace($prefix) -and -not [string]::IsNullOrWhiteSpace($whereText)) {
-        $payloads += @{ variable_prefix = $prefix; where_clause = $whereText }
-        $payloads += @{ variable_prefix = $prefix; where = $whereText }
-        $payloads += @{ prefix = $prefix; where_clause = $whereText }
-        $payloads += @{ prefix = $prefix; where = $whereText }
-      } elseif (-not [string]::IsNullOrWhiteSpace($prefix)) {
-        $payloads += @{ variable_prefix = $prefix }
-        $payloads += @{ prefix = $prefix }
-      } elseif (-not [string]::IsNullOrWhiteSpace($whereText)) {
-        $payloads += @{ where_clause = $whereText }
-        $payloads += @{ where = $whereText }
+      $prefixPayloads = @(@{}, @{ prefix = $prefix }, @{ variable_prefix = $prefix }, @{ prefix = $prefix; variable_prefix = $prefix })
+      $wherePayloads = @(@{}, @{ where = $whereText }, @{ where_clause = $whereText }, @{ where = $whereText; where_clause = $whereText })
+
+      foreach ($pPayload in $prefixPayloads) {
+        foreach ($wPayload in $wherePayloads) {
+          $payload = @{}
+          foreach ($k in $pPayload.Keys) {
+            if (-not [string]::IsNullOrWhiteSpace([string]$pPayload[$k])) { $payload[$k] = $pPayload[$k] }
+          }
+          foreach ($k in $wPayload.Keys) {
+            if (-not [string]::IsNullOrWhiteSpace([string]$wPayload[$k])) { $payload[$k] = $wPayload[$k] }
+          }
+          if ($hasLeftJoin) { $payload["left_join"] = $leftJoin }
+          if ($payload.Count -gt 0) { $payloads += $payload }
+        }
       }
 
       foreach ($payload in $payloads) {
@@ -1256,7 +1293,7 @@ try {
       $baseTableMetadataSaved = $true
       if (-not [string]::IsNullOrWhiteSpace($sysId)) {
         $baseTableMetadataSaved = $false
-        $basePrefix = Get-ViewTablePrefix 0
+        # base prefix is user configurable
         $baseTableRowId = ""
         try {
           $query = "view={0}^table={1}" -f $sysId, $baseTable
@@ -1279,7 +1316,7 @@ try {
           }
         }
 
-        $baseTableMetadataSaved = Save-ViewTableMetadata $baseTableRowId $basePrefix $whereClause
+        $baseTableMetadataSaved = Save-ViewTableMetadata $baseTableRowId $basePrefix $whereClause $false $false
       }
 
       if (-not [string]::IsNullOrWhiteSpace($whereClause)) {
@@ -1291,8 +1328,10 @@ try {
         $joinsSaved = $false
         $joinIndex = 1
         foreach ($joinDef in $joinDefs) {
-          $basePrefix = Get-ViewTablePrefix 0
-          $joinPrefix = Get-ViewTablePrefix $joinIndex
+          $joinPrefix = ([string]$joinDef.joinPrefix).Trim()
+          if ([string]::IsNullOrWhiteSpace($joinPrefix)) { $joinPrefix = ("t{0}" -f $joinIndex) }
+          $isLeftJoin = $false
+          if ($joinDef.PSObject.Properties.Name -contains "leftJoin") { $isLeftJoin = [System.Convert]::ToBoolean($joinDef.leftJoin) }
           $joinWhereClause = Build-JoinWhereClause $basePrefix ([string]$joinDef.baseColumn) $joinPrefix ([string]$joinDef.targetColumn)
           $joinBody = @{
             view = $sysId
@@ -1301,6 +1340,7 @@ try {
             right_field = [string]$joinDef.targetColumn
             join_condition = $joinWhereClause
             variable_prefix = $joinPrefix
+            left_join = $isLeftJoin
           }
 
           $saved = $false
@@ -1337,7 +1377,7 @@ try {
           }
 
           if (-not [string]::IsNullOrWhiteSpace($joinRowId)) {
-            [void](Save-ViewTableMetadata $joinRowId $joinPrefix $joinWhereClause)
+            [void](Save-ViewTableMetadata $joinRowId $joinPrefix $joinWhereClause $isLeftJoin $true)
           }
 
           $joinIndex++
@@ -1641,6 +1681,9 @@ try {
     }
   }
 
+  $txtBasePrefix.Text = [string]$script:Settings.viewEditorBasePrefix
+  if ([string]::IsNullOrWhiteSpace($txtBasePrefix.Text)) { $txtBasePrefix.Text = "t0" }
+
   $txtWherePreview.Text = [string]$script:Settings.viewEditorWhereClause
 
   try {
@@ -1655,6 +1698,8 @@ try {
         Populate-JoinColumnsForRow $rowIndex
         $gridJoins.Rows[$rowIndex].Cells[1].Value = [string]$j.baseColumn
         $gridJoins.Rows[$rowIndex].Cells[2].Value = [string]$j.targetColumn
+        $gridJoins.Rows[$rowIndex].Cells[3].Value = [string]$j.joinPrefix
+        if ($j.PSObject.Properties.Name -contains "leftJoin") { $gridJoins.Rows[$rowIndex].Cells[4].Value = [System.Convert]::ToBoolean($j.leftJoin) }
       }
     }
   } catch {
@@ -1757,6 +1802,11 @@ try {
     Save-Settings
   })
 
+  $txtBasePrefix.add_TextChanged({
+    $script:Settings.viewEditorBasePrefix = $txtBasePrefix.Text
+    Save-Settings
+  })
+
   $cmbBaseTable.add_SelectedIndexChanged({
     $script:Settings.viewEditorBaseTable = Get-SelectedBaseTableName
     Save-Settings
@@ -1779,6 +1829,8 @@ try {
     $rowIndex = $gridJoins.Rows.Add()
     if ($rowIndex -ge 0) {
       Populate-JoinColumnsForRow $rowIndex
+      $gridJoins.Rows[$rowIndex].Cells[3].Value = ("t{0}" -f ($rowIndex + 1))
+      $gridJoins.Rows[$rowIndex].Cells[4].Value = $false
       Save-JoinDefinitionsToSettings
     }
   })
