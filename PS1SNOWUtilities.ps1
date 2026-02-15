@@ -881,6 +881,17 @@ try {
     $dtEnd.Enabled   = $isBetween
   }
 
+  function Complete-GridCurrentEdit([System.Windows.Forms.DataGridView]$grid, [string]$gridName) {
+    if ($null -eq $grid -or -not $grid.IsCurrentCellDirty) { return }
+    try {
+      $context = [System.Windows.Forms.DataGridViewDataErrorContexts]::Commit
+      [void]$grid.CommitEdit($context)
+      [void]$grid.EndEdit($context)
+    } catch {
+      Add-Log ("{0} grid edit commit failed: {1}" -f $gridName, $_.Exception.Message)
+    }
+  }
+
   # ----------------------------
   # Fetch table list from ServiceNow
   # ----------------------------
@@ -1722,9 +1733,7 @@ try {
   $gridConditions.add_CellValueChanged({ Update-WherePreview })
   $gridConditions.add_RowsRemoved({ Update-WherePreview })
   $gridConditions.add_CurrentCellDirtyStateChanged({
-    if ($gridConditions.IsCurrentCellDirty) {
-      [void]$gridConditions.EndEdit()
-    }
+    Complete-GridCurrentEdit $gridConditions "Condition"
   })
 
   $gridJoins.add_CellValueChanged({
@@ -1736,9 +1745,7 @@ try {
   })
   $gridJoins.add_RowsRemoved({ Save-JoinDefinitionsToSettings })
   $gridJoins.add_CurrentCellDirtyStateChanged({
-    if ($gridJoins.IsCurrentCellDirty) {
-      [void]$gridJoins.EndEdit()
-    }
+    Complete-GridCurrentEdit $gridJoins "Join"
   })
 
   $gridConditions.add_DataError({
