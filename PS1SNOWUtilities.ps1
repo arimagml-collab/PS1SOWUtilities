@@ -290,7 +290,30 @@ try {
     }
   }
 
+  function Initialize-SettingsDebounceTimer {
+    if ($script:SettingsSaveTimer) { return }
+    $script:SettingsSaveTimer = New-Object System.Windows.Forms.Timer
+    $script:SettingsSaveTimer.Interval = 500
+    $script:SettingsSaveTimer.add_Tick({
+      $script:SettingsSaveTimer.Stop()
+      Save-Settings
+    })
+  }
+
+  function Request-SaveSettings([switch]$Immediate) {
+    if ($Immediate) {
+      if ($script:SettingsSaveTimer) { $script:SettingsSaveTimer.Stop() }
+      Save-Settings
+      return
+    }
+    Initialize-SettingsDebounceTimer
+    $script:SettingsSaveTimer.Stop()
+    $script:SettingsSaveTimer.Start()
+  }
+
   $script:Settings = Load-Settings
+  $script:ColumnCache = @{}
+  $script:ActiveWorkers = New-Object System.Collections.Generic.List[object]
 
   # ----------------------------
   # ServiceNow REST helper
@@ -391,10 +414,42 @@ try {
   # UI helpers
   # ----------------------------
   function Add-Log([string]$msg) {
+    if ($script:txtLog -and $script:txtLog.InvokeRequired) {
+      $appendAction = [System.Action[string]]{
+        param($m)
+        Add-Log $m
+      }
+      [void]$script:txtLog.BeginInvoke($appendAction, @($msg))
+      return
+    }
     $ts = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
     $script:txtLog.AppendText("[$ts] $msg`r`n")
     $script:txtLog.SelectionStart = $script:txtLog.TextLength
     $script:txtLog.ScrollToCaret()
+  }
+
+  function Invoke-Async([string]$name, [scriptblock]$work, [scriptblock]$onCompleted, $state = $null) {
+    $worker = New-Object System.ComponentModel.BackgroundWorker
+    [void]$script:ActiveWorkers.Add($worker)
+    $worker.add_DoWork({
+      param($sender, $e)
+      $e.Result = & $work $e.Argument
+    })
+    $worker.add_RunWorkerCompleted({
+      param($sender, $e)
+      try {
+        if ($e.Error) {
+          Add-Log ("{0}: {1}" -f (T "Failed"), $e.Error.Exception.Message)
+        } else {
+          & $onCompleted $e.Result
+        }
+      } finally {
+        [void]$script:ActiveWorkers.Remove($sender)
+        $sender.Dispose()
+      }
+    })
+    Add-Log ("Running async task: {0}" -f $name)
+    $worker.RunWorkerAsync($state)
   }
 
   function Ensure-ExportDir([string]$dir) {
@@ -909,35 +964,33 @@ try {
   # ----------------------------
   function Fetch-Tables {
     Add-Log (T "FetchingTables")
-    try {
+    Invoke-Async "Fetch-Tables" {
+      param($state)
       $fields = "name,label"
       $limit = 5000
       $q = "nameISNOTEMPTY^sys_update_nameISNOTEMPTY"
       $path = "/api/now/table/sys_db_object?sysparm_fields=$fields&sysparm_limit=$limit&sysparm_query=$(UrlEncode $q)"
       $res = Invoke-SnowGet $path
-
-      $results = $null
-      if ($res -and ($res.PSObject.Properties.Name -contains "result")) { $results = $res.result }
-      if ($null -eq $results) { $results = @() }
-
-      $list = @()
+      $results = if ($res -and ($res.PSObject.Properties.Name -contains "result")) { @($res.result) } else { @() }
+      $list = New-Object System.Collections.Generic.List[object]
       foreach ($r in $results) {
-        $name = $r.name
-        $label = $r.label
+        $name = [string]$r.name
+        $label = [string]$r.label
         if (-not [string]::IsNullOrWhiteSpace($name)) {
           if ([string]::IsNullOrWhiteSpace($label)) { $label = $name }
-          $list += [pscustomobject]@{ name=$name; label=$label }
+          [void]$list.Add([pscustomobject]@{ name=$name; label=$label })
         }
       }
-
-      $list = @($list | Sort-Object name)
+      return @($list | Sort-Object name)
+    } {
+      param($list)
       $script:Settings.cachedTables = @($list)
       $script:Settings.cachedTablesFetchedAt = (Get-Date).ToString("o")
-      Save-Settings
+      Request-SaveSettings
 
       $cmbTable.BeginUpdate()
       $cmbTable.Items.Clear()
-      foreach ($t in $list) {
+      foreach ($t in @($list)) {
         [void]$cmbTable.Items.Add(("{0} - {1}" -f $t.name, $t.label))
       }
       $cmbTable.EndUpdate()
@@ -948,24 +1001,12 @@ try {
         $candidate = $null
         foreach ($item in $cmbTable.Items) {
           $itemText = [string]$item
-          if ($itemText.StartsWith($targetName + " - ")) {
-            $candidate = $item
-            break
-          }
+          if ($itemText.StartsWith($targetName + " - ")) { $candidate = $item; break }
         }
-        if ($candidate) {
-          $cmbTable.SelectedItem = $candidate
-        } else {
-          $cmbTable.Text = $targetName
-        }
+        if ($candidate) { $cmbTable.SelectedItem = $candidate } else { $cmbTable.Text = $targetName }
       }
 
-      Add-Log ("{0}: {1}" -f (T "Done"), $list.Count)
-    } catch {
-      Add-Log ("{0}: {1}" -f (T "Failed"), $_.Exception.Message)
-      Add-Log (T "TableFetchFallback")
-      $cmbTable.DroppedDown = $false
-      $cmbTable.Select()
+      Add-Log ("{0}: {1}" -f (T "Done"), @($list).Count)
     }
   }
 
@@ -1092,7 +1133,7 @@ try {
     try {
       $defs = @(Get-JoinDefinitions)
       $script:Settings.viewEditorJoinsJson = ($defs | ConvertTo-Json -Depth 4 -Compress)
-      Save-Settings
+      Request-SaveSettings
     } catch {
       Add-Log ("Failed to save join definitions: {0}" -f $_.Exception.Message)
     }
@@ -1183,6 +1224,8 @@ try {
 
   function Fetch-ColumnsForTable([string]$table) {
     if ([string]::IsNullOrWhiteSpace($table)) { return @() }
+    $cacheKey = $table.Trim().ToLowerInvariant()
+    if ($script:ColumnCache.ContainsKey($cacheKey)) { return @($script:ColumnCache[$cacheKey]) }
 
     $tableNames = New-Object System.Collections.Generic.List[string]
     [void]$tableNames.Add($table)
@@ -1230,7 +1273,9 @@ try {
       if ([string]::IsNullOrWhiteSpace($label)) { $label = $name }
       $list += [pscustomobject]@{ name=$name; label=$label }
     }
-    return @($list | Sort-Object name -Unique)
+    $sorted = @($list | Sort-Object name -Unique)
+    $script:ColumnCache[$cacheKey] = @($sorted)
+    return @($sorted)
   }
 
   function Build-ViewEditorColumnDisplay([string]$token, [string]$label, [string]$sourceTable, [string]$sourcePrefix) {
@@ -1326,7 +1371,7 @@ try {
 
     if ($script:Settings) {
       $script:Settings.viewEditorSelectedColumnsJson = (@(Get-SelectedViewFieldTokens) | ConvertTo-Json -Compress)
-      Save-Settings
+      Request-SaveSettings
     }
 
   }
@@ -1557,19 +1602,19 @@ try {
     }
 
     Add-Log ("{0} [{1}]" -f (T "FetchingColumns"), $table)
-    try {
-      $list = @(Fetch-ColumnsForTable $table)
-
-      Update-ViewEditorColumnChoices
-
+    Invoke-Async "Fetch-Columns" {
+      param($state)
+      $tableName = [string]$state
+      $list = @(Fetch-ColumnsForTable $tableName)
+      return [pscustomobject]@{ table = $tableName; count = @($list).Count }
+    } {
+      param($result)
       for ($i = 0; $i -lt $gridJoins.Rows.Count; $i++) {
         Populate-JoinColumnsForRow $i
       }
-
-      Add-Log ("{0}: {1}" -f (T "ColumnsFetched"), (@($list)).Count)
-    } catch {
-      Add-Log ("{0}: {1}" -f (T "Failed"), $_.Exception.Message)
-    }
+      Update-ViewEditorColumnChoices
+      Add-Log ("{0}: {1}" -f (T "ColumnsFetched"), [int]$result.count)
+    } $table
   }
 
   function Create-DatabaseView {
@@ -1593,106 +1638,76 @@ try {
     $selectedColumns = @(Get-SelectedViewFieldTokens)
 
     Add-Log ("Creating DB view: {0}, base={1}, joins={2}" -f $viewName, $baseTable, $joinDefs.Count)
-    try {
-      $body = @{ name = $viewName; table = $baseTable }
-      if ($selectedColumns.Count -gt 0) { $body["view_field_list"] = (@($selectedColumns) -join ",") }
+    $ctx = [pscustomobject]@{ viewName=$viewName; viewLabel=$viewLabel; baseTable=$baseTable; basePrefix=$basePrefix; selectedColumns=@($selectedColumns); joinDefs=@($joinDefs) }
+    Invoke-Async "Create-DatabaseView" {
+      param($state)
+      $body = @{ name = $state.viewName; table = $state.baseTable }
+      if (@($state.selectedColumns).Count -gt 0) { $body["view_field_list"] = (@($state.selectedColumns) -join ",") }
       $createRes = Invoke-SnowPost "/api/now/table/sys_db_view" $body
       $created = if ($createRes -and ($createRes.PSObject.Properties.Name -contains "result")) { $createRes.result } else { $null }
       $sysId = if ($created) { [string]$created.sys_id } else { "" }
 
+      $joinsSaved = $true
       if (-not [string]::IsNullOrWhiteSpace($sysId)) {
-        [void](Invoke-SnowPatch ("/api/now/table/sys_db_view/{0}" -f $sysId) @{ label = $viewLabel })
-        if ($selectedColumns.Count -gt 0) {
-          $fieldCsv = (@($selectedColumns) -join ",")
-          $fieldSaved = $false
+        [void](Invoke-SnowPatch ("/api/now/table/sys_db_view/{0}" -f $sysId) @{ label = $state.viewLabel })
+
+        if (@($state.selectedColumns).Count -gt 0) {
+          $fieldCsv = (@($state.selectedColumns) -join ",")
           foreach ($fieldKey in @("view_fields", "field_names", "view_field_list")) {
-            try {
-              [void](Invoke-SnowPatch ("/api/now/table/sys_db_view/{0}" -f $sysId) @{ $fieldKey = $fieldCsv })
-              $fieldSaved = $true
-              break
-            } catch {
-            }
-          }
-          if (-not $fieldSaved) {
-            Add-Log "Could not persist selected view fields."
+            try { [void](Invoke-SnowPatch ("/api/now/table/sys_db_view/{0}" -f $sysId) @{ $fieldKey = $fieldCsv }); break } catch {}
           }
         }
-      }
 
-      $baseTableMetadataSaved = $true
-      if (-not [string]::IsNullOrWhiteSpace($sysId)) {
-        $baseTableMetadataSaved = $false
-        # base prefix is user configurable
         $baseTableRowId = ""
         try {
-          $query = "view={0}^table={1}" -f $sysId, $baseTable
+          $query = "view={0}^table={1}" -f $sysId, $state.baseTable
           $path = "/api/now/table/sys_db_view_table?sysparm_fields=sys_id&sysparm_limit=1&sysparm_query={0}" -f (UrlEncode $query)
           $baseTableRes = Invoke-SnowGet $path
           $baseTableRow = if ($baseTableRes -and ($baseTableRes.PSObject.Properties.Name -contains "result") -and @($baseTableRes.result).Count -gt 0) { $baseTableRes.result[0] } else { $null }
-          if ($baseTableRow) {
-            $baseTableRowId = [string]$baseTableRow.sys_id
-          }
-        } catch {
-        }
+          if ($baseTableRow) { $baseTableRowId = [string]$baseTableRow.sys_id }
+        } catch {}
 
         if ([string]::IsNullOrWhiteSpace($baseTableRowId)) {
           try {
-            $baseCreate = Invoke-SnowPost "/api/now/table/sys_db_view_table" @{ view = $sysId; table = $baseTable; order = 0; variable_prefix = $basePrefix }
-            if ($baseCreate -and ($baseCreate.PSObject.Properties.Name -contains "result") -and $baseCreate.result) {
-              $baseTableRowId = [string]$baseCreate.result.sys_id
-            }
-          } catch {
-          }
+            $baseCreate = Invoke-SnowPost "/api/now/table/sys_db_view_table" @{ view = $sysId; table = $state.baseTable; order = 0; variable_prefix = $state.basePrefix }
+            if ($baseCreate -and ($baseCreate.PSObject.Properties.Name -contains "result") -and $baseCreate.result) { $baseTableRowId = [string]$baseCreate.result.sys_id }
+          } catch {}
         }
 
-        $baseTableMetadataSaved = Save-ViewTableMetadata $baseTableRowId $basePrefix "" $false $false
-      }
+        [void](Save-ViewTableMetadata $baseTableRowId $state.basePrefix "" $false $false)
 
-
-      $joinsSaved = $true
-      if (-not [string]::IsNullOrWhiteSpace($sysId) -and $joinDefs.Count -gt 0) {
-        $joinsSaved = $false
-        $joinIndex = 1
-        foreach ($joinDef in $joinDefs) {
-          $joinPrefix = ([string]$joinDef.joinPrefix).Trim()
-          if ([string]::IsNullOrWhiteSpace($joinPrefix)) { $joinPrefix = ("t{0}" -f $joinIndex) }
-          $joinSource = ([string]$joinDef.joinSource).Trim()
-          $leftPrefix = if ([string]::IsNullOrWhiteSpace($joinSource) -or $joinSource -eq "__base__") { $basePrefix } else { $joinSource }
-          $isLeftJoin = $false
-          if ($joinDef.PSObject.Properties.Name -contains "leftJoin") { $isLeftJoin = [System.Convert]::ToBoolean($joinDef.leftJoin) }
-          $joinWhereClause = Build-JoinWhereClause $leftPrefix ([string]$joinDef.baseColumn) $joinPrefix ([string]$joinDef.targetColumn)
-          $joinOrder = $joinIndex * 100
-          $joinCreate = Try-CreateViewJoinRow $sysId $joinDef $joinWhereClause $joinPrefix $isLeftJoin $joinOrder
-          $saved = [bool]$joinCreate.saved
-          $joinRowId = [string]$joinCreate.rowId
-
-          if (-not $saved) {
-            $joinsSaved = $false
-            break
+        if (@($state.joinDefs).Count -gt 0) {
+          $joinsSaved = $false
+          $joinIndex = 1
+          foreach ($joinDef in @($state.joinDefs)) {
+            $joinPrefix = ([string]$joinDef.joinPrefix).Trim()
+            if ([string]::IsNullOrWhiteSpace($joinPrefix)) { $joinPrefix = ("t{0}" -f $joinIndex) }
+            $joinSource = ([string]$joinDef.joinSource).Trim()
+            $leftPrefix = if ([string]::IsNullOrWhiteSpace($joinSource) -or $joinSource -eq "__base__") { $state.basePrefix } else { $joinSource }
+            $isLeftJoin = $false
+            if ($joinDef.PSObject.Properties.Name -contains "leftJoin") { $isLeftJoin = [System.Convert]::ToBoolean($joinDef.leftJoin) }
+            $joinWhereClause = Build-JoinWhereClause $leftPrefix ([string]$joinDef.baseColumn) $joinPrefix ([string]$joinDef.targetColumn)
+            $joinOrder = $joinIndex * 100
+            $joinCreate = Try-CreateViewJoinRow $sysId $joinDef $joinWhereClause $joinPrefix $isLeftJoin $joinOrder
+            if (-not [bool]$joinCreate.saved) { $joinsSaved = $false; break }
+            if (-not [string]::IsNullOrWhiteSpace([string]$joinCreate.rowId)) { [void](Save-ViewTableMetadata ([string]$joinCreate.rowId) $joinPrefix $joinWhereClause $isLeftJoin $true) }
+            $joinIndex++
+            $joinsSaved = $true
           }
-
-          if (-not [string]::IsNullOrWhiteSpace($joinRowId)) {
-            [void](Save-ViewTableMetadata $joinRowId $joinPrefix $joinWhereClause $isLeftJoin $true)
-          }
-
-          $joinIndex++
-          $joinsSaved = $true
         }
       }
 
-      if (-not $joinsSaved) {
+      return [pscustomobject]@{ viewName=$state.viewName; sysId=$sysId; joinsSaved=$joinsSaved }
+    } {
+      param($result)
+      if (-not [bool]$result.joinsSaved) {
         Add-Log (T "ViewJoinFallback")
         [System.Windows.Forms.MessageBox]::Show((T "ViewJoinFallback")) | Out-Null
       }
-
-      Update-CreatedViewLinks $viewName $sysId
-
-      Add-Log ("{0}: {1}" -f (T "ViewCreated"), $viewName)
-      [System.Windows.Forms.MessageBox]::Show(("{0}`r`n{1}" -f (T "ViewCreated"), $viewName)) | Out-Null
-    } catch {
-      Add-Log ("{0}: {1}" -f (T "ViewCreateFailed"), $_.Exception.Message)
-      [System.Windows.Forms.MessageBox]::Show(("{0}`r`n{1}" -f (T "ViewCreateFailed"), $_.Exception.Message)) | Out-Null
-    }
+      Update-CreatedViewLinks ([string]$result.viewName) ([string]$result.sysId)
+      Add-Log ("{0}: {1}" -f (T "ViewCreated"), [string]$result.viewName)
+      [System.Windows.Forms.MessageBox]::Show(("{0}`r`n{1}" -f (T "ViewCreated"), [string]$result.viewName)) | Out-Null
+    } $ctx
   }
 
   # ----------------------------
@@ -1740,7 +1755,7 @@ try {
 
     $exportDir = Ensure-ExportDir $txtDir.Text
     $script:Settings.exportDirectory = $exportDir
-    Save-Settings
+    Request-SaveSettings
 
     $query = Build-QueryString
 
@@ -1755,146 +1770,134 @@ try {
     Add-Log ("outputFormat={0}" -f [string]$script:Settings.outputFormat)
     if (-not [string]::IsNullOrWhiteSpace($query)) { Add-Log ("query={0}" -f $query) }
 
-    try {
-      $all = New-Object System.Collections.Generic.List[object]
+    $fieldsVal = $script:Settings.exportFields
+    if ($null -eq $fieldsVal) { $fieldsVal = "" }
+    $fields = ([string]$fieldsVal).Trim()
+
+    $formatVal = [string]$script:Settings.outputFormat
+    if ([string]::IsNullOrWhiteSpace($formatVal)) { $formatVal = "csv" }
+    $format = $formatVal.Trim().ToLowerInvariant()
+    if ((@("csv","json","xlsx") -notcontains $format)) { $format = "csv" }
+
+    $stamp = (Get-Date).ToString("yyyyMMdd_HHmmss")
+    $suffix = if ($rbBetween.Checked) {
+      ("_{0}-{1}" -f $dtStart.Value.ToString("yyyyMMddHHmmss"), $dtEnd.Value.ToString("yyyyMMddHHmmss"))
+    } else { "" }
+    $ext = switch ($format) {
+      "json" { "json" }
+      "xlsx" { "xlsx" }
+      default { "csv" }
+    }
+    $file = Join-Path $exportDir ("{0}{1}_{2}.{3}" -f $table, $suffix, $stamp, $ext)
+
+    $ctx = [pscustomobject]@{ table=$table; pageSize=$pageSize; query=$query; fields=$fields; format=$format; file=$file }
+
+    Invoke-Async "Export-Table" {
+      param($state)
       $offset = 0
+      $total = 0
+      $isFirstJson = $true
+      $jsonWriter = $null
+      $csvWriter = $null
+      $all = New-Object System.Collections.Generic.List[object]
 
-      $fieldsVal = $script:Settings.exportFields
-      if ($null -eq $fieldsVal) { $fieldsVal = "" }
-      $fields = ([string]$fieldsVal).Trim()
-      $fieldsParam = ""
-      if (-not [string]::IsNullOrWhiteSpace($fields)) {
-        $fieldsParam = "&sysparm_fields=" + (UrlEncode $fields)
+      try {
+        if ($state.format -eq "json") {
+          $jsonWriter = New-Object System.IO.StreamWriter($state.file, $false, (New-Object System.Text.UTF8Encoding($false)))
+          $jsonWriter.Write("[")
+        } elseif ($state.format -eq "csv") {
+          $csvWriter = New-Object System.IO.StreamWriter($state.file, $false, (New-Object System.Text.UTF8Encoding($false)))
+              $csvWriter.WriteLine(("`"{0}`"" -f $itemJson))
+        }
+
+        while ($true) {
+          $qs = @{
+            sysparm_limit  = $state.pageSize
+            sysparm_offset = $offset
+            sysparm_display_value = "false"
+            sysparm_exclude_reference_link = "true"
+          }
+          $queryParts = New-Object System.Collections.Generic.List[string]
+          foreach ($k2 in $qs.Keys) { [void]$queryParts.Add(("{0}={1}" -f $k2, (UrlEncode ([string]$qs[$k2])))) }
+          if (-not [string]::IsNullOrWhiteSpace([string]$state.query)) { [void]$queryParts.Add(("sysparm_query={0}" -f (UrlEncode ([string]$state.query)))) }
+          if (-not [string]::IsNullOrWhiteSpace([string]$state.fields)) { [void]$queryParts.Add(("sysparm_fields={0}" -f (UrlEncode ([string]$state.fields)))) }
+
+          $path = "/api/now/table/" + $state.table + "?" + ($queryParts -join "&")
+          $res = Invoke-SnowGet $path
+          $batchRes = if ($res -and ($res.PSObject.Properties.Name -contains "result")) { $res.result } else { @() }
+          $batch = @($batchRes)
+
+          foreach ($r in $batch) {
+            if ($state.format -eq "json") {
+              $itemJson = ($r | ConvertTo-Json -Depth 10 -Compress)
+              if (-not $isFirstJson) { $jsonWriter.Write(",") }
+              $jsonWriter.Write($itemJson)
+              $isFirstJson = $false
+            } elseif ($state.format -eq "csv") {
+              $itemJson = ($r | ConvertTo-Json -Depth 10 -Compress).Replace('"','""')
+              $csvWriter.WriteLine(("`"{0}`"" -f $itemJson))
+            } else {
+              $all.Add($r)
+            }
+          }
+
+          $total += $batch.Count
+          if ($batch.Count -lt $state.pageSize) { break }
+          $offset += $state.pageSize
+          if ($offset -gt 2000000) { break }
+        }
+
+        if ($state.format -eq "xlsx") {
+          if ($all.Count -gt 0) {
+            $colNameSet = New-Object System.Collections.Generic.HashSet[string]
+            foreach ($obj in $all) { foreach ($p in $obj.PSObject.Properties) { [void]$colNameSet.Add($p.Name) } }
+            $cols = @($colNameSet) | Sort-Object
+            $outRows = foreach ($obj in $all) {
+              $h = [ordered]@{}
+              foreach ($c in $cols) { try { $h[$c] = $obj.$c } catch { $h[$c] = $null } }
+              [pscustomobject]$h
+            }
+            $excel = $null; $workbook = $null; $worksheet = $null
+            try {
+              $excel = New-Object -ComObject Excel.Application
+              $excel.Visible = $false
+              $excel.DisplayAlerts = $false
+              $workbook = $excel.Workbooks.Add()
+              $worksheet = $workbook.Worksheets.Item(1)
+              for ($i = 0; $i -lt $cols.Count; $i++) { $worksheet.Cells.Item(1, $i + 1) = [string]$cols[$i] }
+              $rowIndex = 2
+              foreach ($row in $outRows) {
+                for ($i = 0; $i -lt $cols.Count; $i++) {
+                  $v = $row.($cols[$i])
+                  if ($null -eq $v) { $worksheet.Cells.Item($rowIndex, $i + 1) = "" } else { $worksheet.Cells.Item($rowIndex, $i + 1) = [string]$v }
+                }
+                $rowIndex++
+              }
+              $workbook.SaveAs($state.file, 51)
+            } finally {
+              if ($workbook) { $workbook.Close($false) | Out-Null }
+              if ($excel) { $excel.Quit() }
+              foreach ($obj in @($worksheet, $workbook, $excel)) { if ($obj) { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($obj) } }
+              [GC]::Collect(); [GC]::WaitForPendingFinalizers()
+            }
+          }
+        }
+      } finally {
+        if ($jsonWriter) { $jsonWriter.Write("]"); $jsonWriter.Dispose() }
+        if ($csvWriter) { $csvWriter.Dispose() }
       }
 
-      while ($true) {
-        $qs = @{
-          sysparm_limit  = $pageSize
-          sysparm_offset = $offset
-          sysparm_display_value = "false"
-          sysparm_exclude_reference_link = "true"
-        }
-
-        $queryParts = New-Object System.Collections.Generic.List[string]
-        foreach ($k2 in $qs.Keys) {
-          [void]$queryParts.Add(("{0}={1}" -f $k2, (UrlEncode ([string]$qs[$k2]))))
-        }
-        if (-not [string]::IsNullOrWhiteSpace($query)) {
-          [void]$queryParts.Add(("sysparm_query={0}" -f (UrlEncode $query)))
-        }
-
-        $path = "/api/now/table/" + $table + "?" + ($queryParts -join "&") + $fieldsParam
-        $res = Invoke-SnowGet $path
-
-        $batchRes = $null
-        if ($res -and ($res.PSObject.Properties.Name -contains "result")) { $batchRes = $res.result }
-        if ($null -eq $batchRes) { $batchRes = @() }
-
-        $batch = @($batchRes)
-        foreach ($r in $batch) { $all.Add($r) }
-
-        Add-Log ("fetched: offset={0}, count={1}, total={2}" -f $offset, $batch.Count, $all.Count)
-
-        if ($batch.Count -lt $pageSize) { break }
-        $offset += $pageSize
-        if ($offset -gt 2000000) { break } # safety stop
-      }
-
-      if ($all.Count -eq 0) {
+      return [pscustomobject]@{ file=$state.file; total=$total }
+    } {
+      param($result)
+      if ([int]$result.total -eq 0) {
         Add-Log "0 records."
         [System.Windows.Forms.MessageBox]::Show("0 records.") | Out-Null
         return
       }
-
-      $colNameSet = New-Object System.Collections.Generic.HashSet[string]
-      foreach ($obj in $all) {
-        foreach ($p in $obj.PSObject.Properties) { [void]$colNameSet.Add($p.Name) }
-      }
-      $cols = @($colNameSet) | Sort-Object
-
-
-      $outRows = foreach ($obj in $all) {
-        $h = [ordered]@{}
-        foreach ($c in $cols) {
-          $val = $null
-          try { $val = $obj.$c } catch { $val = $null }
-          $h[$c] = $val
-        }
-        [pscustomobject]$h
-      }
-
-      $stamp = (Get-Date).ToString("yyyyMMdd_HHmmss")
-      $suffix = if ($rbBetween.Checked) {
-        ("_{0}-{1}" -f $dtStart.Value.ToString("yyyyMMddHHmmss"), $dtEnd.Value.ToString("yyyyMMddHHmmss"))
-      } else { "" }
-
-      $formatVal = [string]$script:Settings.outputFormat
-      if ([string]::IsNullOrWhiteSpace($formatVal)) { $formatVal = "csv" }
-      $format = $formatVal.Trim().ToLowerInvariant()
-      if ((@("csv","json","xlsx") -notcontains $format)) { $format = "csv" }
-
-      $ext = switch ($format) {
-        "json" { "json" }
-        "xlsx" { "xlsx" }
-        default { "csv" }
-      }
-
-      $file = Join-Path $exportDir ("{0}{1}_{2}.{3}" -f $table, $suffix, $stamp, $ext)
-
-      $recordCount = @($outRows).Count
-
-      switch ($format) {
-        "json" {
-          $outRows | ConvertTo-Json -Depth 10 | Set-Content -Path $file -Encoding UTF8
-        }
-        "xlsx" {
-          $excel = $null
-          $workbook = $null
-          $worksheet = $null
-          try {
-            $excel = New-Object -ComObject Excel.Application
-            $excel.Visible = $false
-            $excel.DisplayAlerts = $false
-            $workbook = $excel.Workbooks.Add()
-            $worksheet = $workbook.Worksheets.Item(1)
-
-            for ($i = 0; $i -lt $cols.Count; $i++) {
-              $worksheet.Cells.Item(1, $i + 1) = [string]$cols[$i]
-            }
-
-            $rowIndex = 2
-            foreach ($row in $outRows) {
-              for ($i = 0; $i -lt $cols.Count; $i++) {
-                $v = $row.($cols[$i])
-                if ($null -eq $v) { $worksheet.Cells.Item($rowIndex, $i + 1) = "" }
-                else { $worksheet.Cells.Item($rowIndex, $i + 1) = [string]$v }
-              }
-              $rowIndex++
-            }
-
-            $xlOpenXmlWorkbook = 51
-            $workbook.SaveAs($file, $xlOpenXmlWorkbook)
-          } finally {
-            if ($workbook) { $workbook.Close($false) | Out-Null }
-            if ($excel) { $excel.Quit() }
-            foreach ($obj in @($worksheet, $workbook, $excel)) {
-              if ($obj) { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($obj) }
-            }
-            [GC]::Collect()
-            [GC]::WaitForPendingFinalizers()
-          }
-        }
-        default {
-          $outRows | Export-Csv -Path $file -NoTypeInformation -Encoding UTF8
-        }
-      }
-      Add-Log ("{0}: {1}" -f (T "Done"), $file)
-
-      [System.Windows.Forms.MessageBox]::Show(("OK`r`n{0}`r`nRecords: {1}" -f $file, $recordCount)) | Out-Null
-    } catch {
-      Add-Log ("{0}: {1}" -f (T "Failed"), $_.Exception.Message)
-      [System.Windows.Forms.MessageBox]::Show(("{0}`r`n{1}" -f (T "Failed"), $_.Exception.Message)) | Out-Null
-    }
+      Add-Log ("{0}: {1}" -f (T "Done"), [string]$result.file)
+      [System.Windows.Forms.MessageBox]::Show(("OK`r`n{0}`r`nRecords: {1}" -f [string]$result.file, [int]$result.total)) | Out-Null
+    } $ctx
   }
 
   # ----------------------------
@@ -2017,103 +2020,103 @@ try {
   # ----------------------------
   $cmbLang.add_SelectedIndexChanged({
     $script:Settings.uiLanguage = [string]$cmbLang.SelectedItem
-    Save-Settings
+    Request-SaveSettings
     Apply-Language
   })
 
   $txtInstance.add_TextChanged({
     $script:Settings.instanceName = $txtInstance.Text
-    Save-Settings
+    Request-SaveSettings
   })
 
   $rbUserPass.add_CheckedChanged({
     if ($rbUserPass.Checked) {
       $script:Settings.authType = "userpass"
-      Save-Settings
+      Request-SaveSettings
       Update-AuthUI
     }
   })
   $rbApiKey.add_CheckedChanged({
     if ($rbApiKey.Checked) {
       $script:Settings.authType = "apikey"
-      Save-Settings
+      Request-SaveSettings
       Update-AuthUI
     }
   })
 
   $txtUser.add_TextChanged({
     $script:Settings.userId = $txtUser.Text
-    Save-Settings
+    Request-SaveSettings
   })
 
   $txtPass.add_TextChanged({
     $script:Settings.passwordEnc = Protect-Secret $txtPass.Text
-    Save-Settings
+    Request-SaveSettings
   })
 
   $txtKey.add_TextChanged({
     $script:Settings.apiKeyEnc = Protect-Secret $txtKey.Text
-    Save-Settings
+    Request-SaveSettings
   })
 
   $rbAll.add_CheckedChanged({
     if ($rbAll.Checked) {
       $script:Settings.filterMode = "all"
-      Save-Settings
+      Request-SaveSettings
       Update-FilterUI
     }
   })
   $rbBetween.add_CheckedChanged({
     if ($rbBetween.Checked) {
       $script:Settings.filterMode = "updated_between"
-      Save-Settings
+      Request-SaveSettings
       Update-FilterUI
     }
   })
 
   $dtStart.add_ValueChanged({
     $script:Settings.startDateTime = $dtStart.Value.ToString("yyyy-MM-dd HH:mm:ss")
-    Save-Settings
+    Request-SaveSettings
   })
   $dtEnd.add_ValueChanged({
     $script:Settings.endDateTime = $dtEnd.Value.ToString("yyyy-MM-dd HH:mm:ss")
-    Save-Settings
+    Request-SaveSettings
   })
 
   $cmbTable.add_SelectedIndexChanged({
     $script:Settings.selectedTableName = Get-SelectedTableName
-    Save-Settings
+    Request-SaveSettings
   })
 
   $cmbTable.add_TextChanged({
     $script:Settings.selectedTableName = Get-SelectedTableName
-    Save-Settings
+    Request-SaveSettings
   })
 
   $txtDir.add_TextChanged({
     $script:Settings.exportDirectory = $txtDir.Text
-    Save-Settings
+    Request-SaveSettings
   })
 
   $txtViewName.add_TextChanged({
     $script:Settings.viewEditorViewName = $txtViewName.Text
-    Save-Settings
+    Request-SaveSettings
   })
 
   $txtViewLabel.add_TextChanged({
     $script:Settings.viewEditorViewLabel = $txtViewLabel.Text
-    Save-Settings
+    Request-SaveSettings
   })
 
   $txtBasePrefix.add_TextChanged({
     $script:Settings.viewEditorBasePrefix = $txtBasePrefix.Text
-    Save-Settings
+    Request-SaveSettings
     Update-ViewEditorColumnChoices
   })
 
   $cmbBaseTable.add_SelectedIndexChanged({
     $script:Settings.viewEditorBaseTable = Get-SelectedBaseTableName
-    Save-Settings
+    Request-SaveSettings
     for ($i = 0; $i -lt $gridJoins.Rows.Count; $i++) {
       Populate-JoinColumnsForRow $i
     }
@@ -2122,7 +2125,7 @@ try {
 
   $cmbBaseTable.add_TextChanged({
     $script:Settings.viewEditorBaseTable = Get-SelectedBaseTableName
-    Save-Settings
+    Request-SaveSettings
     for ($i = 0; $i -lt $gridJoins.Rows.Count; $i++) {
       Populate-JoinColumnsForRow $i
     }
@@ -2208,7 +2211,7 @@ try {
 
   $cmbOutputFormat.add_SelectedIndexChanged({
     $script:Settings.outputFormat = [string]$cmbOutputFormat.SelectedItem
-    Save-Settings
+    Request-SaveSettings
   })
 
   $btnTogglePass.add_Click({
@@ -2261,7 +2264,7 @@ try {
     Complete-GridCurrentEdit $gridJoins "Join"
     Save-JoinDefinitionsToSettings
     $script:Settings.viewEditorSelectedColumnsJson = (@(Get-SelectedViewFieldTokens) | ConvertTo-Json -Compress)
-    Save-Settings
+    Request-SaveSettings -Immediate
   })
 
   Add-Log "Ready."
