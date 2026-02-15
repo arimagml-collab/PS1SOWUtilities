@@ -404,8 +404,8 @@ try {
   # ----------------------------
   $form = New-Object System.Windows.Forms.Form
   $form.StartPosition = "CenterScreen"
-  $form.Size = New-Object System.Drawing.Size(980, 720)
-  $form.MinimumSize = New-Object System.Drawing.Size(900, 650)
+  $form.Size = New-Object System.Drawing.Size(1120, 720)
+  $form.MinimumSize = New-Object System.Drawing.Size(1040, 650)
 
   $tabs = New-Object System.Windows.Forms.TabControl
   $tabs.Dock = "Fill"
@@ -422,6 +422,8 @@ try {
   # --- Export tab layout
   $panelExport = New-Object System.Windows.Forms.Panel
   $panelExport.Dock = "Fill"
+  $panelExport.AutoScroll = $true
+  $panelExport.AutoScrollMinSize = New-Object System.Drawing.Size(940, 660)
   $tabExport.Controls.Add($panelExport)
 
   $lblTable = New-Object System.Windows.Forms.Label
@@ -504,7 +506,7 @@ try {
   $btnExecute.Size = New-Object System.Drawing.Size(180, 42)
 
   $btnOpenFolder = New-Object System.Windows.Forms.Button
-  $btnOpenFolder.Location = New-Object System.Drawing.Point(540, 220)
+  $btnOpenFolder.Location = New-Object System.Drawing.Point(740, 228)
   $btnOpenFolder.Size = New-Object System.Drawing.Size(180, 42)
 
   $grpLog = New-Object System.Windows.Forms.GroupBox
@@ -513,7 +515,7 @@ try {
 
   $script:txtLog = New-Object System.Windows.Forms.TextBox
   $script:txtLog.Multiline = $true
-  $script:txtLog.ScrollBars = "Vertical"
+  $script:txtLog.ScrollBars = "Both"
   $script:txtLog.Dock = "Fill"
   $script:txtLog.ReadOnly = $true
   $grpLog.Controls.Add($script:txtLog)
@@ -531,6 +533,8 @@ try {
   # --- DataBase View Editor tab layout
   $panelViewEditor = New-Object System.Windows.Forms.Panel
   $panelViewEditor.Dock = "Fill"
+  $panelViewEditor.AutoScroll = $true
+  $panelViewEditor.AutoScrollMinSize = New-Object System.Drawing.Size(940, 560)
   $tabViewEditor.Controls.Add($panelViewEditor)
 
   $lblViewName = New-Object System.Windows.Forms.Label
@@ -657,6 +661,8 @@ try {
   # --- Settings tab layout
   $panelSettings = New-Object System.Windows.Forms.Panel
   $panelSettings.Dock = "Fill"
+  $panelSettings.AutoScroll = $true
+  $panelSettings.AutoScrollMinSize = New-Object System.Drawing.Size(940, 420)
   $tabSettings.Controls.Add($panelSettings)
 
   $lblUiLang = New-Object System.Windows.Forms.Label
