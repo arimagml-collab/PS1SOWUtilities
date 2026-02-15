@@ -981,8 +981,7 @@ try {
   # ----------------------------
   function Fetch-Tables {
     Add-Log (T "FetchingTables")
-    Invoke-Async "Fetch-Tables" {
-      param($state)
+    try {
       $fields = "name,label"
       $limit = 5000
       $q = "nameISNOTEMPTY^sys_update_nameISNOTEMPTY"
@@ -998,9 +997,8 @@ try {
           [void]$list.Add([pscustomobject]@{ name=$name; label=$label })
         }
       }
-      return @($list | Sort-Object name)
-    } {
-      param($list)
+      $list = @($list | Sort-Object name)
+
       $script:Settings.cachedTables = @($list)
       $script:Settings.cachedTablesFetchedAt = (Get-Date).ToString("o")
       Request-SaveSettings
@@ -1024,6 +1022,8 @@ try {
       }
 
       Add-Log ("{0}: {1}" -f (T "Done"), @($list).Count)
+    } catch {
+      Add-Log ("{0}: {1}" -f (T "Failed"), $_.Exception.Message)
     }
   }
 
