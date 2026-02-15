@@ -67,6 +67,7 @@ PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）�
 ### 免責事項
 
 本ソフトウェアは ServiceNow 社とは無関係であり、ServiceNow 社による承認・保証・サポートを受けていません。
+また、作成者自身も本ソフトウェアの利用により生じたいかなる損害についても責任を負いません。ご利用にあたっては、必ず利用者自身の責任で十分にテストと確認を行ったうえでご活用ください。
 
 ### ライセンス
 
@@ -139,6 +140,7 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
 ### Disclaimer
 
 This software is not affiliated with ServiceNow, and is not endorsed, supported, or warranted by ServiceNow.
+The author also accepts no liability for any damages arising from the use of this software. You are responsible for thoroughly testing and verifying it before use.
 
 ### License
 
