@@ -6,7 +6,18 @@
 
 ## 日本語
 
-PS1 SNOW Utilities は、ServiceNow テーブルを CSV / JSON / Excel (.xlsx) としてエクスポートするための PowerShell (WinForms) ユーティリティです。
+PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）と DataBase View の作成（DataBase View Editor）を行える PowerShell (WinForms) ユーティリティです。
+
+### タブ別の活用シーン
+
+- **Export**
+  - データを CSV / JSON / Excel に出力し、各部署で自由に集計・加工・連携したいときに有効です。
+  - 例：運用部門が Excel で一次分析、別チームが JSON を使って別システム連携するといった並行利用。
+- **DataBase View Editor**
+  - ServiceNow 標準 UI では操作しづらい Database View 作成を、GUI で手早く組み立てたいときに有効です。
+  - Admin 権限がなくテーブル/カラムの内部名を把握しづらい場合でも、候補を見ながらベーステーブル・JOIN・表示カラムを作成できます。
+- **設定**
+  - インスタンス名・認証方式・言語などを保存し、繰り返し作業の入力ミスやセットアップ時間を減らしたいときに有効です。
 
 ### 基本的な使い方
 
@@ -44,7 +55,18 @@ https://www.ixam.net
 
 ## English
 
-PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow table data to CSV / JSON / Excel (.xlsx).
+PS1 SNOW Utilities is a PowerShell (WinForms) utility for both exporting ServiceNow table data and creating DataBase Views more comfortably.
+
+### Useful situations by tab
+
+- **Export**
+  - Best when you want to distribute data as CSV / JSON / Excel so each department can process it in its own workflow.
+  - Example: operations team analyzes in Excel while another team consumes JSON for system integration.
+- **DataBase View Editor**
+  - Best when ServiceNow's native UI feels cumbersome for building Database Views.
+  - Especially helpful without admin privileges, where internal table/column names are hard to find; you can still build base tables, joins, and visible columns efficiently.
+- **Settings**
+  - Best when you want to persist instance/auth/language preferences and reduce repeated setup time and input mistakes.
 
 ### Basic Usage
 
