@@ -1507,7 +1507,7 @@ try {
     return $false
   }
 
-  function Try-CreateViewJoinRow([string]$sysId, [psobject]$joinDef, [string]$joinWhereClause, [string]$joinPrefix, [bool]$isLeftJoin) {
+  function Try-CreateViewJoinRow([string]$sysId, [psobject]$joinDef, [string]$joinWhereClause, [string]$joinPrefix, [bool]$isLeftJoin, [int]$joinOrder) {
     $joinBody = @{
       view = $sysId
       table = [string]$joinDef.joinTable
@@ -1516,6 +1516,7 @@ try {
       join_condition = $joinWhereClause
       variable_prefix = $joinPrefix
       left_join = $isLeftJoin
+      order = $joinOrder
     }
 
     $saved = $false
@@ -1530,7 +1531,7 @@ try {
       foreach ($leftField in @("left_field", "left_column", "field")) {
         foreach ($rightField in @("right_field", "right_column", "join_field")) {
           try {
-            $fallbackBody = @{ view = $sysId; table = [string]$joinDef.joinTable }
+            $fallbackBody = @{ view = $sysId; table = [string]$joinDef.joinTable; order = $joinOrder }
             $fallbackBody[$leftField] = [string]$joinDef.baseColumn
             $fallbackBody[$rightField] = [string]$joinDef.targetColumn
             $joinRes = Invoke-SnowPost "/api/now/table/sys_db_view_table" $fallbackBody
@@ -1685,7 +1686,8 @@ try {
           $isLeftJoin = $false
           if ($joinDef.PSObject.Properties.Name -contains "leftJoin") { $isLeftJoin = [System.Convert]::ToBoolean($joinDef.leftJoin) }
           $joinWhereClause = Build-JoinWhereClause $leftPrefix ([string]$joinDef.baseColumn) $joinPrefix ([string]$joinDef.targetColumn)
-          $joinCreate = Try-CreateViewJoinRow $sysId $joinDef $joinWhereClause $joinPrefix $isLeftJoin
+          $joinOrder = $joinIndex * 100
+          $joinCreate = Try-CreateViewJoinRow $sysId $joinDef $joinWhereClause $joinPrefix $isLeftJoin $joinOrder
           $saved = [bool]$joinCreate.saved
           $joinRowId = [string]$joinCreate.rowId
 
