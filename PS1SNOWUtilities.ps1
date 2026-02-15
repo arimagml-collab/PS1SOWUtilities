@@ -1254,11 +1254,21 @@ try {
       if ([string]::IsNullOrWhiteSpace($viewTableSysId)) { return $false }
 
       $payloads = @()
-      $prefixPayloads = @(@{}, @{ prefix = $prefix }, @{ variable_prefix = $prefix }, @{ prefix = $prefix; variable_prefix = $prefix })
-      $wherePayloads = @(@{}, @{ where = $whereText }, @{ where_clause = $whereText }, @{ where = $whereText; where_clause = $whereText })
+      $prefixCandidates = @(
+        @{ variable_prefix = $prefix },
+        @{ prefix = $prefix },
+        @{ prefix = $prefix; variable_prefix = $prefix },
+        @{}
+      )
+      $whereCandidates = @(
+        @{ where_clause = $whereText },
+        @{ where = $whereText },
+        @{ where = $whereText; where_clause = $whereText },
+        @{}
+      )
 
-      foreach ($pPayload in $prefixPayloads) {
-        foreach ($wPayload in $wherePayloads) {
+      foreach ($pPayload in $prefixCandidates) {
+        foreach ($wPayload in $whereCandidates) {
           $payload = @{}
           foreach ($k in $pPayload.Keys) {
             if (-not [string]::IsNullOrWhiteSpace([string]$pPayload[$k])) { $payload[$k] = $pPayload[$k] }
@@ -1271,10 +1281,49 @@ try {
         }
       }
 
+      function Test-ViewTableMetadata([psobject]$record, [string]$expectedPrefix, [string]$expectedWhereText, [bool]$expectedLeftJoin, [bool]$shouldCheckLeftJoin) {
+        if ($null -eq $record) { return $false }
+
+        if (-not [string]::IsNullOrWhiteSpace($expectedPrefix)) {
+          $prefixOk = $false
+          if ($record.PSObject.Properties.Name -contains "variable_prefix") {
+            $prefixOk = ([string]$record.variable_prefix -eq $expectedPrefix)
+          }
+          if (-not $prefixOk -and ($record.PSObject.Properties.Name -contains "prefix")) {
+            $prefixOk = ([string]$record.prefix -eq $expectedPrefix)
+          }
+          if (-not $prefixOk) { return $false }
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($expectedWhereText)) {
+          $whereOk = $false
+          if ($record.PSObject.Properties.Name -contains "where_clause") {
+            $whereOk = ([string]$record.where_clause -eq $expectedWhereText)
+          }
+          if (-not $whereOk -and ($record.PSObject.Properties.Name -contains "where")) {
+            $whereOk = ([string]$record.where -eq $expectedWhereText)
+          }
+          if (-not $whereOk) { return $false }
+        }
+
+        if ($shouldCheckLeftJoin) {
+          if (-not ($record.PSObject.Properties.Name -contains "left_join")) { return $false }
+          if ([System.Convert]::ToBoolean($record.left_join) -ne $expectedLeftJoin) { return $false }
+        }
+
+        return $true
+      }
+
       foreach ($payload in $payloads) {
         try {
           [void](Invoke-SnowPatch ("/api/now/table/sys_db_view_table/{0}" -f $viewTableSysId) $payload)
-          return $true
+
+          $verifyPath = "/api/now/table/sys_db_view_table/{0}?sysparm_fields=prefix,variable_prefix,where,where_clause,left_join" -f $viewTableSysId
+          $verifyRes = Invoke-SnowGet $verifyPath
+          $verifyRecord = if ($verifyRes -and ($verifyRes.PSObject.Properties.Name -contains "result")) { $verifyRes.result } else { $null }
+          if (Test-ViewTableMetadata $verifyRecord $prefix $whereText $leftJoin $hasLeftJoin) {
+            return $true
+          }
         } catch {
         }
       }
