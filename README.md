@@ -20,6 +20,16 @@ PS1 SNOW Utilities は、ServiceNow テーブルを CSV / JSON / Excel (.xlsx) �
 5. エクスポート先フォルダと出力形式（CSV / JSON / Excel）を指定して **実行** を押します。
 6. ログを確認し、必要に応じて **フォルダを開く** で出力先を開きます。
 
+### 認証情報の保存方式（パスワード / APIキー）
+
+- `settings.json` に保存される `passwordEnc` / `apiKeyEnc` は、Windows の **DPAPI (CurrentUser)** で暗号化されています。
+- そのため、通常は **同じ Windows ユーザー + 同じ PC** でのみ復号でき、別PCへ `settings.json` をコピーしても読み取りできません。
+- 復号キーをレジストリへ別保存する実装は採用していません（レジストリ依存なし）。
+- より厳格にしたい場合は、次の運用を推奨します。
+  - APIキーは短寿命トークン化・定期ローテーションする
+  - 端末移行時は `settings.json` の秘密情報を引き継がず再入力する
+  - 企業環境では Windows Credential Manager / SecretManagement 連携を検討する
+
 ### 免責事項
 
 本ソフトウェアは ServiceNow 社とは無関係であり、ServiceNow 社による承認・保証・サポートを受けていません。
@@ -47,6 +57,16 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
 4. Optionally set filters (All records or `sys_updated_on` date range).
 5. Choose an export directory and output format (CSV / JSON / Excel), then click **Execute**.
 6. Check logs, and use **Open Folder** to view exported files.
+
+### Credential storage model (Password / API Key)
+
+- `passwordEnc` and `apiKeyEnc` in `settings.json` are encrypted with Windows **DPAPI (CurrentUser)**.
+- In normal use, secrets can be decrypted only by the **same Windows user on the same machine**. Copying `settings.json` to another PC should not make secrets readable.
+- This project does not rely on a separate registry-stored decryption key.
+- For stricter operations, consider:
+  - Short-lived API tokens with regular rotation
+  - Re-entering secrets after device migration instead of carrying encrypted blobs
+  - Enterprise-backed secret stores (Windows Credential Manager / SecretManagement)
 
 ### Disclaimer
 
