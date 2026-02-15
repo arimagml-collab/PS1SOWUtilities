@@ -1084,7 +1084,7 @@ try {
         Add-Log ("Skip invalid join row: {0}" -f $_.Exception.Message)
       }
     }
-    return @($defs)
+    return $defs.ToArray()
   }
 
   function Save-JoinDefinitionsToSettings {
@@ -1172,7 +1172,7 @@ try {
         [void]$tokens.Add($token)
       }
     }
-    return @($tokens)
+    return $tokens.ToArray()
   }
 
   function Update-ViewEditorColumnChoices {
@@ -1333,7 +1333,7 @@ try {
         [void]$parts.Add(("{0}{1}{2}" -f $column, $op, $value))
       }
     }
-    return (@($parts) -join "^")
+    return ($parts.ToArray() -join "^")
   }
 
   function Build-JoinWhereClause([string]$leftPrefix, [string]$baseColumn, [string]$joinPrefix, [string]$joinColumn) {
