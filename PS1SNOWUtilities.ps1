@@ -38,6 +38,7 @@ try {
 
   Add-Type -AssemblyName System.Drawing | Out-Null
   [System.Windows.Forms.Application]::EnableVisualStyles()
+  $script:UiRunspace = [System.Management.Automation.Runspaces.Runspace]::DefaultRunspace
 
   # ----------------------------
   # Paths / Settings
@@ -434,7 +435,15 @@ try {
     [void]$script:ActiveWorkers.Add($worker)
     $worker.add_DoWork({
       param($sender, $e)
-      $e.Result = & $work $e.Argument
+      $previousRunspace = [System.Management.Automation.Runspaces.Runspace]::DefaultRunspace
+      try {
+        if ($script:UiRunspace) {
+          [System.Management.Automation.Runspaces.Runspace]::DefaultRunspace = $script:UiRunspace
+        }
+        $e.Result = & $work $e.Argument
+      } finally {
+        [System.Management.Automation.Runspaces.Runspace]::DefaultRunspace = $previousRunspace
+      }
     })
     $worker.add_RunWorkerCompleted({
       param($sender, $e)
