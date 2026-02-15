@@ -15,7 +15,7 @@ PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）�
   - 例：運用部門が Excel で一次分析し、別チームが JSON を使って別システム連携する並行利用。
 - **Database View Editor**
   - ServiceNow 標準 UI では操作しづらい Database View 作成を、GUI で手早く組み立てたいときに有効です。
-  - テーブル/カラム候補を見ながら、ベーステーブル・JOIN・表示カラムを設計できます。
+  - テーブル/カラム候補を見ながら、ベーステーブルと JOIN を設計できます。
 - **設定**
   - インスタンス名・認証方式・言語などを保存し、繰り返し作業の入力ミスやセットアップ時間を減らしたいときに有効です。
 
@@ -46,7 +46,7 @@ PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）�
 1. **Database View Editor** タブで View 内部名と View ラベルを入力します。
 2. ベーステーブルを選択し、必要に応じてベース Prefix を設定します。
 3. **JOIN追加** で JOIN テーブル・左右カラム・Variable Prefix・LEFT JOIN 条件を設定します。
-4. **カラム再取得** で候補を読み込み、表示対象カラムを選択します。
+4. **カラム再取得** でカラム候補を再読み込みします（現状は候補がそのまま表示カラムとして扱われます）。
 5. **View作成** を実行し、完了ログとリンク（作成済み View 一覧 / View 定義）を確認します。
 
 ### 補足（権限・制約）
@@ -87,7 +87,7 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
   - Example: the operations team analyzes in Excel while another team consumes JSON for system integration.
 - **Database View Editor**
   - Best when ServiceNow's native UI feels cumbersome for building Database Views.
-  - You can design base tables, joins, and visible columns with selectable candidates.
+  - You can design base tables and joins while checking table/column candidates.
 - **Settings**
   - Best when you want to persist instance/auth/language preferences and reduce repeated setup time and input mistakes.
 
@@ -118,7 +118,7 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
 1. In the **Database View Editor** tab, enter the View name and label.
 2. Select a base table, and set the base prefix if required.
 3. Use **Add Join** to define join table, left/right columns, variable prefix, and LEFT JOIN options.
-4. Click **Reload Columns** and select visible columns.
+4. Click **Reload Columns** to refresh column candidates (currently, the loaded candidates are treated as visible columns as-is).
 5. Click **Create View**, then review completion logs and links (created View list / View definition record).
 
 ### Notes (permissions and limitations)
