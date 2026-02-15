@@ -570,9 +570,17 @@ try {
   $lblViewColumns.Location = New-Object System.Drawing.Point(20, 100)
   $lblViewColumns.AutoSize = $true
 
-  $clbViewColumns = New-Object System.Windows.Forms.CheckedListBox
+  $clbViewColumns = New-Object System.Windows.Forms.ListBox
   $clbViewColumns.Location = New-Object System.Drawing.Point(190, 100)
   $clbViewColumns.Size = New-Object System.Drawing.Size(730, 120)
+  $clbViewColumns.HorizontalScrollbar = $true
+
+  $txtViewName.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
+  $lblViewLabel.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
+  $txtViewLabel.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
+  $cmbBaseTable.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
+  $btnReloadColumns.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
+  $clbViewColumns.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
 
   $lblJoinDefinitions = New-Object System.Windows.Forms.Label
   $lblJoinDefinitions.Location = New-Object System.Drawing.Point(20, 230)
@@ -593,6 +601,8 @@ try {
   $txtBasePrefix = New-Object System.Windows.Forms.TextBox
   $txtBasePrefix.Location = New-Object System.Drawing.Point(670, 228)
   $txtBasePrefix.Size = New-Object System.Drawing.Size(120, 28)
+  $lblBasePrefix.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
+  $txtBasePrefix.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
 
   $gridJoins = New-Object System.Windows.Forms.DataGridView
   $gridJoins.Location = New-Object System.Drawing.Point(190, 264)
@@ -603,6 +613,7 @@ try {
   $gridJoins.SelectionMode = "FullRowSelect"
   $gridJoins.MultiSelect = $false
   $gridJoins.AutoSizeColumnsMode = "Fill"
+  $gridJoins.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
 
   $colJoinTable = New-Object System.Windows.Forms.DataGridViewComboBoxColumn
   $colJoinTable.Name = "JoinTable"
@@ -647,6 +658,7 @@ try {
   $btnCreateView = New-Object System.Windows.Forms.Button
   $btnCreateView.Location = New-Object System.Drawing.Point(740, 500)
   $btnCreateView.Size = New-Object System.Drawing.Size(180, 42)
+  $btnCreateView.Anchor = [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Right
 
   $panelViewEditor.Controls.AddRange(@(
     $lblViewName, $txtViewName,
@@ -1179,7 +1191,7 @@ try {
 
   function Get-SelectedViewFieldTokens {
     $tokens = New-Object System.Collections.Generic.List[string]
-    foreach ($item in $clbViewColumns.CheckedItems) {
+    foreach ($item in $clbViewColumns.Items) {
       $text = [string]$item
       if ([string]::IsNullOrWhiteSpace($text)) { continue }
       $idx = $text.IndexOf(" - ")
@@ -1192,20 +1204,8 @@ try {
   }
 
   function Set-CheckedViewFieldTokens([string[]]$tokens) {
-    if ($null -eq $tokens) { $tokens = @() }
-    $tokenSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($token in @($tokens)) {
-      $t = ([string]$token).Trim()
-      if (-not [string]::IsNullOrWhiteSpace($t)) { [void]$tokenSet.Add($t) }
-    }
-
-    for ($i = 0; $i -lt $clbViewColumns.Items.Count; $i++) {
-      $text = [string]$clbViewColumns.Items[$i]
-      if ([string]::IsNullOrWhiteSpace($text)) { continue }
-      $idx = $text.IndexOf(" - ")
-      $itemToken = if ($idx -gt 0) { $text.Substring(0, $idx).Trim() } else { $text.Trim() }
-      $clbViewColumns.SetItemChecked($i, $tokenSet.Contains($itemToken))
-    }
+    # チェックUIは廃止。互換のため関数は残す（既存設定の読込時も何もしない）。
+    return
   }
 
   function Update-ViewEditorColumnChoices {
@@ -1264,10 +1264,14 @@ try {
     $clbViewColumns.BeginUpdate()
     $clbViewColumns.Items.Clear()
     foreach ($scope in $uniqueScopes) {
-      $isChecked = ($previousChecked -contains [string]$scope.token)
-      [void]$clbViewColumns.Items.Add([string]$scope.display, $isChecked)
+      [void]$clbViewColumns.Items.Add([string]$scope.display)
     }
     $clbViewColumns.EndUpdate()
+
+    if ($script:Settings) {
+      $script:Settings.viewEditorSelectedColumnsJson = (@(Get-SelectedViewFieldTokens) | ConvertTo-Json -Compress)
+      Save-Settings
+    }
 
   }
 
@@ -2117,14 +2121,6 @@ try {
     param($sender, $e)
     $e.ThrowException = $false
     Add-Log ("Join grid input error: {0}" -f $e.Exception.Message)
-  })
-
-  $clbViewColumns.add_ItemCheck({
-    param($sender, $e)
-    $form.BeginInvoke([System.Action]{
-      $script:Settings.viewEditorSelectedColumnsJson = (@(Get-SelectedViewFieldTokens) | ConvertTo-Json -Compress)
-      Save-Settings
-    }) | Out-Null
   })
 
 
