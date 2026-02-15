@@ -1068,7 +1068,7 @@ try {
         leftJoin = $leftJoin
       })
     }
-    return @($defs.ToArray())
+    return @($defs)
   }
 
   function Save-JoinDefinitionsToSettings {
@@ -1152,7 +1152,7 @@ try {
         [void]$tokens.Add($token)
       }
     }
-    return @($tokens.ToArray())
+    return @($tokens)
   }
 
   function Update-ViewEditorColumnChoices {
@@ -1313,7 +1313,7 @@ try {
         [void]$parts.Add(("{0}{1}{2}" -f $column, $op, $value))
       }
     }
-    return ($parts.ToArray() -join "^")
+    return (@($parts) -join "^")
   }
 
   function Build-JoinWhereClause([string]$leftPrefix, [string]$baseColumn, [string]$joinPrefix, [string]$joinColumn) {
@@ -1510,7 +1510,7 @@ try {
     Add-Log ("Creating DB view: {0}, base={1}, joins={2}" -f $viewName, $baseTable, $joinDefs.Count)
     try {
       $body = @{ name = $viewName; label = $viewLabel; table = $baseTable }
-      if ($selectedColumns.Count -gt 0) { $body["view_fields"] = ($selectedColumns.ToArray() -join ",") }
+      if ($selectedColumns.Count -gt 0) { $body["view_fields"] = (@($selectedColumns) -join ",") }
       $createRes = Invoke-SnowPost "/api/now/table/sys_db_view" $body
       $created = if ($createRes -and ($createRes.PSObject.Properties.Name -contains "result")) { $createRes.result } else { $null }
       $sysId = if ($created) { [string]$created.sys_id } else { "" }
