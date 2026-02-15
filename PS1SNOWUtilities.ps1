@@ -1218,16 +1218,20 @@ try {
       }
     }
     $scopes = New-Object System.Collections.Generic.List[object]
+    $basePrefix = ([string]$txtBasePrefix.Text).Trim()
+    if ([string]::IsNullOrWhiteSpace($basePrefix)) { $basePrefix = "t0" }
 
     $baseTable = Get-SelectedBaseTableName
     if (-not [string]::IsNullOrWhiteSpace($baseTable)) {
       try {
         foreach ($col in @(Fetch-ColumnsForTable $baseTable)) {
+          $baseColumn = [string]$col.name
           [void]$scopes.Add([pscustomobject]@{
-            token = [string]$col.name
-            display = Build-ViewEditorColumnDisplay ([string]$col.name) ([string]$col.label) $baseTable ""
+            token = $baseColumn
+            conditionToken = ("{0}_{1}" -f $basePrefix, $baseColumn)
+            display = Build-ViewEditorColumnDisplay $baseColumn ([string]$col.label) $baseTable ""
             sourceTable = $baseTable
-            sourceColumn = [string]$col.name
+            sourceColumn = $baseColumn
           })
         }
       } catch {
@@ -1248,6 +1252,7 @@ try {
           $token = ("{0}_{1}" -f $prefix, [string]$col.name)
           [void]$scopes.Add([pscustomobject]@{
             token = $token
+            conditionToken = $token
             display = Build-ViewEditorColumnDisplay $token ([string]$col.label) $joinTable $prefix
             sourceTable = $joinTable
             sourceColumn = [string]$col.name
@@ -1269,7 +1274,7 @@ try {
 
     $colCondColumn.Items.Clear()
     foreach ($scope in $uniqueScopes) {
-      [void]$colCondColumn.Items.Add([string]$scope.token)
+      [void]$colCondColumn.Items.Add([string]$scope.conditionToken)
     }
   }
 
@@ -1358,6 +1363,41 @@ try {
     else { $targetCell.Value = $null }
   }
 
+
+  function Normalize-ConditionColumn([string]$column) {
+    $token = ([string]$column).Trim()
+    if ([string]::IsNullOrWhiteSpace($token)) { return "" }
+
+    $basePrefix = ([string]$txtBasePrefix.Text).Trim()
+    if ([string]::IsNullOrWhiteSpace($basePrefix)) { $basePrefix = "t0" }
+
+    if ($token.StartsWith(("{0}_" -f $basePrefix), [System.StringComparison]::OrdinalIgnoreCase)) {
+      return $token
+    }
+
+    $knownPrefixes = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    [void]$knownPrefixes.Add($basePrefix)
+    for ($i = 0; $i -lt $gridJoins.Rows.Count; $i++) {
+      $joinRow = $gridJoins.Rows[$i]
+      if ($joinRow.IsNewRow) { continue }
+      $joinTableCell = $joinRow.Cells[0].Value
+      $joinTable = if ($null -eq $joinTableCell) { "" } else { ([string]$joinTableCell).Trim() }
+      if ([string]::IsNullOrWhiteSpace($joinTable)) { continue }
+      $joinPrefix = Get-JoinRowPrefix $i
+      if (-not [string]::IsNullOrWhiteSpace($joinPrefix)) {
+        [void]$knownPrefixes.Add($joinPrefix)
+      }
+    }
+
+    $sepIndex = $token.IndexOf("_")
+    if ($sepIndex -gt 0) {
+      $prefixPart = $token.Substring(0, $sepIndex)
+      if ($knownPrefixes.Contains($prefixPart)) { return $token }
+    }
+
+    return ("{0}_{1}" -f $basePrefix, $token)
+  }
+
   function Build-ViewWhereClause {
     $parts = New-Object System.Collections.Generic.List[string]
     foreach ($row in $gridConditions.Rows) {
@@ -1366,7 +1406,8 @@ try {
       $opCell = $row.Cells[1].Value
       $valueCell = $row.Cells[2].Value
 
-      $column = if ($null -eq $columnCell) { "" } else { [string]$columnCell }
+      $columnRaw = if ($null -eq $columnCell) { "" } else { [string]$columnCell }
+      $column = Normalize-ConditionColumn $columnRaw
       $op = if ($null -eq $opCell -or [string]::IsNullOrWhiteSpace([string]$opCell)) { "=" } else { [string]$opCell }
       $value = if ($null -eq $valueCell) { "" } else { [string]$valueCell }
 
@@ -2095,6 +2136,8 @@ try {
   $txtBasePrefix.add_TextChanged({
     $script:Settings.viewEditorBasePrefix = $txtBasePrefix.Text
     Save-Settings
+    Update-ViewEditorColumnChoices
+    Update-WherePreview
   })
 
   $cmbBaseTable.add_SelectedIndexChanged({
