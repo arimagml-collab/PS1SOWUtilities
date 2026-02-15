@@ -1212,8 +1212,8 @@ try {
     }
 
     function Build-JoinWhereClause([string]$basePrefix, [string]$baseColumn, [string]$joinPrefix, [string]$joinColumn) {
-      $left = if ([string]::IsNullOrWhiteSpace($basePrefix)) { [string]$baseColumn } else { "{0}.{1}" -f [string]$basePrefix, [string]$baseColumn }
-      $right = if ([string]::IsNullOrWhiteSpace($joinPrefix)) { [string]$joinColumn } else { "{0}.{1}" -f [string]$joinPrefix, [string]$joinColumn }
+      $left = if ([string]::IsNullOrWhiteSpace($basePrefix)) { [string]$baseColumn } else { "{0}_{1}" -f [string]$basePrefix, [string]$baseColumn }
+      $right = if ([string]::IsNullOrWhiteSpace($joinPrefix)) { [string]$joinColumn } else { "{0}_{1}" -f [string]$joinPrefix, [string]$joinColumn }
       return ("{0}={1}" -f $left, $right)
     }
 
