@@ -38,7 +38,6 @@ try {
 
   Add-Type -AssemblyName System.Drawing | Out-Null
   [System.Windows.Forms.Application]::EnableVisualStyles()
-  $script:UiRunspace = [System.Management.Automation.Runspaces.Runspace]::DefaultRunspace
 
   # ----------------------------
   # Paths / Settings
@@ -314,7 +313,6 @@ try {
 
   $script:Settings = Load-Settings
   $script:ColumnCache = @{}
-  $script:ActiveWorkers = New-Object System.Collections.Generic.List[object]
   $script:SettingsSaveTimer = $null
 
   # ----------------------------
@@ -431,42 +429,20 @@ try {
   }
 
   function Invoke-Async([string]$name, [scriptblock]$work, [scriptblock]$onCompleted, $state = $null) {
-    $worker = New-Object System.ComponentModel.BackgroundWorker
-    [void]$script:ActiveWorkers.Add($worker)
-    $worker.add_DoWork({
-      param($sender, $e)
-      $previousRunspace = [System.Management.Automation.Runspaces.Runspace]::DefaultRunspace
-      try {
-        if ($script:UiRunspace) {
-          [System.Management.Automation.Runspaces.Runspace]::DefaultRunspace = $script:UiRunspace
-        }
-        $e.Result = & $work $e.Argument
-      } finally {
-        [System.Management.Automation.Runspaces.Runspace]::DefaultRunspace = $previousRunspace
+    Add-Log ("Running task: {0}" -f $name)
+    try {
+      $result = & $work $state
+      & $onCompleted $result
+    } catch {
+      $errorMessage = if ($_ -is [System.Management.Automation.ErrorRecord]) {
+        $_.Exception.Message
+      } elseif ($_.PSObject.Properties.Name -contains "Message") {
+        [string]$_.Message
+      } else {
+        [string]$_
       }
-    })
-    $worker.add_RunWorkerCompleted({
-      param($sender, $e)
-      try {
-        if ($e.Error) {
-          $errorMessage = if ($e.Error -is [System.Management.Automation.ErrorRecord]) {
-            $e.Error.Exception.Message
-          } elseif ($e.Error.PSObject.Properties.Name -contains "Message") {
-            [string]$e.Error.Message
-          } else {
-            [string]$e.Error
-          }
-          Add-Log ("{0}: {1}" -f (T "Failed"), $errorMessage)
-        } else {
-          & $onCompleted $e.Result
-        }
-      } finally {
-        [void]$script:ActiveWorkers.Remove($sender)
-        $sender.Dispose()
-      }
-    })
-    Add-Log ("Running async task: {0}" -f $name)
-    $worker.RunWorkerAsync($state)
+      Add-Log ("{0}: {1}" -f (T "Failed"), $errorMessage)
+    }
   }
 
   function Ensure-ExportDir([string]$dir) {
