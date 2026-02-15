@@ -98,6 +98,8 @@ try {
       BaseTable="ベーステーブル"
       ReloadColumns="カラム再取得"
       ViewColumns="表示カラム"
+      CheckAllColumns="全てチェック"
+      UncheckAllColumns="全て解除"
       AddCondition="条件追加"
       RemoveCondition="条件削除"
       WhereClausePreview="Where句プレビュー"
@@ -178,6 +180,8 @@ try {
       BaseTable="Base Table"
       ReloadColumns="Reload Columns"
       ViewColumns="Visible Columns"
+      CheckAllColumns="Check All"
+      UncheckAllColumns="Uncheck All"
       AddCondition="Add Condition"
       RemoveCondition="Remove Condition"
       WhereClausePreview="Where Clause Preview"
@@ -266,6 +270,7 @@ try {
       viewEditorBasePrefix = "t0"
       viewEditorWhereClause = ""
       viewEditorJoinsJson = "[]"
+      viewEditorSelectedColumnsJson = "[]"
     }
     return $o
   }
@@ -290,7 +295,7 @@ try {
   function Save-Settings {
     try {
       $out = ($script:Settings | ConvertTo-Json -Depth 8)
-      Set-Content -Path $SettingsPath -Value $out -Encoding UTF8
+      [System.IO.File]::WriteAllText($SettingsPath, $out, (New-Object System.Text.UTF8Encoding($false)))
     } catch {
       # ignore
     }
@@ -319,7 +324,7 @@ try {
   function New-SnowHeaders {
     $headers = @{
       "Accept" = "application/json"
-      "Content-Type" = "application/json"
+      "Content-Type" = "application/json; charset=utf-8"
     }
     if ($script:Settings.authType -eq "apikey") {
       $key = Unprotect-Secret ([string]$script:Settings.apiKeyEnc
@@ -358,6 +363,7 @@ try {
     $uri = $base + $path
     $headers = New-SnowHeaders
     $jsonBody = ($body | ConvertTo-Json -Depth 8)
+    $jsonBytes = [System.Text.Encoding]::UTF8.GetBytes($jsonBody)
 
     if ($script:Settings.authType -eq "userpass") {
       $user = ([string]$script:Settings.userId).Trim()
@@ -365,9 +371,9 @@ try {
       if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($pass)) { throw (T "WarnAuth") }
       $sec = ConvertTo-SecureString $pass -AsPlainText -Force
       $cred = New-Object System.Management.Automation.PSCredential($user, $sec)
-      return Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -Credential $cred -TimeoutSec 120 -Body $jsonBody
+      return Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -Credential $cred -TimeoutSec 120 -Body $jsonBytes
     } else {
-      return Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -TimeoutSec 120 -Body $jsonBody
+      return Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -TimeoutSec 120 -Body $jsonBytes
     }
   }
 
@@ -378,6 +384,7 @@ try {
     $uri = $base + $path
     $headers = New-SnowHeaders
     $jsonBody = ($body | ConvertTo-Json -Depth 8)
+    $jsonBytes = [System.Text.Encoding]::UTF8.GetBytes($jsonBody)
 
     if ($script:Settings.authType -eq "userpass") {
       $user = ([string]$script:Settings.userId).Trim()
@@ -385,9 +392,9 @@ try {
       if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($pass)) { throw (T "WarnAuth") }
       $sec = ConvertTo-SecureString $pass -AsPlainText -Force
       $cred = New-Object System.Management.Automation.PSCredential($user, $sec)
-      return Invoke-RestMethod -Method Patch -Uri $uri -Headers $headers -Credential $cred -TimeoutSec 120 -Body $jsonBody
+      return Invoke-RestMethod -Method Patch -Uri $uri -Headers $headers -Credential $cred -TimeoutSec 120 -Body $jsonBytes
     } else {
-      return Invoke-RestMethod -Method Patch -Uri $uri -Headers $headers -TimeoutSec 120 -Body $jsonBody
+      return Invoke-RestMethod -Method Patch -Uri $uri -Headers $headers -TimeoutSec 120 -Body $jsonBytes
     }
   }
 
@@ -576,7 +583,15 @@ try {
 
   $clbViewColumns = New-Object System.Windows.Forms.CheckedListBox
   $clbViewColumns.Location = New-Object System.Drawing.Point(190, 100)
-  $clbViewColumns.Size = New-Object System.Drawing.Size(730, 120)
+  $clbViewColumns.Size = New-Object System.Drawing.Size(540, 120)
+
+  $btnCheckAllColumns = New-Object System.Windows.Forms.Button
+  $btnCheckAllColumns.Location = New-Object System.Drawing.Point(740, 100)
+  $btnCheckAllColumns.Size = New-Object System.Drawing.Size(180, 32)
+
+  $btnUncheckAllColumns = New-Object System.Windows.Forms.Button
+  $btnUncheckAllColumns.Location = New-Object System.Drawing.Point(740, 138)
+  $btnUncheckAllColumns.Size = New-Object System.Drawing.Size(180, 32)
 
   $lblJoinDefinitions = New-Object System.Windows.Forms.Label
   $lblJoinDefinitions.Location = New-Object System.Drawing.Point(20, 230)
@@ -712,7 +727,7 @@ try {
     $lblViewName, $txtViewName,
     $lblViewLabel, $txtViewLabel,
     $lblBaseTable, $cmbBaseTable, $btnReloadColumns,
-    $lblViewColumns, $clbViewColumns,
+    $lblViewColumns, $clbViewColumns, $btnCheckAllColumns, $btnUncheckAllColumns,
     $lblJoinDefinitions, $btnAddJoin, $btnRemoveJoin, $lblBasePrefix, $txtBasePrefix,
     $gridJoins,
     $btnAddCondition, $btnRemoveCondition,
@@ -850,6 +865,8 @@ try {
     $lblBaseTable.Text = T "BaseTable"
     $btnReloadColumns.Text = T "ReloadColumns"
     $lblViewColumns.Text = T "ViewColumns"
+    $btnCheckAllColumns.Text = T "CheckAllColumns"
+    $btnUncheckAllColumns.Text = T "UncheckAllColumns"
     $lblJoinDefinitions.Text = T "JoinDefinitions"
     $btnAddJoin.Text = T "AddJoin"
     $btnRemoveJoin.Text = T "RemoveJoin"
@@ -1175,8 +1192,31 @@ try {
     return $tokens.ToArray()
   }
 
+  function Set-CheckedViewFieldTokens([string[]]$tokens) {
+    if ($null -eq $tokens) { $tokens = @() }
+    $tokenSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($token in @($tokens)) {
+      $t = ([string]$token).Trim()
+      if (-not [string]::IsNullOrWhiteSpace($t)) { [void]$tokenSet.Add($t) }
+    }
+
+    for ($i = 0; $i -lt $clbViewColumns.Items.Count; $i++) {
+      $text = [string]$clbViewColumns.Items[$i]
+      if ([string]::IsNullOrWhiteSpace($text)) { continue }
+      $idx = $text.IndexOf(" - ")
+      $itemToken = if ($idx -gt 0) { $text.Substring(0, $idx).Trim() } else { $text.Trim() }
+      $clbViewColumns.SetItemChecked($i, $tokenSet.Contains($itemToken))
+    }
+  }
+
   function Update-ViewEditorColumnChoices {
     $previousChecked = @(Get-SelectedViewFieldTokens)
+    if ($previousChecked.Count -eq 0 -and $script:Settings -and -not [string]::IsNullOrWhiteSpace([string]$script:Settings.viewEditorSelectedColumnsJson)) {
+      try {
+        $previousChecked = @([string]$script:Settings.viewEditorSelectedColumnsJson | ConvertFrom-Json)
+      } catch {
+      }
+    }
     $scopes = New-Object System.Collections.Generic.List[object]
 
     $baseTable = Get-SelectedBaseTableName
@@ -1186,6 +1226,8 @@ try {
           [void]$scopes.Add([pscustomobject]@{
             token = [string]$col.name
             display = Build-ViewEditorColumnDisplay ([string]$col.name) ([string]$col.label) $baseTable ""
+            sourceTable = $baseTable
+            sourceColumn = [string]$col.name
           })
         }
       } catch {
@@ -1207,13 +1249,15 @@ try {
           [void]$scopes.Add([pscustomobject]@{
             token = $token
             display = Build-ViewEditorColumnDisplay $token ([string]$col.label) $joinTable $prefix
+            sourceTable = $joinTable
+            sourceColumn = [string]$col.name
           })
         }
       } catch {
       }
     }
 
-    $uniqueScopes = @($scopes | Group-Object token | ForEach-Object { $_.Group[0] } | Sort-Object token)
+    $uniqueScopes = @($scopes | Group-Object token | ForEach-Object { $_.Group[0] } | Sort-Object sourceTable, sourceColumn, token)
 
     $clbViewColumns.BeginUpdate()
     $clbViewColumns.Items.Clear()
@@ -1529,11 +1573,30 @@ try {
 
     Add-Log ("Creating DB view: {0}, base={1}, joins={2}" -f $viewName, $baseTable, $joinDefs.Count)
     try {
-      $body = @{ name = $viewName; label = $viewLabel; table = $baseTable }
-      if ($selectedColumns.Count -gt 0) { $body["view_fields"] = (@($selectedColumns) -join ",") }
+      $body = @{ name = $viewName; table = $baseTable }
+      if ($selectedColumns.Count -gt 0) { $body["view_field_list"] = (@($selectedColumns) -join ",") }
       $createRes = Invoke-SnowPost "/api/now/table/sys_db_view" $body
       $created = if ($createRes -and ($createRes.PSObject.Properties.Name -contains "result")) { $createRes.result } else { $null }
       $sysId = if ($created) { [string]$created.sys_id } else { "" }
+
+      if (-not [string]::IsNullOrWhiteSpace($sysId)) {
+        [void](Invoke-SnowPatch ("/api/now/table/sys_db_view/{0}" -f $sysId) @{ label = $viewLabel })
+        if ($selectedColumns.Count -gt 0) {
+          $fieldCsv = (@($selectedColumns) -join ",")
+          $fieldSaved = $false
+          foreach ($fieldKey in @("view_fields", "field_names", "view_field_list")) {
+            try {
+              [void](Invoke-SnowPatch ("/api/now/table/sys_db_view/{0}" -f $sysId) @{ $fieldKey = $fieldCsv })
+              $fieldSaved = $true
+              break
+            } catch {
+            }
+          }
+          if (-not $fieldSaved) {
+            Add-Log "Could not persist selected view fields."
+          }
+        }
+      }
 
       $whereSaved = $true
       $baseTableMetadataSaved = $true
@@ -1923,6 +1986,14 @@ try {
   }
 
   Update-ViewEditorColumnChoices
+  try {
+    $selectedColsText = [string]$script:Settings.viewEditorSelectedColumnsJson
+    if (-not [string]::IsNullOrWhiteSpace($selectedColsText)) {
+      $loadedColumns = @($selectedColsText | ConvertFrom-Json)
+      if ($loadedColumns.Count -gt 0) { Set-CheckedViewFieldTokens $loadedColumns }
+    }
+  } catch {
+  }
 
   Update-AuthUI
   Update-FilterUI
@@ -2119,6 +2190,26 @@ try {
     Add-Log ("Join grid input error: {0}" -f $e.Exception.Message)
   })
 
+  $clbViewColumns.add_ItemCheck({
+    param($sender, $e)
+    $form.BeginInvoke([System.Action]{
+      $script:Settings.viewEditorSelectedColumnsJson = (@(Get-SelectedViewFieldTokens) | ConvertTo-Json -Compress)
+      Save-Settings
+    }) | Out-Null
+  })
+
+  $btnCheckAllColumns.add_Click({
+    for ($i = 0; $i -lt $clbViewColumns.Items.Count; $i++) {
+      $clbViewColumns.SetItemChecked($i, $true)
+    }
+  })
+
+  $btnUncheckAllColumns.add_Click({
+    for ($i = 0; $i -lt $clbViewColumns.Items.Count; $i++) {
+      $clbViewColumns.SetItemChecked($i, $false)
+    }
+  })
+
   $btnCreateView.add_Click({ Create-DatabaseView })
 
   $cmbOutputFormat.add_SelectedIndexChanged({
@@ -2171,6 +2262,13 @@ try {
 
   # First-run export dir
   try { [void](Ensure-ExportDir $txtDir.Text) } catch { }
+
+  $form.add_FormClosing({
+    Complete-GridCurrentEdit $gridJoins "Join"
+    Save-JoinDefinitionsToSettings
+    $script:Settings.viewEditorSelectedColumnsJson = (@(Get-SelectedViewFieldTokens) | ConvertTo-Json -Compress)
+    Save-Settings
+  })
 
   Add-Log "Ready."
   Add-Log "Notice: MIT License / https://www.ixam.net"
