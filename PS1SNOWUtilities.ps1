@@ -1207,6 +1207,37 @@ try {
       elseif (-not [string]::IsNullOrWhiteSpace($itemText)) { [void]$selectedColumns.Add($itemText.Trim()) }
     }
 
+    function Get-ViewTablePrefix([int]$index) {
+      return ("t{0}" -f $index)
+    }
+
+    function Save-ViewTableMetadata([string]$viewTableSysId, [string]$prefix, [string]$whereText) {
+      if ([string]::IsNullOrWhiteSpace($viewTableSysId)) { return $false }
+
+      $payloads = @()
+      if (-not [string]::IsNullOrWhiteSpace($prefix) -and -not [string]::IsNullOrWhiteSpace($whereText)) {
+        $payloads += @{ variable_prefix = $prefix; where_clause = $whereText }
+        $payloads += @{ variable_prefix = $prefix; where = $whereText }
+        $payloads += @{ prefix = $prefix; where_clause = $whereText }
+        $payloads += @{ prefix = $prefix; where = $whereText }
+      } elseif (-not [string]::IsNullOrWhiteSpace($prefix)) {
+        $payloads += @{ variable_prefix = $prefix }
+        $payloads += @{ prefix = $prefix }
+      } elseif (-not [string]::IsNullOrWhiteSpace($whereText)) {
+        $payloads += @{ where_clause = $whereText }
+        $payloads += @{ where = $whereText }
+      }
+
+      foreach ($payload in $payloads) {
+        try {
+          [void](Invoke-SnowPatch ("/api/now/table/sys_db_view_table/{0}" -f $viewTableSysId) $payload)
+          return $true
+        } catch {
+        }
+      }
+      return $false
+    }
+
     Add-Log ("Creating DB view: {0}, base={1}, joins={2}" -f $viewName, $baseTable, $joinDefs.Count)
     try {
       $body = @{ name = $viewName; label = $viewLabel; table = $baseTable }
@@ -1215,23 +1246,29 @@ try {
       $created = if ($createRes -and ($createRes.PSObject.Properties.Name -contains "result")) { $createRes.result } else { $null }
       $sysId = if ($created) { [string]$created.sys_id } else { "" }
 
-      $whereSaved = $false
-      if (-not [string]::IsNullOrWhiteSpace($sysId) -and -not [string]::IsNullOrWhiteSpace($whereClause)) {
-        foreach ($whereField in @("where_clause", "where", "condition")) {
-          try {
-            [void](Invoke-SnowPatch ("/api/now/table/sys_db_view/{0}" -f $sysId) @{ $whereField = $whereClause })
-            $whereSaved = $true
-            break
-          } catch {
-          }
+      $whereSaved = $true
+      $baseTableMetadataSaved = $true
+      if (-not [string]::IsNullOrWhiteSpace($sysId)) {
+        $baseTableMetadataSaved = $false
+        try {
+          $query = "view={0}^table={1}" -f $sysId, $baseTable
+          $path = "/api/now/table/sys_db_view_table?sysparm_fields=sys_id&sysparm_limit=1&sysparm_query={0}" -f (UrlEncode $query)
+          $baseTableRes = Invoke-SnowGet $path
+          $baseTableRow = if ($baseTableRes -and ($baseTableRes.PSObject.Properties.Name -contains "result") -and @($baseTableRes.result).Count -gt 0) { $baseTableRes.result[0] } else { $null }
+          $baseTableRowId = if ($baseTableRow) { [string]$baseTableRow.sys_id } else { "" }
+          $baseTableMetadataSaved = Save-ViewTableMetadata $baseTableRowId (Get-ViewTablePrefix 0) $whereClause
+        } catch {
         }
-      } else {
-        $whereSaved = $true
+      }
+
+      if (-not [string]::IsNullOrWhiteSpace($whereClause)) {
+        $whereSaved = $baseTableMetadataSaved
       }
 
       $joinsSaved = $true
       if (-not [string]::IsNullOrWhiteSpace($sysId) -and $joinDefs.Count -gt 0) {
         $joinsSaved = $false
+        $joinIndex = 1
         foreach ($joinDef in $joinDefs) {
           $joinBody = @{
             view = $sysId
@@ -1239,11 +1276,16 @@ try {
             left_field = [string]$joinDef.baseColumn
             right_field = [string]$joinDef.targetColumn
             join_condition = ("{0}={1}" -f [string]$joinDef.baseColumn, [string]$joinDef.targetColumn)
+            variable_prefix = Get-ViewTablePrefix $joinIndex
           }
 
           $saved = $false
+          $joinRowId = ""
           try {
-            [void](Invoke-SnowPost "/api/now/table/sys_db_view_table" $joinBody)
+            $joinRes = Invoke-SnowPost "/api/now/table/sys_db_view_table" $joinBody
+            if ($joinRes -and ($joinRes.PSObject.Properties.Name -contains "result") -and $joinRes.result) {
+              $joinRowId = [string]$joinRes.result.sys_id
+            }
             $saved = $true
           } catch {
             foreach ($leftField in @("left_field", "left_column", "field")) {
@@ -1252,7 +1294,10 @@ try {
                   $fallbackBody = @{ view = $sysId; table = [string]$joinDef.joinTable }
                   $fallbackBody[$leftField] = [string]$joinDef.baseColumn
                   $fallbackBody[$rightField] = [string]$joinDef.targetColumn
-                  [void](Invoke-SnowPost "/api/now/table/sys_db_view_table" $fallbackBody)
+                  $joinRes = Invoke-SnowPost "/api/now/table/sys_db_view_table" $fallbackBody
+                  if ($joinRes -and ($joinRes.PSObject.Properties.Name -contains "result") -and $joinRes.result) {
+                    $joinRowId = [string]$joinRes.result.sys_id
+                  }
                   $saved = $true
                   break
                 } catch {
@@ -1266,6 +1311,12 @@ try {
             $joinsSaved = $false
             break
           }
+
+          if (-not [string]::IsNullOrWhiteSpace($joinRowId)) {
+            [void](Save-ViewTableMetadata $joinRowId (Get-ViewTablePrefix $joinIndex) "")
+          }
+
+          $joinIndex++
           $joinsSaved = $true
         }
       }
