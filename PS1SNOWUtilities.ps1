@@ -108,6 +108,7 @@ try {
       JoinTable="JOINテーブル"
       JoinBaseColumn="左カラム(ベース)"
       JoinTargetColumn="右カラム(JOIN先)"
+      JoinSource="左側 Prefix"
       BasePrefix="ベース Prefix"
       JoinPrefix="Variable Prefix"
       LeftJoin="LEFT JOIN"
@@ -187,6 +188,7 @@ try {
       JoinTable="Join Table"
       JoinBaseColumn="Left Column (Base)"
       JoinTargetColumn="Right Column (Join)"
+      JoinSource="Left Prefix"
       BasePrefix="Base Prefix"
       JoinPrefix="Variable Prefix"
       LeftJoin="LEFT JOIN"
@@ -616,23 +618,30 @@ try {
   $colJoinBaseColumn.Name = "JoinBaseColumn"
   $colJoinBaseColumn.FlatStyle = "Popup"
   $colJoinBaseColumn.DisplayStyle = "DropDownButton"
-  $colJoinBaseColumn.FillWeight = 33
+  $colJoinBaseColumn.FillWeight = 26
+
+  $colJoinSource = New-Object System.Windows.Forms.DataGridViewComboBoxColumn
+  $colJoinSource.Name = "JoinSource"
+  $colJoinSource.FlatStyle = "Popup"
+  $colJoinSource.DisplayStyle = "DropDownButton"
+  $colJoinSource.FillWeight = 20
 
   $colJoinTargetColumn = New-Object System.Windows.Forms.DataGridViewComboBoxColumn
   $colJoinTargetColumn.Name = "JoinTargetColumn"
   $colJoinTargetColumn.FlatStyle = "Popup"
   $colJoinTargetColumn.DisplayStyle = "DropDownButton"
-  $colJoinTargetColumn.FillWeight = 22
+  $colJoinTargetColumn.FillWeight = 20
 
   $colJoinPrefix = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
   $colJoinPrefix.Name = "JoinPrefix"
-  $colJoinPrefix.FillWeight = 16
+  $colJoinPrefix.FillWeight = 14
 
   $colJoinLeftJoin = New-Object System.Windows.Forms.DataGridViewCheckBoxColumn
   $colJoinLeftJoin.Name = "LeftJoin"
   $colJoinLeftJoin.FillWeight = 10
 
   [void]$gridJoins.Columns.Add($colJoinTable)
+  [void]$gridJoins.Columns.Add($colJoinSource)
   [void]$gridJoins.Columns.Add($colJoinBaseColumn)
   [void]$gridJoins.Columns.Add($colJoinTargetColumn)
   [void]$gridJoins.Columns.Add($colJoinPrefix)
@@ -850,6 +859,7 @@ try {
     $lblWherePreview.Text = T "WhereClausePreview"
     $btnCreateView.Text = T "CreateView"
     $colJoinTable.HeaderText = T "JoinTable"
+    $colJoinSource.HeaderText = T "JoinSource"
     $colJoinBaseColumn.HeaderText = T "JoinBaseColumn"
     $colJoinTargetColumn.HeaderText = T "JoinTargetColumn"
     $colJoinPrefix.HeaderText = T "JoinPrefix"
@@ -911,6 +921,10 @@ try {
 
   function Complete-GridCurrentEdit([System.Windows.Forms.DataGridView]$grid, [string]$gridName) {
     if ($null -eq $grid -or -not $grid.IsCurrentCellDirty) { return }
+    $currentCell = $grid.CurrentCell
+    if ($currentCell -and $currentCell -is [System.Windows.Forms.DataGridViewTextBoxCell]) {
+      return
+    }
     try {
       $context = [System.Windows.Forms.DataGridViewDataErrorContexts]::Commit
       [void]$grid.CommitEdit($context)
@@ -1032,10 +1046,12 @@ try {
     foreach ($row in $gridJoins.Rows) {
       if ($row.IsNewRow) { continue }
       $tableCell = $row.Cells[0].Value
-      $baseCell = $row.Cells[1].Value
-      $targetCell = $row.Cells[2].Value
-      $prefixCell = $row.Cells[3].Value
-      $leftJoinCell = $row.Cells[4].Value
+      $sourceCell = $row.Cells[1].Value
+      $baseCell = $row.Cells[2].Value
+      $targetCell = $row.Cells[3].Value
+      $prefixCell = $row.Cells[4].Value
+      $leftJoinCell = $row.Cells[5].Value
+      $joinSource = if ($null -eq $sourceCell) { "" } else { ([string]$sourceCell).Trim() }
       $joinTable = if ($null -eq $tableCell) { "" } else { ([string]$tableCell).Trim() }
       $baseColumn = if ($null -eq $baseCell) { "" } else { ([string]$baseCell).Trim() }
       $targetColumn = if ($null -eq $targetCell) { "" } else { ([string]$targetCell).Trim() }
@@ -1045,6 +1061,7 @@ try {
       if ([string]::IsNullOrWhiteSpace($joinTable) -and [string]::IsNullOrWhiteSpace($baseColumn) -and [string]::IsNullOrWhiteSpace($targetColumn) -and [string]::IsNullOrWhiteSpace($joinPrefix) -and (-not $leftJoin)) { continue }
       [void]$defs.Add([pscustomobject]@{
         joinTable = $joinTable
+        joinSource = $joinSource
         baseColumn = $baseColumn
         targetColumn = $targetColumn
         joinPrefix = $joinPrefix
@@ -1112,12 +1129,66 @@ try {
     return @($list | Sort-Object name -Unique)
   }
 
+  function Get-JoinRowPrefix([int]$rowIndex) {
+    if ($rowIndex -lt 0 -or $rowIndex -ge $gridJoins.Rows.Count) { return "" }
+    $prefixCell = $gridJoins.Rows[$rowIndex].Cells[4].Value
+    $prefix = if ($null -eq $prefixCell) { "" } else { ([string]$prefixCell).Trim() }
+    if ([string]::IsNullOrWhiteSpace($prefix)) { $prefix = ("t{0}" -f ($rowIndex + 1)) }
+    return $prefix
+  }
+
+  function Resolve-JoinSourceTable([int]$rowIndex, [string]$sourcePrefix) {
+    $baseTable = Get-SelectedBaseTableName
+    if ([string]::IsNullOrWhiteSpace($sourcePrefix) -or $sourcePrefix -eq "__base__") { return $baseTable }
+
+    for ($i = 0; $i -lt $rowIndex; $i++) {
+      if ((Get-JoinRowPrefix $i) -ne $sourcePrefix) { continue }
+      $joinTableCell = $gridJoins.Rows[$i].Cells[0].Value
+      $joinTable = if ($null -eq $joinTableCell) { "" } else { ([string]$joinTableCell).Trim() }
+      if (-not [string]::IsNullOrWhiteSpace($joinTable)) { return $joinTable }
+    }
+    return ""
+  }
+
+  function Populate-JoinSourcesForRow([int]$rowIndex) {
+    if ($rowIndex -lt 0 -or $rowIndex -ge $gridJoins.Rows.Count) { return }
+    $row = $gridJoins.Rows[$rowIndex]
+    $sourceCell = [System.Windows.Forms.DataGridViewComboBoxCell]$row.Cells[1]
+    $selectedSource = if ($null -eq $sourceCell.Value) { "" } else { [string]$sourceCell.Value }
+
+    $sources = New-Object System.Collections.Generic.List[string]
+    [void]$sources.Add("__base__")
+    for ($i = 0; $i -lt $rowIndex; $i++) {
+      $joinTableCell = $gridJoins.Rows[$i].Cells[0].Value
+      $joinTable = if ($null -eq $joinTableCell) { "" } else { ([string]$joinTableCell).Trim() }
+      if ([string]::IsNullOrWhiteSpace($joinTable)) { continue }
+      $prefix = Get-JoinRowPrefix $i
+      if ([string]::IsNullOrWhiteSpace($prefix)) { continue }
+      if (-not $sources.Contains($prefix)) { [void]$sources.Add($prefix) }
+    }
+
+    $sourceCell.Items.Clear()
+    foreach ($s in $sources) { [void]$sourceCell.Items.Add($s) }
+
+    if (-not [string]::IsNullOrWhiteSpace($selectedSource) -and $sourceCell.Items.Contains($selectedSource)) {
+      $sourceCell.Value = $selectedSource
+    } else {
+      $sourceCell.Value = "__base__"
+    }
+  }
+
   function Populate-JoinColumnsForRow([int]$rowIndex) {
     if ($rowIndex -lt 0 -or $rowIndex -ge $gridJoins.Rows.Count) { return }
     $row = $gridJoins.Rows[$rowIndex]
     if ($null -eq $row) { return }
 
-    $baseTable = Get-SelectedBaseTableName
+    Populate-JoinSourcesForRow $rowIndex
+
+    $sourceCellValue = $row.Cells[1].Value
+    $sourcePrefix = if ($null -eq $sourceCellValue) { "__base__" } else { ([string]$sourceCellValue).Trim() }
+    if ([string]::IsNullOrWhiteSpace($sourcePrefix)) { $sourcePrefix = "__base__" }
+
+    $baseTable = Resolve-JoinSourceTable $rowIndex $sourcePrefix
     $joinTableCell = $row.Cells[0].Value
     $joinTable = if ($null -eq $joinTableCell) { "" } else { ([string]$joinTableCell).Trim() }
 
@@ -1126,8 +1197,8 @@ try {
     if (-not [string]::IsNullOrWhiteSpace($baseTable)) { $baseColumns = @(Fetch-ColumnsForTable $baseTable) }
     if (-not [string]::IsNullOrWhiteSpace($joinTable)) { $joinColumns = @(Fetch-ColumnsForTable $joinTable) }
 
-    $baseCell = [System.Windows.Forms.DataGridViewComboBoxCell]$row.Cells[1]
-    $targetCell = [System.Windows.Forms.DataGridViewComboBoxCell]$row.Cells[2]
+    $baseCell = [System.Windows.Forms.DataGridViewComboBoxCell]$row.Cells[2]
+    $targetCell = [System.Windows.Forms.DataGridViewComboBoxCell]$row.Cells[3]
 
     $selectedBase = if ($null -eq $baseCell.Value) { "" } else { [string]$baseCell.Value }
     $selectedTarget = if ($null -eq $targetCell.Value) { "" } else { [string]$targetCell.Value }
@@ -1244,8 +1315,8 @@ try {
       elseif (-not [string]::IsNullOrWhiteSpace($itemText)) { [void]$selectedColumns.Add($itemText.Trim()) }
     }
 
-    function Build-JoinWhereClause([string]$basePrefix, [string]$baseColumn, [string]$joinPrefix, [string]$joinColumn) {
-      $left = if ([string]::IsNullOrWhiteSpace($basePrefix)) { [string]$baseColumn } else { "{0}_{1}" -f [string]$basePrefix, [string]$baseColumn }
+    function Build-JoinWhereClause([string]$leftPrefix, [string]$baseColumn, [string]$joinPrefix, [string]$joinColumn) {
+      $left = if ([string]::IsNullOrWhiteSpace($leftPrefix)) { [string]$baseColumn } else { "{0}_{1}" -f [string]$leftPrefix, [string]$baseColumn }
       $right = if ([string]::IsNullOrWhiteSpace($joinPrefix)) { [string]$joinColumn } else { "{0}_{1}" -f [string]$joinPrefix, [string]$joinColumn }
       return ("{0}={1}" -f $left, $right)
     }
@@ -1379,9 +1450,11 @@ try {
         foreach ($joinDef in $joinDefs) {
           $joinPrefix = ([string]$joinDef.joinPrefix).Trim()
           if ([string]::IsNullOrWhiteSpace($joinPrefix)) { $joinPrefix = ("t{0}" -f $joinIndex) }
+          $joinSource = ([string]$joinDef.joinSource).Trim()
+          $leftPrefix = if ([string]::IsNullOrWhiteSpace($joinSource) -or $joinSource -eq "__base__") { $basePrefix } else { $joinSource }
           $isLeftJoin = $false
           if ($joinDef.PSObject.Properties.Name -contains "leftJoin") { $isLeftJoin = [System.Convert]::ToBoolean($joinDef.leftJoin) }
-          $joinWhereClause = Build-JoinWhereClause $basePrefix ([string]$joinDef.baseColumn) $joinPrefix ([string]$joinDef.targetColumn)
+          $joinWhereClause = Build-JoinWhereClause $leftPrefix ([string]$joinDef.baseColumn) $joinPrefix ([string]$joinDef.targetColumn)
           $joinBody = @{
             view = $sysId
             table = [string]$joinDef.joinTable
@@ -1745,10 +1818,13 @@ try {
         if ($rowIndex -lt 0) { continue }
         $gridJoins.Rows[$rowIndex].Cells[0].Value = [string]$j.joinTable
         Populate-JoinColumnsForRow $rowIndex
-        $gridJoins.Rows[$rowIndex].Cells[1].Value = [string]$j.baseColumn
-        $gridJoins.Rows[$rowIndex].Cells[2].Value = [string]$j.targetColumn
-        $gridJoins.Rows[$rowIndex].Cells[3].Value = [string]$j.joinPrefix
-        if ($j.PSObject.Properties.Name -contains "leftJoin") { $gridJoins.Rows[$rowIndex].Cells[4].Value = [System.Convert]::ToBoolean($j.leftJoin) }
+        if ($j.PSObject.Properties.Name -contains "joinSource") { $gridJoins.Rows[$rowIndex].Cells[1].Value = [string]$j.joinSource }
+        else { $gridJoins.Rows[$rowIndex].Cells[1].Value = "__base__" }
+        Populate-JoinColumnsForRow $rowIndex
+        $gridJoins.Rows[$rowIndex].Cells[2].Value = [string]$j.baseColumn
+        $gridJoins.Rows[$rowIndex].Cells[3].Value = [string]$j.targetColumn
+        $gridJoins.Rows[$rowIndex].Cells[4].Value = [string]$j.joinPrefix
+        if ($j.PSObject.Properties.Name -contains "leftJoin") { $gridJoins.Rows[$rowIndex].Cells[5].Value = [System.Convert]::ToBoolean($j.leftJoin) }
       }
     }
   } catch {
@@ -1878,8 +1954,9 @@ try {
     $rowIndex = $gridJoins.Rows.Add()
     if ($rowIndex -ge 0) {
       Populate-JoinColumnsForRow $rowIndex
-      $gridJoins.Rows[$rowIndex].Cells[3].Value = ("t{0}" -f ($rowIndex + 1))
-      $gridJoins.Rows[$rowIndex].Cells[4].Value = $false
+      $gridJoins.Rows[$rowIndex].Cells[1].Value = "__base__"
+      $gridJoins.Rows[$rowIndex].Cells[4].Value = ("t{0}" -f ($rowIndex + 1))
+      $gridJoins.Rows[$rowIndex].Cells[5].Value = $false
       Save-JoinDefinitionsToSettings
     }
   })
@@ -1914,8 +1991,12 @@ try {
 
   $gridJoins.add_CellValueChanged({
     param($sender, $e)
-    if ($e.ColumnIndex -eq 0 -and $e.RowIndex -ge 0) {
-      Populate-JoinColumnsForRow $e.RowIndex
+    if ($e.RowIndex -ge 0) {
+      if ($e.ColumnIndex -eq 0 -or $e.ColumnIndex -eq 1 -or $e.ColumnIndex -eq 4) {
+        for ($i = $e.RowIndex; $i -lt $gridJoins.Rows.Count; $i++) {
+          Populate-JoinColumnsForRow $i
+        }
+      }
     }
     Save-JoinDefinitionsToSettings
   })
