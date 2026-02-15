@@ -1270,12 +1270,13 @@ try {
         $joinsSaved = $false
         $joinIndex = 1
         foreach ($joinDef in $joinDefs) {
+          $joinWhereClause = ("{0}={1}" -f [string]$joinDef.baseColumn, [string]$joinDef.targetColumn)
           $joinBody = @{
             view = $sysId
             table = [string]$joinDef.joinTable
             left_field = [string]$joinDef.baseColumn
             right_field = [string]$joinDef.targetColumn
-            join_condition = ("{0}={1}" -f [string]$joinDef.baseColumn, [string]$joinDef.targetColumn)
+            join_condition = $joinWhereClause
             variable_prefix = Get-ViewTablePrefix $joinIndex
           }
 
@@ -1313,7 +1314,7 @@ try {
           }
 
           if (-not [string]::IsNullOrWhiteSpace($joinRowId)) {
-            [void](Save-ViewTableMetadata $joinRowId (Get-ViewTablePrefix $joinIndex) "")
+            [void](Save-ViewTableMetadata $joinRowId (Get-ViewTablePrefix $joinIndex) $joinWhereClause)
           }
 
           $joinIndex++
