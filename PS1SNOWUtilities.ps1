@@ -98,11 +98,6 @@ try {
       BaseTable="ベーステーブル"
       ReloadColumns="カラム再取得"
       ViewColumns="表示カラム"
-      CheckAllColumns="全てチェック"
-      UncheckAllColumns="全て解除"
-      AddCondition="条件追加"
-      RemoveCondition="条件削除"
-      WhereClausePreview="Where句プレビュー"
       CreateView="View作成"
       JoinDefinitions="JOIN定義"
       AddJoin="JOIN追加"
@@ -120,8 +115,6 @@ try {
       WarnViewName="View内部名を入力してください。"
       WarnViewLabel="Viewラベルを入力してください。"
       WarnBaseTable="ベーステーブルを選択してください。"
-      WarnConditionColumn="条件のカラムが未選択です。"
-      WarnConditionValue="値が必要な条件があります。"
       WarnJoinTable="JOINテーブルを選択してください。"
       WarnJoinBaseColumn="JOINの左カラム(ベース)を選択してください。"
       WarnJoinTargetColumn="JOINの右カラム(JOIN先)を選択してください。"
@@ -180,11 +173,6 @@ try {
       BaseTable="Base Table"
       ReloadColumns="Reload Columns"
       ViewColumns="Visible Columns"
-      CheckAllColumns="Check All"
-      UncheckAllColumns="Uncheck All"
-      AddCondition="Add Condition"
-      RemoveCondition="Remove Condition"
-      WhereClausePreview="Where Clause Preview"
       CreateView="Create View"
       JoinDefinitions="Join Definitions"
       AddJoin="Add Join"
@@ -202,8 +190,6 @@ try {
       WarnViewName="View name is required."
       WarnViewLabel="View label is required."
       WarnBaseTable="Base table must be selected."
-      WarnConditionColumn="One or more conditions have no column selected."
-      WarnConditionValue="One or more conditions require a value."
       WarnJoinTable="Join table is required."
       WarnJoinBaseColumn="Left join column (base table) is required."
       WarnJoinTargetColumn="Right join column (join table) is required."
@@ -268,7 +254,6 @@ try {
       viewEditorViewLabel = ""
       viewEditorBaseTable = ""
       viewEditorBasePrefix = "t0"
-      viewEditorWhereClause = ""
       viewEditorJoinsJson = "[]"
       viewEditorSelectedColumnsJson = "[]"
     }
@@ -583,15 +568,7 @@ try {
 
   $clbViewColumns = New-Object System.Windows.Forms.CheckedListBox
   $clbViewColumns.Location = New-Object System.Drawing.Point(190, 100)
-  $clbViewColumns.Size = New-Object System.Drawing.Size(540, 120)
-
-  $btnCheckAllColumns = New-Object System.Windows.Forms.Button
-  $btnCheckAllColumns.Location = New-Object System.Drawing.Point(740, 100)
-  $btnCheckAllColumns.Size = New-Object System.Drawing.Size(180, 32)
-
-  $btnUncheckAllColumns = New-Object System.Windows.Forms.Button
-  $btnUncheckAllColumns.Location = New-Object System.Drawing.Point(740, 138)
-  $btnUncheckAllColumns.Size = New-Object System.Drawing.Size(180, 32)
+  $clbViewColumns.Size = New-Object System.Drawing.Size(730, 120)
 
   $lblJoinDefinitions = New-Object System.Windows.Forms.Label
   $lblJoinDefinitions.Location = New-Object System.Drawing.Point(20, 230)
@@ -615,7 +592,7 @@ try {
 
   $gridJoins = New-Object System.Windows.Forms.DataGridView
   $gridJoins.Location = New-Object System.Drawing.Point(190, 264)
-  $gridJoins.Size = New-Object System.Drawing.Size(730, 120)
+  $gridJoins.Size = New-Object System.Drawing.Size(730, 220)
   $gridJoins.AllowUserToAddRows = $false
   $gridJoins.AllowUserToDeleteRows = $false
   $gridJoins.RowHeadersVisible = $false
@@ -662,77 +639,18 @@ try {
   [void]$gridJoins.Columns.Add($colJoinPrefix)
   [void]$gridJoins.Columns.Add($colJoinLeftJoin)
 
-  $btnAddCondition = New-Object System.Windows.Forms.Button
-  $btnAddCondition.Location = New-Object System.Drawing.Point(190, 392)
-  $btnAddCondition.Size = New-Object System.Drawing.Size(170, 32)
-
-  $btnRemoveCondition = New-Object System.Windows.Forms.Button
-  $btnRemoveCondition.Location = New-Object System.Drawing.Point(370, 392)
-  $btnRemoveCondition.Size = New-Object System.Drawing.Size(170, 32)
-
-  $gridConditions = New-Object System.Windows.Forms.DataGridView
-  $gridConditions.Location = New-Object System.Drawing.Point(190, 432)
-  $gridConditions.Size = New-Object System.Drawing.Size(730, 160)
-  $gridConditions.AllowUserToAddRows = $false
-  $gridConditions.AllowUserToDeleteRows = $false
-  $gridConditions.RowHeadersVisible = $false
-  $gridConditions.SelectionMode = "FullRowSelect"
-  $gridConditions.MultiSelect = $false
-  $gridConditions.AutoSizeColumnsMode = "Fill"
-
-  $colCondColumn = New-Object System.Windows.Forms.DataGridViewComboBoxColumn
-  $colCondColumn.Name = "ConditionColumn"
-  $colCondColumn.FlatStyle = "Popup"
-  $colCondColumn.DisplayStyle = "DropDownButton"
-  $colCondColumn.FillWeight = 45
-
-  $colCondOperator = New-Object System.Windows.Forms.DataGridViewComboBoxColumn
-  $colCondOperator.Name = "ConditionOperator"
-  $colCondOperator.FlatStyle = "Popup"
-  $colCondOperator.DisplayStyle = "DropDownButton"
-  $colCondOperator.FillWeight = 20
-  [void]$colCondOperator.Items.Add("=")
-  [void]$colCondOperator.Items.Add("!=")
-  [void]$colCondOperator.Items.Add("LIKE")
-  [void]$colCondOperator.Items.Add("STARTSWITH")
-  [void]$colCondOperator.Items.Add("ENDSWITH")
-  [void]$colCondOperator.Items.Add("IN")
-  [void]$colCondOperator.Items.Add("ISEMPTY")
-  [void]$colCondOperator.Items.Add("ISNOTEMPTY")
-
-  $colCondValue = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
-  $colCondValue.Name = "ConditionValue"
-  $colCondValue.FillWeight = 35
-
-  [void]$gridConditions.Columns.Add($colCondColumn)
-  [void]$gridConditions.Columns.Add($colCondOperator)
-  [void]$gridConditions.Columns.Add($colCondValue)
-
-  $lblWherePreview = New-Object System.Windows.Forms.Label
-  $lblWherePreview.Location = New-Object System.Drawing.Point(20, 600)
-  $lblWherePreview.AutoSize = $true
-
-  $txtWherePreview = New-Object System.Windows.Forms.TextBox
-  $txtWherePreview.Location = New-Object System.Drawing.Point(190, 596)
-  $txtWherePreview.Size = New-Object System.Drawing.Size(730, 60)
-  $txtWherePreview.Multiline = $true
-  $txtWherePreview.ReadOnly = $true
-  $txtWherePreview.ScrollBars = "Vertical"
 
   $btnCreateView = New-Object System.Windows.Forms.Button
-  $btnCreateView.Location = New-Object System.Drawing.Point(740, 662)
+  $btnCreateView.Location = New-Object System.Drawing.Point(740, 500)
   $btnCreateView.Size = New-Object System.Drawing.Size(180, 42)
 
   $panelViewEditor.Controls.AddRange(@(
     $lblViewName, $txtViewName,
     $lblViewLabel, $txtViewLabel,
     $lblBaseTable, $cmbBaseTable, $btnReloadColumns,
-    $lblViewColumns, $clbViewColumns, $btnCheckAllColumns, $btnUncheckAllColumns,
+    $lblViewColumns, $clbViewColumns,
     $lblJoinDefinitions, $btnAddJoin, $btnRemoveJoin, $lblBasePrefix, $txtBasePrefix,
     $gridJoins,
-    $btnAddCondition, $btnRemoveCondition,
-    $gridConditions,
-    $lblWherePreview, $txtWherePreview,
     $btnCreateView
   ))
 
@@ -865,15 +783,10 @@ try {
     $lblBaseTable.Text = T "BaseTable"
     $btnReloadColumns.Text = T "ReloadColumns"
     $lblViewColumns.Text = T "ViewColumns"
-    $btnCheckAllColumns.Text = T "CheckAllColumns"
-    $btnUncheckAllColumns.Text = T "UncheckAllColumns"
     $lblJoinDefinitions.Text = T "JoinDefinitions"
     $btnAddJoin.Text = T "AddJoin"
     $btnRemoveJoin.Text = T "RemoveJoin"
     $lblBasePrefix.Text = T "BasePrefix"
-    $btnAddCondition.Text = T "AddCondition"
-    $btnRemoveCondition.Text = T "RemoveCondition"
-    $lblWherePreview.Text = T "WhereClausePreview"
     $btnCreateView.Text = T "CreateView"
     $colJoinTable.HeaderText = T "JoinTable"
     $colJoinSource.HeaderText = T "JoinSource"
@@ -881,9 +794,6 @@ try {
     $colJoinTargetColumn.HeaderText = T "JoinTargetColumn"
     $colJoinPrefix.HeaderText = T "JoinPrefix"
     $colJoinLeftJoin.HeaderText = T "LeftJoin"
-    $colCondColumn.HeaderText = T "ConditionColumn"
-    $colCondOperator.HeaderText = T "ConditionOperator"
-    $colCondValue.HeaderText = T "ConditionValue"
 
     $lblUiLang.Text = T "UiLang"
     $lblInstance.Text = T "Instance"
@@ -1311,7 +1221,6 @@ try {
           $baseColumn = [string]$col.name
           [void]$scopes.Add([pscustomobject]@{
             token = $baseColumn
-            conditionToken = ("{0}_{1}" -f $basePrefix, $baseColumn)
             display = Build-ViewEditorColumnDisplay $baseColumn ([string]$col.label) $baseTable ""
             sourceTable = $baseTable
             sourceColumn = $baseColumn
@@ -1335,7 +1244,6 @@ try {
           $token = ("{0}_{1}" -f $prefix, [string]$col.name)
           [void]$scopes.Add([pscustomobject]@{
             token = $token
-            conditionToken = $token
             display = Build-ViewEditorColumnDisplay $token ([string]$col.label) $joinTable $prefix
             sourceTable = $joinTable
             sourceColumn = [string]$col.name
@@ -1355,10 +1263,6 @@ try {
     }
     $clbViewColumns.EndUpdate()
 
-    $colCondColumn.Items.Clear()
-    foreach ($scope in $uniqueScopes) {
-      [void]$colCondColumn.Items.Add([string]$scope.conditionToken)
-    }
   }
 
   function Get-JoinRowPrefix([int]$rowIndex) {
@@ -1447,62 +1351,7 @@ try {
   }
 
 
-  function Normalize-ConditionColumn([string]$column) {
-    $token = ([string]$column).Trim()
-    if ([string]::IsNullOrWhiteSpace($token)) { return "" }
 
-    $basePrefix = ([string]$txtBasePrefix.Text).Trim()
-    if ([string]::IsNullOrWhiteSpace($basePrefix)) { $basePrefix = "t0" }
-
-    if ($token.StartsWith(("{0}_" -f $basePrefix), [System.StringComparison]::OrdinalIgnoreCase)) {
-      return $token
-    }
-
-    $knownPrefixes = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    [void]$knownPrefixes.Add($basePrefix)
-    for ($i = 0; $i -lt $gridJoins.Rows.Count; $i++) {
-      $joinRow = $gridJoins.Rows[$i]
-      if ($joinRow.IsNewRow) { continue }
-      $joinTableCell = $joinRow.Cells[0].Value
-      $joinTable = if ($null -eq $joinTableCell) { "" } else { ([string]$joinTableCell).Trim() }
-      if ([string]::IsNullOrWhiteSpace($joinTable)) { continue }
-      $joinPrefix = Get-JoinRowPrefix $i
-      if (-not [string]::IsNullOrWhiteSpace($joinPrefix)) {
-        [void]$knownPrefixes.Add($joinPrefix)
-      }
-    }
-
-    $sepIndex = $token.IndexOf("_")
-    if ($sepIndex -gt 0) {
-      $prefixPart = $token.Substring(0, $sepIndex)
-      if ($knownPrefixes.Contains($prefixPart)) { return $token }
-    }
-
-    return ("{0}_{1}" -f $basePrefix, $token)
-  }
-
-  function Build-ViewWhereClause {
-    $parts = New-Object System.Collections.Generic.List[string]
-    foreach ($row in $gridConditions.Rows) {
-      if ($row.IsNewRow) { continue }
-      $columnCell = $row.Cells[0].Value
-      $opCell = $row.Cells[1].Value
-      $valueCell = $row.Cells[2].Value
-
-      $columnRaw = if ($null -eq $columnCell) { "" } else { [string]$columnCell }
-      $column = Normalize-ConditionColumn $columnRaw
-      $op = if ($null -eq $opCell -or [string]::IsNullOrWhiteSpace([string]$opCell)) { "=" } else { [string]$opCell }
-      $value = if ($null -eq $valueCell) { "" } else { [string]$valueCell }
-
-      if ([string]::IsNullOrWhiteSpace($column)) { continue }
-      if ((@("ISEMPTY","ISNOTEMPTY") -contains $op)) {
-        [void]$parts.Add(("{0}{1}" -f $column, $op))
-      } else {
-        [void]$parts.Add(("{0}{1}{2}" -f $column, $op, $value))
-      }
-    }
-    return ($parts.ToArray() -join "^")
-  }
 
   function Build-JoinWhereClause([string]$leftPrefix, [string]$baseColumn, [string]$joinPrefix, [string]$joinColumn) {
     $left = if ([string]::IsNullOrWhiteSpace($leftPrefix)) { [string]$baseColumn } else { "{0}_{1}" -f [string]$leftPrefix, [string]$baseColumn }
@@ -1633,11 +1482,6 @@ try {
     return [pscustomobject]@{ saved = $saved; rowId = $joinRowId }
   }
 
-  function Update-WherePreview {
-    $txtWherePreview.Text = Build-ViewWhereClause
-    $script:Settings.viewEditorWhereClause = $txtWherePreview.Text
-    Save-Settings
-  }
 
   function Fetch-ColumnsForBaseTable {
     $table = Get-SelectedBaseTableName
@@ -1650,7 +1494,6 @@ try {
     try {
       $list = @(Fetch-ColumnsForTable $table)
 
-      $gridConditions.Rows.Clear()
       Update-ViewEditorColumnChoices
 
       for ($i = 0; $i -lt $gridJoins.Rows.Count; $i++) {
@@ -1679,19 +1522,6 @@ try {
       if ([string]::IsNullOrWhiteSpace([string]$j.targetColumn)) { [System.Windows.Forms.MessageBox]::Show((T "WarnJoinTargetColumn")) | Out-Null; return }
     }
 
-    foreach ($row in $gridConditions.Rows) {
-      if ($row.IsNewRow) { continue }
-      $cVal = $row.Cells[0].Value
-      $oVal = $row.Cells[1].Value
-      $vVal = $row.Cells[2].Value
-      $columnText = if ($null -eq $cVal) { "" } else { [string]$cVal }
-      $opText = if ($null -eq $oVal -or [string]::IsNullOrWhiteSpace([string]$oVal)) { "=" } else { [string]$oVal }
-      $valueText = if ($null -eq $vVal) { "" } else { [string]$vVal }
-      if ([string]::IsNullOrWhiteSpace($columnText)) { [System.Windows.Forms.MessageBox]::Show((T "WarnConditionColumn")) | Out-Null; return }
-      if ((@("ISEMPTY","ISNOTEMPTY") -notcontains $opText) -and [string]::IsNullOrWhiteSpace($valueText)) { [System.Windows.Forms.MessageBox]::Show((T "WarnConditionValue")) | Out-Null; return }
-    }
-
-    $whereClause = Build-ViewWhereClause
     $basePrefix = ([string]$txtBasePrefix.Text).Trim()
     if ([string]::IsNullOrWhiteSpace($basePrefix)) { $basePrefix = "t0" }
     $selectedColumns = @(Get-SelectedViewFieldTokens)
@@ -1723,7 +1553,6 @@ try {
         }
       }
 
-      $whereSaved = $true
       $baseTableMetadataSaved = $true
       if (-not [string]::IsNullOrWhiteSpace($sysId)) {
         $baseTableMetadataSaved = $false
@@ -1750,12 +1579,9 @@ try {
           }
         }
 
-        $baseTableMetadataSaved = Save-ViewTableMetadata $baseTableRowId $basePrefix $whereClause $false $false
+        $baseTableMetadataSaved = Save-ViewTableMetadata $baseTableRowId $basePrefix "" $false $false
       }
 
-      if (-not [string]::IsNullOrWhiteSpace($whereClause)) {
-        $whereSaved = $baseTableMetadataSaved
-      }
 
       $joinsSaved = $true
       if (-not [string]::IsNullOrWhiteSpace($sysId) -and $joinDefs.Count -gt 0) {
@@ -1786,11 +1612,6 @@ try {
           $joinIndex++
           $joinsSaved = $true
         }
-      }
-
-      if (-not $whereSaved) {
-        Add-Log (T "ViewWhereFallback")
-        [System.Windows.Forms.MessageBox]::Show((T "ViewWhereFallback")) | Out-Null
       }
 
       if (-not $joinsSaved) {
@@ -2087,8 +1908,6 @@ try {
   $txtBasePrefix.Text = [string]$script:Settings.viewEditorBasePrefix
   if ([string]::IsNullOrWhiteSpace($txtBasePrefix.Text)) { $txtBasePrefix.Text = "t0" }
 
-  $txtWherePreview.Text = [string]$script:Settings.viewEditorWhereClause
-
   try {
     $joinsText = [string]$script:Settings.viewEditorJoinsJson
     if (-not [string]::IsNullOrWhiteSpace($joinsText)) {
@@ -2222,7 +2041,6 @@ try {
     $script:Settings.viewEditorBasePrefix = $txtBasePrefix.Text
     Save-Settings
     Update-ViewEditorColumnChoices
-    Update-WherePreview
   })
 
   $cmbBaseTable.add_SelectedIndexChanged({
@@ -2265,26 +2083,8 @@ try {
     }
   })
 
-  $btnAddCondition.add_Click({
-    $rowIndex = $gridConditions.Rows.Add()
-    if ($rowIndex -ge 0) {
-      $gridConditions.Rows[$rowIndex].Cells[1].Value = "="
-      Update-WherePreview
-    }
-  })
 
-  $btnRemoveCondition.add_Click({
-    if ($gridConditions.SelectedRows.Count -gt 0) {
-      $gridConditions.Rows.Remove($gridConditions.SelectedRows[0])
-      Update-WherePreview
-    }
-  })
 
-  $gridConditions.add_CellValueChanged({ Update-WherePreview })
-  $gridConditions.add_RowsRemoved({ Update-WherePreview })
-  $gridConditions.add_CurrentCellDirtyStateChanged({
-    Complete-GridCurrentEdit $gridConditions "Condition"
-  })
 
   $gridJoins.add_CellValueChanged({
     param($sender, $e)
@@ -2306,11 +2106,6 @@ try {
     Complete-GridCurrentEdit $gridJoins "Join"
   })
 
-  $gridConditions.add_DataError({
-    param($sender, $e)
-    $e.ThrowException = $false
-    Add-Log ("Condition grid input error: {0}" -f $e.Exception.Message)
-  })
 
   $gridJoins.add_DataError({
     param($sender, $e)
@@ -2326,17 +2121,7 @@ try {
     }) | Out-Null
   })
 
-  $btnCheckAllColumns.add_Click({
-    for ($i = 0; $i -lt $clbViewColumns.Items.Count; $i++) {
-      $clbViewColumns.SetItemChecked($i, $true)
-    }
-  })
 
-  $btnUncheckAllColumns.add_Click({
-    for ($i = 0; $i -lt $clbViewColumns.Items.Count; $i++) {
-      $clbViewColumns.SetItemChecked($i, $false)
-    }
-  })
 
   $btnCreateView.add_Click({ Create-DatabaseView })
 
