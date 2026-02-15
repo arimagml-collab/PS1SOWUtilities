@@ -1114,6 +1114,89 @@ try {
     }
   }
 
+  function Split-JoinSettingTokens([object]$value) {
+    if ($null -eq $value) { return @() }
+    if ($value -is [bool]) { return @([string]$value) }
+
+    $text = ([string]$value).Trim()
+    if ([string]::IsNullOrWhiteSpace($text)) { return @() }
+
+    $lines = @($text -split "`r?`n" | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+    if ($lines.Count -gt 1) {
+      return @($lines | ForEach-Object { ([string]$_).Trim() })
+    }
+
+    return @($text -split '\s+' | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+  }
+
+  function Normalize-JoinDefinitionsForLoad([object]$rawJoinDefs) {
+    $normalized = New-Object System.Collections.Generic.List[object]
+    if ($null -eq $rawJoinDefs) { return @() }
+
+    $candidates = @($rawJoinDefs)
+    if (($rawJoinDefs -isnot [System.Array]) -and ($rawJoinDefs -is [System.Collections.IEnumerable]) -and ($rawJoinDefs -isnot [string])) {
+      $tmp = @()
+      foreach ($item in $rawJoinDefs) { $tmp += $item }
+      $candidates = $tmp
+    }
+
+    foreach ($j in $candidates) {
+      if ($null -eq $j) { continue }
+      $props = @($j.PSObject.Properties.Name)
+      if ($props.Count -eq 0) { continue }
+
+      $joinTables = @(Split-JoinSettingTokens $j.joinTable)
+      $joinSources = @(Split-JoinSettingTokens $j.joinSource)
+      $baseColumns = @(Split-JoinSettingTokens $j.baseColumn)
+      $targetColumns = @(Split-JoinSettingTokens $j.targetColumn)
+      $joinPrefixes = @(Split-JoinSettingTokens $j.joinPrefix)
+      $leftJoinTokens = @(Split-JoinSettingTokens $j.leftJoin)
+
+      $rowCountCandidates = @($joinTables.Count, $joinSources.Count, $baseColumns.Count, $targetColumns.Count, $joinPrefixes.Count, $leftJoinTokens.Count)
+      $rowCount = (@($rowCountCandidates | Measure-Object -Maximum)[0]).Maximum
+      if ($rowCount -lt 1) { $rowCount = 1 }
+
+      if ($rowCount -eq 1) {
+        [void]$normalized.Add([pscustomobject]@{
+          joinTable = if ($joinTables.Count -gt 0) { [string]$joinTables[0] } else { [string]$j.joinTable }
+          joinSource = if ($joinSources.Count -gt 0) { [string]$joinSources[0] } elseif ($j.PSObject.Properties.Name -contains "joinSource") { [string]$j.joinSource } else { "__base__" }
+          baseColumn = if ($baseColumns.Count -gt 0) { [string]$baseColumns[0] } else { [string]$j.baseColumn }
+          targetColumn = if ($targetColumns.Count -gt 0) { [string]$targetColumns[0] } else { [string]$j.targetColumn }
+          joinPrefix = if ($joinPrefixes.Count -gt 0) { [string]$joinPrefixes[0] } else { [string]$j.joinPrefix }
+          leftJoin = if ($leftJoinTokens.Count -gt 0) { try { [System.Convert]::ToBoolean($leftJoinTokens[0]) } catch { $false } } elseif ($j.PSObject.Properties.Name -contains "leftJoin") { try { [System.Convert]::ToBoolean($j.leftJoin) } catch { $false } } else { $false }
+        })
+        continue
+      }
+
+      for ($i = 0; $i -lt $rowCount; $i++) {
+        $source = ""
+        if ($i -lt $joinSources.Count) {
+          $source = [string]$joinSources[$i]
+        } elseif ($i -eq 0) {
+          $source = "__base__"
+        } elseif (($i - 1) -lt $joinPrefixes.Count) {
+          $source = [string]$joinPrefixes[$i - 1]
+        }
+
+        $leftJoin = $false
+        if ($i -lt $leftJoinTokens.Count) {
+          try { $leftJoin = [System.Convert]::ToBoolean($leftJoinTokens[$i]) } catch { $leftJoin = $false }
+        }
+
+        [void]$normalized.Add([pscustomobject]@{
+          joinTable = if ($i -lt $joinTables.Count) { [string]$joinTables[$i] } else { "" }
+          joinSource = $source
+          baseColumn = if ($i -lt $baseColumns.Count) { [string]$baseColumns[$i] } else { "" }
+          targetColumn = if ($i -lt $targetColumns.Count) { [string]$targetColumns[$i] } else { "" }
+          joinPrefix = if ($i -lt $joinPrefixes.Count) { [string]$joinPrefixes[$i] } else { "" }
+          leftJoin = $leftJoin
+        })
+      }
+    }
+
+    return $normalized.ToArray()
+  }
+
   function Fetch-ColumnsForTable([string]$table) {
     if ([string]::IsNullOrWhiteSpace($table)) { return @() }
 
@@ -2009,7 +2092,7 @@ try {
   try {
     $joinsText = [string]$script:Settings.viewEditorJoinsJson
     if (-not [string]::IsNullOrWhiteSpace($joinsText)) {
-      $loadedJoinDefs = @($joinsText | ConvertFrom-Json)
+      $loadedJoinDefs = @(Normalize-JoinDefinitionsForLoad ($joinsText | ConvertFrom-Json))
       foreach ($j in $loadedJoinDefs) {
         if ($null -eq $j) { continue }
         $rowIndex = $gridJoins.Rows.Add()
