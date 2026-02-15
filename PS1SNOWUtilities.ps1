@@ -124,6 +124,8 @@ try {
       ViewCreateFailed="View作成に失敗しました"
       ViewWhereFallback="この環境ではWhere句保存フィールドを特定できませんでした。Viewは作成されましたが、Where句は手動設定してください。"
       ViewJoinFallback="JOIN定義の保存に失敗しました。View本体は作成されましたが、JOINは手動設定してください。"
+      CreatedViewListLink="作成したViewリスト"
+      CreatedViewDefinitionLink="View定義レコード"
     }
     "en" = @{
       AppTitle="PS1 SNOW Utilities"
@@ -199,6 +201,8 @@ try {
       ViewCreateFailed="Failed to create view"
       ViewWhereFallback="Could not detect a writable where-clause field in this instance. View was created, but set the where clause manually."
       ViewJoinFallback="Failed to persist join definitions. View was created, but set joins manually."
+      CreatedViewListLink="Created View List"
+      CreatedViewDefinitionLink="View Definition Record"
     }
   }
 
@@ -660,6 +664,20 @@ try {
   $btnCreateView.Size = New-Object System.Drawing.Size(180, 42)
   $btnCreateView.Anchor = [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Right
 
+  $lnkCreatedViewList = New-Object System.Windows.Forms.LinkLabel
+  $lnkCreatedViewList.Location = New-Object System.Drawing.Point(190, 504)
+  $lnkCreatedViewList.Size = New-Object System.Drawing.Size(540, 18)
+  $lnkCreatedViewList.Anchor = [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
+  $lnkCreatedViewList.Visible = $false
+  $lnkCreatedViewList.LinkBehavior = [System.Windows.Forms.LinkBehavior]::HoverUnderline
+
+  $lnkCreatedViewDefinition = New-Object System.Windows.Forms.LinkLabel
+  $lnkCreatedViewDefinition.Location = New-Object System.Drawing.Point(190, 526)
+  $lnkCreatedViewDefinition.Size = New-Object System.Drawing.Size(540, 18)
+  $lnkCreatedViewDefinition.Anchor = [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
+  $lnkCreatedViewDefinition.Visible = $false
+  $lnkCreatedViewDefinition.LinkBehavior = [System.Windows.Forms.LinkBehavior]::HoverUnderline
+
   $panelViewEditor.Controls.AddRange(@(
     $lblViewName, $txtViewName,
     $lblViewLabel, $txtViewLabel,
@@ -667,6 +685,7 @@ try {
     $lblViewColumns, $clbViewColumns,
     $lblJoinDefinitions, $btnAddJoin, $btnRemoveJoin, $lblBasePrefix, $txtBasePrefix,
     $gridJoins,
+    $lnkCreatedViewList, $lnkCreatedViewDefinition,
     $btnCreateView
   ))
 
@@ -812,6 +831,12 @@ try {
     $colJoinTargetColumn.HeaderText = T "JoinTargetColumn"
     $colJoinPrefix.HeaderText = T "JoinPrefix"
     $colJoinLeftJoin.HeaderText = T "LeftJoin"
+    if ($lnkCreatedViewList.Visible) {
+      $lnkCreatedViewList.Text = "{0}: {1}" -f (T "CreatedViewListLink"), [string]$lnkCreatedViewList.Tag
+    }
+    if ($lnkCreatedViewDefinition.Visible) {
+      $lnkCreatedViewDefinition.Text = "{0}: {1}" -f (T "CreatedViewDefinitionLink"), [string]$lnkCreatedViewDefinition.Tag
+    }
 
     $lblUiLang.Text = T "UiLang"
     $lblInstance.Text = T "Instance"
@@ -942,6 +967,37 @@ try {
       $cmbTable.DroppedDown = $false
       $cmbTable.Select()
     }
+  }
+
+  function Ensure-TablesLoaded {
+    $cachedCount = @($script:Settings.cachedTables).Count
+    $uiCount = @($cmbTable.Items).Count
+    if ($cachedCount -gt 0 -or $uiCount -gt 0) { return }
+    Fetch-Tables
+  }
+
+  function Update-CreatedViewLinks([string]$viewName, [string]$viewSysId) {
+    $base = Get-BaseUrl
+    if ([string]::IsNullOrWhiteSpace($base) -or [string]::IsNullOrWhiteSpace($viewName) -or [string]::IsNullOrWhiteSpace($viewSysId)) {
+      $lnkCreatedViewList.Visible = $false
+      $lnkCreatedViewDefinition.Visible = $false
+      return
+    }
+
+    $viewListUrl = "{0}/u_{1}_list.do" -f $base, $viewName
+    $viewDefUrl = "{0}/sys_db_view.do?sys_id={1}" -f $base, $viewSysId
+
+    $lnkCreatedViewList.Tag = $viewListUrl
+    $lnkCreatedViewList.Text = "{0}: {1}" -f (T "CreatedViewListLink"), $viewListUrl
+    $lnkCreatedViewList.Links.Clear()
+    [void]$lnkCreatedViewList.Links.Add(0, $lnkCreatedViewList.Text.Length, $viewListUrl)
+    $lnkCreatedViewList.Visible = $true
+
+    $lnkCreatedViewDefinition.Tag = $viewDefUrl
+    $lnkCreatedViewDefinition.Text = "{0}: {1}" -f (T "CreatedViewDefinitionLink"), $viewDefUrl
+    $lnkCreatedViewDefinition.Links.Clear()
+    [void]$lnkCreatedViewDefinition.Links.Add(0, $lnkCreatedViewDefinition.Text.Length, $viewDefUrl)
+    $lnkCreatedViewDefinition.Visible = $true
   }
 
   function Get-SelectedTableName {
@@ -1629,6 +1685,8 @@ try {
         [System.Windows.Forms.MessageBox]::Show((T "ViewJoinFallback")) | Out-Null
       }
 
+      Update-CreatedViewLinks $viewName $sysId
+
       Add-Log ("{0}: {1}" -f (T "ViewCreated"), $viewName)
       [System.Windows.Forms.MessageBox]::Show(("{0}`r`n{1}" -f (T "ViewCreated"), $viewName)) | Out-Null
     } catch {
@@ -2126,6 +2184,27 @@ try {
 
 
   $btnCreateView.add_Click({ Create-DatabaseView })
+
+  $lnkCreatedViewList.add_LinkClicked({
+    param($sender, $e)
+    $target = [string]$e.Link.LinkData
+    if (-not [string]::IsNullOrWhiteSpace($target)) {
+      Start-Process $target | Out-Null
+    }
+  })
+  $lnkCreatedViewDefinition.add_LinkClicked({
+    param($sender, $e)
+    $target = [string]$e.Link.LinkData
+    if (-not [string]::IsNullOrWhiteSpace($target)) {
+      Start-Process $target | Out-Null
+    }
+  })
+
+  $tabs.add_SelectedIndexChanged({
+    if ($tabs.SelectedTab -eq $tabViewEditor) {
+      Ensure-TablesLoaded
+    }
+  })
 
   $cmbOutputFormat.add_SelectedIndexChanged({
     $script:Settings.outputFormat = [string]$cmbOutputFormat.SelectedItem
