@@ -6,7 +6,7 @@
 
 ## 日本語
 
-PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）と Database View の作成（Database View Editor）を行える PowerShell (WinForms) ユーティリティです。
+PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）・Database View の作成（Database View Editor）・レコード全削除（Truncate）を行える PowerShell (WinForms) ユーティリティです。
 
 ### タブ別の活用シーン
 
@@ -16,6 +16,9 @@ PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）�
 - **Database View Editor**
   - ServiceNow 標準 UI では操作しづらい Database View 作成を、GUI で手早く組み立てたいときに有効です。
   - テーブル/カラム候補を見ながら、ベーステーブルと JOIN を設計できます。
+- **Truncate（全削除）**
+  - 開発環境で大量データインポート試験を繰り返す際など、テーブルを初期化したい限定用途に有効です。
+  - **本番環境での使用は非推奨**です。
 - **設定**
   - インスタンス名・認証方式・言語などを保存し、繰り返し作業の入力ミスやセットアップ時間を減らしたいときに有効です。
 
@@ -49,6 +52,15 @@ PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）�
 4. **カラム再取得** でカラム候補を再読み込みします（現状は候補がそのまま表示カラムとして扱われます）。
 5. **View作成** を実行し、完了ログとリンク（作成済み View 一覧 / View 定義）を確認します。
 
+#### Truncate（全削除）の手順
+
+1. **Truncate（全削除）**タブで削除対象テーブルを選択（または手動入力）します。
+2. 最大再試行回数を確認し、表示された4桁確認コードを入力します。
+3. 注意事項を確認の上、**全件削除実行** を押します。
+4. 確認ダイアログ承認後、進捗とログを確認します。
+
+> ⚠️ 本機能は本番環境での利用を推奨しません。開発環境での大量データインポート試験など、限定的な用途でのみ利用してください。
+
 ### 補足（権限・制約）
 
 - テーブル一覧は `sys_db_object` から取得するため、ACL により一覧取得できない場合があります（その場合は手動入力で対応）。
@@ -79,7 +91,7 @@ https://www.ixam.net
 
 ## English
 
-PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow table data and creating Database Views with a guided GUI.
+PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow table data, creating Database Views, and truncating table records with a guided GUI.
 
 ### Useful situations by tab
 
@@ -89,6 +101,9 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
 - **Database View Editor**
   - Best when ServiceNow's native UI feels cumbersome for building Database Views.
   - You can design base tables and joins while checking table/column candidates.
+- **Truncate**
+  - Useful for limited scenarios where you need to reset table contents, such as repeated large-volume import testing in development environments.
+  - **Not recommended for production use**.
 - **Settings**
   - Best when you want to persist instance/auth/language preferences and reduce repeated setup time and input mistakes.
 
@@ -121,6 +136,15 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
 3. Use **Add Join** to define join table, left/right columns, variable prefix, and LEFT JOIN options.
 4. Click **Reload Columns** to refresh column candidates (currently, the loaded candidates are treated as visible columns as-is).
 5. Click **Create View**, then review completion logs and links (created View list / View definition record).
+
+#### Truncate workflow
+
+1. In the **Truncate** tab, select the target table (or type it manually).
+2. Confirm max retry count, then type the displayed 4-character verification code.
+3. After reviewing the warnings, click **Delete All Records**.
+4. Approve the confirmation dialog and monitor progress/log output.
+
+> ⚠️ This feature is not recommended for production environments. Use it only for limited scenarios such as repeated large-volume import tests in development environments.
 
 ### Notes (permissions and limitations)
 

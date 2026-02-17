@@ -134,6 +134,7 @@ try {
       DeleteGenerateCode="コード再生成"
       DeleteExecute="全件削除実行"
       DeleteDangerHint="※危険操作: テーブル内のレコードを全削除します。"
+      DeleteUsageHint="※本番環境での使用は非推奨です。開発環境で大量データのインポート試験を繰り返す場合など、限定的な用途での利用を想定しています。"
       DeleteCodeHint="上記4桁コードを入力しないと実行できません。"
       DeleteProgress="進捗"
       DeleteFetchCount="対象件数を確認中..."
@@ -230,6 +231,7 @@ try {
       DeleteGenerateCode="Regenerate"
       DeleteExecute="Delete All Records"
       DeleteDangerHint="Dangerous operation: deletes all records from the table."
+      DeleteUsageHint="Production use is not recommended. Intended for limited scenarios such as repeatedly running large-data import tests in development environments."
       DeleteCodeHint="Execution is disabled until you type the 4-character code above."
       DeleteProgress="Progress"
       DeleteFetchCount="Checking target record count..."
@@ -976,28 +978,33 @@ try {
   $lblDeleteDangerHint.Size = New-Object System.Drawing.Size(900, 24)
   $lblDeleteDangerHint.ForeColor = [System.Drawing.Color]::FromArgb(180,30,30)
 
+  $lblDeleteUsageHint = New-Object System.Windows.Forms.Label
+  $lblDeleteUsageHint.Location = New-Object System.Drawing.Point(20, 210)
+  $lblDeleteUsageHint.Size = New-Object System.Drawing.Size(900, 40)
+  $lblDeleteUsageHint.ForeColor = [System.Drawing.Color]::FromArgb(140,70,30)
+
   $lblDeleteCodeHint = New-Object System.Windows.Forms.Label
-  $lblDeleteCodeHint.Location = New-Object System.Drawing.Point(20, 210)
+  $lblDeleteCodeHint.Location = New-Object System.Drawing.Point(20, 255)
   $lblDeleteCodeHint.Size = New-Object System.Drawing.Size(900, 24)
   $lblDeleteCodeHint.ForeColor = [System.Drawing.Color]::FromArgb(110,70,70)
 
   $lblDeleteProgress = New-Object System.Windows.Forms.Label
-  $lblDeleteProgress.Location = New-Object System.Drawing.Point(20, 245)
+  $lblDeleteProgress.Location = New-Object System.Drawing.Point(20, 290)
   $lblDeleteProgress.AutoSize = $true
 
   $prgDelete = New-Object System.Windows.Forms.ProgressBar
-  $prgDelete.Location = New-Object System.Drawing.Point(220, 242)
+  $prgDelete.Location = New-Object System.Drawing.Point(220, 287)
   $prgDelete.Size = New-Object System.Drawing.Size(500, 24)
   $prgDelete.Minimum = 0
   $prgDelete.Maximum = 100
   $prgDelete.Value = 0
 
   $lblDeleteProgressValue = New-Object System.Windows.Forms.Label
-  $lblDeleteProgressValue.Location = New-Object System.Drawing.Point(740, 245)
+  $lblDeleteProgressValue.Location = New-Object System.Drawing.Point(740, 290)
   $lblDeleteProgressValue.Size = New-Object System.Drawing.Size(180, 24)
 
   $btnDeleteExecute = New-Object System.Windows.Forms.Button
-  $btnDeleteExecute.Location = New-Object System.Drawing.Point(740, 300)
+  $btnDeleteExecute.Location = New-Object System.Drawing.Point(740, 345)
   $btnDeleteExecute.Size = New-Object System.Drawing.Size(180, 42)
   $btnDeleteExecute.Enabled = $false
 
@@ -1006,7 +1013,7 @@ try {
     $lblDeleteMaxRetries, $numDeleteMaxRetries,
     $lblDeleteCode, $txtDeleteCode, $btnDeleteRegenerateCode,
     $lblDeleteInput, $txtDeleteInput,
-    $lblDeleteDangerHint, $lblDeleteCodeHint,
+    $lblDeleteDangerHint, $lblDeleteUsageHint, $lblDeleteCodeHint,
     $lblDeleteProgress, $prgDelete, $lblDeleteProgressValue,
     $btnDeleteExecute
   ))
@@ -1040,6 +1047,7 @@ try {
     $lblDeleteInput.Text = T "DeleteSafetyInput"
     $btnDeleteRegenerateCode.Text = T "DeleteGenerateCode"
     $lblDeleteDangerHint.Text = T "DeleteDangerHint"
+    $lblDeleteUsageHint.Text = T "DeleteUsageHint"
     $lblDeleteCodeHint.Text = T "DeleteCodeHint"
     $lblDeleteProgress.Text = T "DeleteProgress"
     $btnDeleteExecute.Text = T "DeleteExecute"
