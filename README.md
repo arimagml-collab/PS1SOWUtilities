@@ -103,8 +103,8 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
 - **Database View Editor**
   - Best when ServiceNow's native UI feels cumbersome for building Database Views.
   - You can design base tables and joins while checking table/column candidates.
-- **Truncate**
-  - Useful for limited scenarios where you need to reset table contents, such as repeated large-volume import testing in development environments.
+- **Truncate (Delete all)**
+  - Useful when you repeatedly run large-volume import tests (tens of thousands of records) in development, and deleting records from the table management screen is too cumbersome.
   - **Not recommended for production use**.
 - **Settings**
   - Best when you want to persist instance/auth/language preferences and reduce repeated setup time and input mistakes.
@@ -139,12 +139,14 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
 4. Click **Reload Columns** to refresh column candidates (currently, the loaded candidates are treated as visible columns as-is).
 5. Click **Create View**, then review completion logs and links (created View list / View definition record).
 
-#### Truncate workflow
+#### Truncate (Delete all) workflow
 
-1. In the **Truncate** tab, select the target table (or type it manually).
-2. Confirm max retry count, then type the displayed 4-character verification code.
-3. After reviewing the warnings, click **Delete All Records**.
-4. Approve the confirmation dialog and monitor progress/log output.
+1. In the **Truncate (Delete all)** tab, select the target table (or type it manually).
+2. Set max retry count (1-999), then click **Execute Delete All Records**.
+3. In the displayed verification-code dialog, enter the 4-character code, then approve the execution confirmation dialog.
+4. Check the progress bar and logs, and review retry logs as needed (up to the max retry count).
+
+> 💡 Typical use case: You want to repeatedly delete data after large-volume import tests (tens of thousands of records) in development, but record-by-record deletion from the table management screen is too time-consuming.
 
 > ⚠️ This feature is not recommended for production environments. Use it only for limited scenarios such as repeated large-volume import tests in development environments.
 
