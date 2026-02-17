@@ -1016,69 +1016,44 @@ try {
   $numDeleteMaxRetries.Maximum = 999
   $numDeleteMaxRetries.Value = 99
 
-  $lblDeleteCode = New-Object System.Windows.Forms.Label
-  $lblDeleteCode.Location = New-Object System.Drawing.Point(20, 105)
-  $lblDeleteCode.AutoSize = $true
-
-  $txtDeleteCode = New-Object System.Windows.Forms.TextBox
-  $txtDeleteCode.Location = New-Object System.Drawing.Point(220, 102)
-  $txtDeleteCode.Size = New-Object System.Drawing.Size(140, 28)
-  $txtDeleteCode.ReadOnly = $true
-  $txtDeleteCode.TextAlign = "Center"
-
-  $btnDeleteRegenerateCode = New-Object System.Windows.Forms.Button
-  $btnDeleteRegenerateCode.Location = New-Object System.Drawing.Point(380, 100)
-  $btnDeleteRegenerateCode.Size = New-Object System.Drawing.Size(170, 32)
-
-  $lblDeleteInput = New-Object System.Windows.Forms.Label
-  $lblDeleteInput.Location = New-Object System.Drawing.Point(20, 145)
-  $lblDeleteInput.AutoSize = $true
-
-  $txtDeleteInput = New-Object System.Windows.Forms.TextBox
-  $txtDeleteInput.Location = New-Object System.Drawing.Point(220, 142)
-  $txtDeleteInput.Size = New-Object System.Drawing.Size(140, 28)
-  $txtDeleteInput.CharacterCasing = "Upper"
-
   $lblDeleteDangerHint = New-Object System.Windows.Forms.Label
-  $lblDeleteDangerHint.Location = New-Object System.Drawing.Point(20, 185)
+  $lblDeleteDangerHint.Location = New-Object System.Drawing.Point(20, 105)
   $lblDeleteDangerHint.Size = New-Object System.Drawing.Size(900, 24)
   $lblDeleteDangerHint.ForeColor = [System.Drawing.Color]::FromArgb(180,30,30)
 
   $lblDeleteUsageHint = New-Object System.Windows.Forms.Label
-  $lblDeleteUsageHint.Location = New-Object System.Drawing.Point(20, 210)
+  $lblDeleteUsageHint.Location = New-Object System.Drawing.Point(20, 130)
   $lblDeleteUsageHint.Size = New-Object System.Drawing.Size(900, 40)
   $lblDeleteUsageHint.ForeColor = [System.Drawing.Color]::FromArgb(140,70,30)
 
   $lblDeleteCodeHint = New-Object System.Windows.Forms.Label
-  $lblDeleteCodeHint.Location = New-Object System.Drawing.Point(20, 255)
+  $lblDeleteCodeHint.Location = New-Object System.Drawing.Point(20, 175)
   $lblDeleteCodeHint.Size = New-Object System.Drawing.Size(900, 24)
   $lblDeleteCodeHint.ForeColor = [System.Drawing.Color]::FromArgb(110,70,70)
 
   $lblDeleteProgress = New-Object System.Windows.Forms.Label
-  $lblDeleteProgress.Location = New-Object System.Drawing.Point(20, 290)
+  $lblDeleteProgress.Location = New-Object System.Drawing.Point(20, 220)
   $lblDeleteProgress.AutoSize = $true
 
   $prgDelete = New-Object System.Windows.Forms.ProgressBar
-  $prgDelete.Location = New-Object System.Drawing.Point(220, 287)
+  $prgDelete.Location = New-Object System.Drawing.Point(220, 217)
   $prgDelete.Size = New-Object System.Drawing.Size(500, 24)
   $prgDelete.Minimum = 0
   $prgDelete.Maximum = 100
   $prgDelete.Value = 0
 
   $lblDeleteProgressValue = New-Object System.Windows.Forms.Label
-  $lblDeleteProgressValue.Location = New-Object System.Drawing.Point(740, 290)
+  $lblDeleteProgressValue.Location = New-Object System.Drawing.Point(740, 220)
   $lblDeleteProgressValue.Size = New-Object System.Drawing.Size(180, 24)
 
   $btnDeleteExecute = New-Object System.Windows.Forms.Button
-  $btnDeleteExecute.Location = New-Object System.Drawing.Point(740, 345)
+  $btnDeleteExecute.Location = New-Object System.Drawing.Point(740, 275)
   $btnDeleteExecute.Size = New-Object System.Drawing.Size(180, 42)
   $btnDeleteExecute.Enabled = $false
 
   $panelDelete.Controls.AddRange(@(
     $lblDeleteTable, $cmbDeleteTable, $btnDeleteReloadTables,
     $lblDeleteMaxRetries, $numDeleteMaxRetries,
-    $lblDeleteCode, $txtDeleteCode, $btnDeleteRegenerateCode,
-    $lblDeleteInput, $txtDeleteInput,
     $lblDeleteDangerHint, $lblDeleteUsageHint, $lblDeleteCodeHint,
     $lblDeleteProgress, $prgDelete, $lblDeleteProgressValue,
     $btnDeleteExecute
@@ -1109,9 +1084,6 @@ try {
     $lblDeleteTable.Text = T "DeleteTargetTable"
     $btnDeleteReloadTables.Text = T "ReloadTables"
     $lblDeleteMaxRetries.Text = T "DeleteMaxRetries"
-    $lblDeleteCode.Text = T "DeleteSafetyCode"
-    $lblDeleteInput.Text = T "DeleteSafetyInput"
-    $btnDeleteRegenerateCode.Text = T "DeleteGenerateCode"
     $lblDeleteDangerHint.Text = T "DeleteDangerHint"
     $lblDeleteUsageHint.Text = T "DeleteUsageHint"
     $lblDeleteCodeHint.Text = T "DeleteCodeHint"
@@ -1341,16 +1313,8 @@ try {
     $btnDeleteExecute.Enabled = (-not [string]::IsNullOrWhiteSpace($table))
   }
 
-  function Regenerate-DeleteCode {
-    $txtDeleteCode.Text = New-VerificationCode 4
-    $txtDeleteInput.Text = ""
-    Refresh-DeleteExecuteButton
-  }
-
   function Request-DeleteVerificationCode {
     $code = New-VerificationCode 4
-    $txtDeleteCode.Text = $code
-    $txtDeleteInput.Text = ""
 
     $prompt = New-Object System.Windows.Forms.Form
     $prompt.StartPosition = "CenterParent"
@@ -1402,9 +1366,11 @@ try {
       throw (T "DeletePromptCancelled")
     }
 
-    $txtDeleteInput.Text = ([string]$txtInput.Text).Trim().ToUpperInvariant()
-    Refresh-DeleteExecuteButton
-    return $code
+    $inputCode = ([string]$txtInput.Text).Trim().ToUpperInvariant()
+    return [pscustomobject]@{
+      ExpectedCode = $code
+      InputCode = $inputCode
+    }
   }
 
   function Refresh-BaseTableItems {
@@ -2096,8 +2062,9 @@ try {
     $maxRetries = [int]$numDeleteMaxRetries.Value
     if ($maxRetries -lt 1 -or $maxRetries -gt 999) { throw (T "DeleteMaxRetriesInvalid") }
 
-    $expectedCode = Request-DeleteVerificationCode
-    $actualCode = ([string]$txtDeleteInput.Text).Trim().ToUpperInvariant()
+    $verification = Request-DeleteVerificationCode
+    $expectedCode = [string]$verification.ExpectedCode
+    $actualCode = [string]$verification.InputCode
     if ($expectedCode -ne $actualCode) { throw (T "DeleteCodeMismatch") }
 
     $confirm = [System.Windows.Forms.MessageBox]::Show(
@@ -2128,7 +2095,6 @@ try {
       Add-Log (T "DeleteNoRecord")
       Set-DeleteProgress 100 "100% (0/0)"
       [System.Windows.Forms.MessageBox]::Show((T "DeleteNoRecord")) | Out-Null
-      Regenerate-DeleteCode
       return
     }
 
@@ -2145,7 +2111,6 @@ try {
         Add-Log ("{0}: {1}" -f (T "DeleteDone"), $table)
         Set-DeleteProgress 100 ("100% ({0}/{1})" -f [Math]::Min($deleted, $initialTotal), $initialTotal)
         [System.Windows.Forms.MessageBox]::Show((T "DeleteDone")) | Out-Null
-        Regenerate-DeleteCode
         return
       }
 
@@ -2195,7 +2160,6 @@ try {
 
     Add-Log (T "DeleteStopped")
     [System.Windows.Forms.MessageBox]::Show((T "DeleteStopped")) | Out-Null
-    Regenerate-DeleteCode
   }
 
   function Export-Table {
@@ -2490,7 +2454,6 @@ try {
   Update-AuthUI
   Update-FilterUI
   Apply-Language
-  Regenerate-DeleteCode
   Set-DeleteProgress 0 "0%"
 
   # ----------------------------
@@ -2586,10 +2549,6 @@ try {
   $numDeleteMaxRetries.add_ValueChanged({
     $script:Settings.deleteMaxRetries = [int]$numDeleteMaxRetries.Value
     Request-SaveSettings
-  })
-
-  $txtDeleteInput.add_TextChanged({
-    Refresh-DeleteExecuteButton
   })
 
   $txtDir.add_TextChanged({
@@ -2756,7 +2715,6 @@ try {
   $btnReloadTables.add_Click({ Fetch-Tables })
   $btnDeleteReloadTables.add_Click({ Fetch-Tables })
   $btnExecute.add_Click({ Export-Table })
-  $btnDeleteRegenerateCode.add_Click({ Regenerate-DeleteCode })
   $btnDeleteExecute.add_Click({
     try {
       Remove-AllTableRecords
