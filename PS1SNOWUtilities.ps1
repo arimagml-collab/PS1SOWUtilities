@@ -136,6 +136,11 @@ try {
       DeleteDangerHint="※危険操作: テーブル内のレコードを全削除します。"
       DeleteUsageHint="※本番環境での使用は非推奨です。開発環境で大量データのインポート試験を繰り返す場合など、限定的な用途での利用を想定しています。"
       DeleteCodeHint="上記4桁コードを入力しないと実行できません。"
+      DeletePromptTitle="確認コード入力"
+      DeletePromptMessage="表示された確認コードを入力してください。"
+      DeletePromptCodeLabel="確認コード: {0}"
+      DeletePromptInputLabel="入力"
+      DeletePromptCancelled="削除処理をキャンセルしました。"
       DeleteProgress="進捗"
       DeleteFetchCount="対象件数を確認中..."
       DeleteConfirmTitle="削除確認"
@@ -233,6 +238,11 @@ try {
       DeleteDangerHint="Dangerous operation: deletes all records from the table."
       DeleteUsageHint="Production use is not recommended. Intended for limited scenarios such as repeatedly running large-data import tests in development environments."
       DeleteCodeHint="Execution is disabled until you type the 4-character code above."
+      DeletePromptTitle="Enter Verification Code"
+      DeletePromptMessage="Type the displayed verification code."
+      DeletePromptCodeLabel="Verification code: {0}"
+      DeletePromptInputLabel="Input"
+      DeletePromptCancelled="Delete operation was cancelled."
       DeleteProgress="Progress"
       DeleteFetchCount="Checking target record count..."
       DeleteConfirmTitle="Delete Confirmation"
@@ -1271,15 +1281,74 @@ try {
   }
 
   function Refresh-DeleteExecuteButton {
-    $expected = ([string]$txtDeleteCode.Text).Trim().ToUpperInvariant()
-    $actual = ([string]$txtDeleteInput.Text).Trim().ToUpperInvariant()
-    $btnDeleteExecute.Enabled = (-not [string]::IsNullOrWhiteSpace($expected) -and $actual -eq $expected)
+    $table = Get-SelectedDeleteTableName
+    $btnDeleteExecute.Enabled = (-not [string]::IsNullOrWhiteSpace($table))
   }
 
   function Regenerate-DeleteCode {
     $txtDeleteCode.Text = New-VerificationCode 4
     $txtDeleteInput.Text = ""
     Refresh-DeleteExecuteButton
+  }
+
+  function Request-DeleteVerificationCode {
+    $code = New-VerificationCode 4
+    $txtDeleteCode.Text = $code
+    $txtDeleteInput.Text = ""
+
+    $prompt = New-Object System.Windows.Forms.Form
+    $prompt.StartPosition = "CenterParent"
+    $prompt.Size = New-Object System.Drawing.Size(420, 230)
+    $prompt.FormBorderStyle = "FixedDialog"
+    $prompt.MaximizeBox = $false
+    $prompt.MinimizeBox = $false
+    $prompt.Text = T "DeletePromptTitle"
+
+    $lblMessage = New-Object System.Windows.Forms.Label
+    $lblMessage.Location = New-Object System.Drawing.Point(20, 20)
+    $lblMessage.Size = New-Object System.Drawing.Size(360, 24)
+    $lblMessage.Text = T "DeletePromptMessage"
+
+    $lblCode = New-Object System.Windows.Forms.Label
+    $lblCode.Location = New-Object System.Drawing.Point(20, 55)
+    $lblCode.Size = New-Object System.Drawing.Size(360, 28)
+    $lblCode.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
+    $lblCode.Text = [string]::Format((T "DeletePromptCodeLabel"), $code)
+
+    $lblInput = New-Object System.Windows.Forms.Label
+    $lblInput.Location = New-Object System.Drawing.Point(20, 95)
+    $lblInput.Size = New-Object System.Drawing.Size(100, 24)
+    $lblInput.Text = T "DeletePromptInputLabel"
+
+    $txtInput = New-Object System.Windows.Forms.TextBox
+    $txtInput.Location = New-Object System.Drawing.Point(120, 92)
+    $txtInput.Size = New-Object System.Drawing.Size(120, 28)
+    $txtInput.CharacterCasing = "Upper"
+
+    $btnOk = New-Object System.Windows.Forms.Button
+    $btnOk.Location = New-Object System.Drawing.Point(210, 140)
+    $btnOk.Size = New-Object System.Drawing.Size(80, 32)
+    $btnOk.Text = "OK"
+    $btnOk.DialogResult = [System.Windows.Forms.DialogResult]::OK
+
+    $btnCancel = New-Object System.Windows.Forms.Button
+    $btnCancel.Location = New-Object System.Drawing.Point(300, 140)
+    $btnCancel.Size = New-Object System.Drawing.Size(80, 32)
+    $btnCancel.Text = "Cancel"
+    $btnCancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+
+    $prompt.Controls.AddRange(@($lblMessage, $lblCode, $lblInput, $txtInput, $btnOk, $btnCancel))
+    $prompt.AcceptButton = $btnOk
+    $prompt.CancelButton = $btnCancel
+
+    $result = $prompt.ShowDialog($form)
+    if ($result -ne [System.Windows.Forms.DialogResult]::OK) {
+      throw (T "DeletePromptCancelled")
+    }
+
+    $txtDeleteInput.Text = ([string]$txtInput.Text).Trim().ToUpperInvariant()
+    Refresh-DeleteExecuteButton
+    return $code
   }
 
   function Refresh-BaseTableItems {
@@ -1971,7 +2040,7 @@ try {
     $maxRetries = [int]$numDeleteMaxRetries.Value
     if ($maxRetries -lt 1 -or $maxRetries -gt 999) { throw (T "DeleteMaxRetriesInvalid") }
 
-    $expectedCode = ([string]$txtDeleteCode.Text).Trim().ToUpperInvariant()
+    $expectedCode = Request-DeleteVerificationCode
     $actualCode = ([string]$txtDeleteInput.Text).Trim().ToUpperInvariant()
     if ($expectedCode -ne $actualCode) { throw (T "DeleteCodeMismatch") }
 
@@ -2421,11 +2490,13 @@ try {
   $cmbDeleteTable.add_SelectedIndexChanged({
     $script:Settings.deleteTargetTable = Get-SelectedDeleteTableName
     Request-SaveSettings
+    Refresh-DeleteExecuteButton
   })
 
   $cmbDeleteTable.add_TextChanged({
     $script:Settings.deleteTargetTable = Get-SelectedDeleteTableName
     Request-SaveSettings
+    Refresh-DeleteExecuteButton
   })
 
   $numDeleteMaxRetries.add_ValueChanged({
