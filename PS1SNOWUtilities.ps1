@@ -482,6 +482,62 @@ try {
     }
   }
 
+  function Invoke-SnowBatchDelete([string]$table, [string[]]$sysIds) {
+    if ([string]::IsNullOrWhiteSpace($table)) {
+      return @{ deletedCount = 0; failedIds = @() }
+    }
+    $ids = @($sysIds | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+    if ($ids.Count -eq 0) { return @{ deletedCount = 0; failedIds = @() } }
+
+    $requests = New-Object System.Collections.Generic.List[hashtable]
+    $index = 0
+    foreach ($id in $ids) {
+      $index++
+      $requests.Add(@{
+        id = [string]$index
+        method = "DELETE"
+        url = ("/api/now/table/{0}/{1}" -f $table, [string]$id)
+        headers = @{ "X-no-response-body" = "true" }
+      }) | Out-Null
+    }
+
+    $batchBody = @{
+      batch_request_id = [Guid]::NewGuid().ToString("N")
+      rest_requests = @($requests)
+    }
+
+    $res = Invoke-SnowPost "/api/now/v1/batch" $batchBody
+    $responses = @()
+    if ($res -and ($res.PSObject.Properties.Name -contains "result")) {
+      $responses = @($res.result)
+    }
+
+    $ok = 0
+    $failedIds = New-Object System.Collections.Generic.List[string]
+    foreach ($item in $responses) {
+      $status = 0
+      try { $status = [int]$item.status_code } catch { $status = 0 }
+      $responseId = ""
+      try { $responseId = [string]$item.id } catch { $responseId = "" }
+      $reqIndex = 0
+      if (-not [int]::TryParse($responseId, [ref]$reqIndex)) { $reqIndex = 0 }
+      $targetId = ""
+      if ($reqIndex -ge 1 -and $reqIndex -le $ids.Count) {
+        $targetId = [string]$ids[$reqIndex - 1]
+      }
+      if ($status -ge 200 -and $status -lt 300) {
+        $ok++
+      } elseif (-not [string]::IsNullOrWhiteSpace($targetId)) {
+        $failedIds.Add($targetId) | Out-Null
+      }
+    }
+    if ($responses.Count -eq 0) {
+      # If response parsing is unavailable, assume request-level success.
+      return @{ deletedCount = $ids.Count; failedIds = @() }
+    }
+    return @{ deletedCount = $ok; failedIds = @($failedIds) }
+  }
+
   function New-VerificationCode([int]$length = 4) {
     if ($length -lt 1) { $length = 4 }
     $chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -2081,7 +2137,7 @@ try {
     while ($attempt -lt $maxRetries) {
       $attempt++
 
-      $listPath = "/api/now/table/{0}?sysparm_fields=sys_id&sysparm_limit=1000&sysparm_display_value=false&sysparm_exclude_reference_link=true" -f $table
+      $listPath = "/api/now/table/{0}?sysparm_fields=sys_id&sysparm_limit=10000&sysparm_display_value=false&sysparm_exclude_reference_link=true" -f $table
       $listRes = Invoke-SnowGet $listPath
       $rows = if ($listRes -and ($listRes.PSObject.Properties.Name -contains "result")) { @($listRes.result) } else { @() }
 
@@ -2093,17 +2149,45 @@ try {
         return
       }
 
+      $ids = @()
       foreach ($r in $rows) {
         $id = [string]$r.sys_id
         if ([string]::IsNullOrWhiteSpace($id)) { continue }
+        $ids += $id
+      }
+
+      $batchSize = 50
+      for ($i = 0; $i -lt $ids.Count; $i += $batchSize) {
+        $take = [Math]::Min($batchSize, $ids.Count - $i)
+        $chunk = $ids[$i..($i + $take - 1)]
         try {
-          [void](Invoke-SnowDelete ("/api/now/table/{0}/{1}" -f $table, $id))
-          $deleted++
-          $pct = [int]([Math]::Floor(([Math]::Min($deleted, $initialTotal) * 100.0) / $initialTotal))
-          Set-DeleteProgress $pct ("{0}% ({1}/{2})" -f $pct, [Math]::Min($deleted, $initialTotal), $initialTotal)
+          $batchResult = Invoke-SnowBatchDelete $table $chunk
+          $ok = [int]$batchResult.deletedCount
+          $deleted += $ok
+          $failedIds = if ($batchResult -and ($batchResult.PSObject.Properties.Name -contains "failedIds")) { @($batchResult.failedIds) } else { @() }
+          if ($failedIds.Count -gt 0) {
+            foreach ($failedId in $failedIds) {
+              try {
+                [void](Invoke-SnowDelete ("/api/now/table/{0}/{1}" -f $table, $failedId))
+                $deleted++
+              } catch {
+                Add-Log ("{0}: {1}" -f (T "Failed"), $_.Exception.Message)
+              }
+            }
+          }
         } catch {
-          Add-Log ("{0}: {1}" -f (T "Failed"), $_.Exception.Message)
+          foreach ($id in $chunk) {
+            try {
+              [void](Invoke-SnowDelete ("/api/now/table/{0}/{1}" -f $table, $id))
+              $deleted++
+            } catch {
+              Add-Log ("{0}: {1}" -f (T "Failed"), $_.Exception.Message)
+            }
+          }
         }
+
+        $pct = [int]([Math]::Floor(([Math]::Min($deleted, $initialTotal) * 100.0) / $initialTotal))
+        Set-DeleteProgress $pct ("{0}% ({1}/{2})" -f $pct, [Math]::Min($deleted, $initialTotal), $initialTotal)
       }
 
       Add-Log ("{0} {1}/{2}" -f (T "DeleteRetry"), $attempt, $maxRetries)
