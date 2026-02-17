@@ -544,8 +544,8 @@ try {
 
   [void]$tabs.TabPages.Add($tabExport)
   [void]$tabs.TabPages.Add($tabViewEditor)
-  [void]$tabs.TabPages.Add($tabSettings)
   [void]$tabs.TabPages.Add($tabDelete)
+  [void]$tabs.TabPages.Add($tabSettings)
   $form.Controls.Add($tabs)
 
   # --- Export tab layout
