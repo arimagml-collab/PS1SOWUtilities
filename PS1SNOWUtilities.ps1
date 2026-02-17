@@ -55,6 +55,7 @@ try {
       TabExport="Export"
       TabViewEditor="DataBase View Editor"
       TabSettings="設定"
+      TabDelete="全削除"
       TargetTable="Target Table"
       ReloadTables="テーブル再取得"
       EasyFilter="イージーフィルタ"
@@ -126,12 +127,31 @@ try {
       ViewJoinFallback="JOIN定義の保存に失敗しました。View本体は作成されましたが、JOINは手動設定してください。"
       CreatedViewListLink="作成したViewリスト"
       CreatedViewDefinitionLink="View定義レコード"
+      DeleteTargetTable="削除対象テーブル"
+      DeleteMaxRetries="最大再試行回数"
+      DeleteSafetyCode="確認コード"
+      DeleteSafetyInput="確認入力"
+      DeleteGenerateCode="コード再生成"
+      DeleteExecute="全件削除実行"
+      DeleteDangerHint="※危険操作: テーブル内のレコードを全削除します。"
+      DeleteCodeHint="上記4桁コードを入力しないと実行できません。"
+      DeleteProgress="進捗"
+      DeleteFetchCount="対象件数を確認中..."
+      DeleteConfirmTitle="削除確認"
+      DeleteConfirmMessage="本当に実行しますか？\n対象テーブル: {0}\n確認コード: {1}"
+      DeleteDone="全削除完了"
+      DeleteStopped="最大再試行回数に到達したため停止"
+      DeleteNoRecord="削除対象レコードはありません。"
+      DeleteRetry="再試行"
+      DeleteCodeMismatch="確認コードが一致しません。"
+      DeleteMaxRetriesInvalid="最大再試行回数は1～999を指定してください。"
     }
     "en" = @{
       AppTitle="PS1 SNOW Utilities"
       TabExport="Export"
       TabViewEditor="DataBase View Editor"
       TabSettings="Settings"
+      TabDelete="Truncate"
       TargetTable="Target Table"
       ReloadTables="Reload Tables"
       EasyFilter="Easy Filter"
@@ -203,6 +223,24 @@ try {
       ViewJoinFallback="Failed to persist join definitions. View was created, but set joins manually."
       CreatedViewListLink="Created View List"
       CreatedViewDefinitionLink="View Definition Record"
+      DeleteTargetTable="Target Table"
+      DeleteMaxRetries="Max Retry Count"
+      DeleteSafetyCode="Verification Code"
+      DeleteSafetyInput="Type Verification"
+      DeleteGenerateCode="Regenerate"
+      DeleteExecute="Delete All Records"
+      DeleteDangerHint="Dangerous operation: deletes all records from the table."
+      DeleteCodeHint="Execution is disabled until you type the 4-character code above."
+      DeleteProgress="Progress"
+      DeleteFetchCount="Checking target record count..."
+      DeleteConfirmTitle="Delete Confirmation"
+      DeleteConfirmMessage="Are you sure?\nTarget table: {0}\nVerification code: {1}"
+      DeleteDone="Delete completed"
+      DeleteStopped="Stopped because max retry count was reached"
+      DeleteNoRecord="No records to delete."
+      DeleteRetry="Retry"
+      DeleteCodeMismatch="Verification code does not match."
+      DeleteMaxRetriesInvalid="Max retry count must be between 1 and 999."
     }
   }
 
@@ -260,6 +298,8 @@ try {
       viewEditorBasePrefix = "t0"
       viewEditorJoinsJson = "[]"
       viewEditorSelectedColumnsJson = "[]"
+      deleteTargetTable = ""
+      deleteMaxRetries = 99
     }
     return $o
   }
@@ -410,6 +450,39 @@ try {
     }
   }
 
+
+  function Invoke-SnowDelete([string]$path) {
+    $base = Get-BaseUrl
+    if ([string]::IsNullOrWhiteSpace($base)) { throw (T "WarnInstance") }
+
+    $uri = $base + $path
+    $headers = New-SnowHeaders
+
+    if ($script:Settings.authType -eq "userpass") {
+      $user = ([string]$script:Settings.userId).Trim()
+      $pass = Unprotect-Secret ([string]$script:Settings.passwordEnc)
+      if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($pass)) { throw (T "WarnAuth") }
+      $sec = ConvertTo-SecureString $pass -AsPlainText -Force
+      $cred = New-Object System.Management.Automation.PSCredential($user, $sec)
+      return Invoke-RestMethod -Method Delete -Uri $uri -Headers $headers -Credential $cred -TimeoutSec 120
+    } else {
+      return Invoke-RestMethod -Method Delete -Uri $uri -Headers $headers -TimeoutSec 120
+    }
+  }
+
+  function New-VerificationCode([int]$length = 4) {
+    if ($length -lt 1) { $length = 4 }
+    $chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    $sb = New-Object System.Text.StringBuilder
+    $rng = [System.Random]::new()
+    for ($i = 0; $i -lt $length; $i++) {
+      $n = $rng.Next(0, $chars.Length)
+      [void]$sb.Append($chars[$n])
+    }
+    return $sb.ToString()
+  }
+
+
   # ----------------------------
   # UI helpers
   # ----------------------------
@@ -465,10 +538,12 @@ try {
   $tabExport = New-Object System.Windows.Forms.TabPage
   $tabViewEditor = New-Object System.Windows.Forms.TabPage
   $tabSettings = New-Object System.Windows.Forms.TabPage
+  $tabDelete = New-Object System.Windows.Forms.TabPage
 
   [void]$tabs.TabPages.Add($tabExport)
   [void]$tabs.TabPages.Add($tabViewEditor)
   [void]$tabs.TabPages.Add($tabSettings)
+  [void]$tabs.TabPages.Add($tabDelete)
   $form.Controls.Add($tabs)
 
   # --- Export tab layout
@@ -842,11 +917,106 @@ try {
     $lnkCopyright
   ))
 
+  # --- Delete tab layout
+  $panelDelete = New-Object System.Windows.Forms.Panel
+  $panelDelete.Dock = "Fill"
+  $panelDelete.AutoScroll = $true
+  $panelDelete.AutoScrollMinSize = New-Object System.Drawing.Size(940, 420)
+  $tabDelete.Controls.Add($panelDelete)
+
+  $lblDeleteTable = New-Object System.Windows.Forms.Label
+  $lblDeleteTable.Location = New-Object System.Drawing.Point(20, 20)
+  $lblDeleteTable.AutoSize = $true
+
+  $cmbDeleteTable = New-Object System.Windows.Forms.ComboBox
+  $cmbDeleteTable.Location = New-Object System.Drawing.Point(220, 16)
+  $cmbDeleteTable.Size = New-Object System.Drawing.Size(500, 28)
+  $cmbDeleteTable.DropDownStyle = "DropDown"
+
+  $btnDeleteReloadTables = New-Object System.Windows.Forms.Button
+  $btnDeleteReloadTables.Location = New-Object System.Drawing.Point(740, 14)
+  $btnDeleteReloadTables.Size = New-Object System.Drawing.Size(180, 32)
+
+  $lblDeleteMaxRetries = New-Object System.Windows.Forms.Label
+  $lblDeleteMaxRetries.Location = New-Object System.Drawing.Point(20, 65)
+  $lblDeleteMaxRetries.AutoSize = $true
+
+  $numDeleteMaxRetries = New-Object System.Windows.Forms.NumericUpDown
+  $numDeleteMaxRetries.Location = New-Object System.Drawing.Point(220, 62)
+  $numDeleteMaxRetries.Size = New-Object System.Drawing.Size(140, 28)
+  $numDeleteMaxRetries.Minimum = 1
+  $numDeleteMaxRetries.Maximum = 999
+  $numDeleteMaxRetries.Value = 99
+
+  $lblDeleteCode = New-Object System.Windows.Forms.Label
+  $lblDeleteCode.Location = New-Object System.Drawing.Point(20, 105)
+  $lblDeleteCode.AutoSize = $true
+
+  $txtDeleteCode = New-Object System.Windows.Forms.TextBox
+  $txtDeleteCode.Location = New-Object System.Drawing.Point(220, 102)
+  $txtDeleteCode.Size = New-Object System.Drawing.Size(140, 28)
+  $txtDeleteCode.ReadOnly = $true
+  $txtDeleteCode.TextAlign = "Center"
+
+  $btnDeleteRegenerateCode = New-Object System.Windows.Forms.Button
+  $btnDeleteRegenerateCode.Location = New-Object System.Drawing.Point(380, 100)
+  $btnDeleteRegenerateCode.Size = New-Object System.Drawing.Size(170, 32)
+
+  $lblDeleteInput = New-Object System.Windows.Forms.Label
+  $lblDeleteInput.Location = New-Object System.Drawing.Point(20, 145)
+  $lblDeleteInput.AutoSize = $true
+
+  $txtDeleteInput = New-Object System.Windows.Forms.TextBox
+  $txtDeleteInput.Location = New-Object System.Drawing.Point(220, 142)
+  $txtDeleteInput.Size = New-Object System.Drawing.Size(140, 28)
+  $txtDeleteInput.CharacterCasing = "Upper"
+
+  $lblDeleteDangerHint = New-Object System.Windows.Forms.Label
+  $lblDeleteDangerHint.Location = New-Object System.Drawing.Point(20, 185)
+  $lblDeleteDangerHint.Size = New-Object System.Drawing.Size(900, 24)
+  $lblDeleteDangerHint.ForeColor = [System.Drawing.Color]::FromArgb(180,30,30)
+
+  $lblDeleteCodeHint = New-Object System.Windows.Forms.Label
+  $lblDeleteCodeHint.Location = New-Object System.Drawing.Point(20, 210)
+  $lblDeleteCodeHint.Size = New-Object System.Drawing.Size(900, 24)
+  $lblDeleteCodeHint.ForeColor = [System.Drawing.Color]::FromArgb(110,70,70)
+
+  $lblDeleteProgress = New-Object System.Windows.Forms.Label
+  $lblDeleteProgress.Location = New-Object System.Drawing.Point(20, 245)
+  $lblDeleteProgress.AutoSize = $true
+
+  $prgDelete = New-Object System.Windows.Forms.ProgressBar
+  $prgDelete.Location = New-Object System.Drawing.Point(220, 242)
+  $prgDelete.Size = New-Object System.Drawing.Size(500, 24)
+  $prgDelete.Minimum = 0
+  $prgDelete.Maximum = 100
+  $prgDelete.Value = 0
+
+  $lblDeleteProgressValue = New-Object System.Windows.Forms.Label
+  $lblDeleteProgressValue.Location = New-Object System.Drawing.Point(740, 245)
+  $lblDeleteProgressValue.Size = New-Object System.Drawing.Size(180, 24)
+
+  $btnDeleteExecute = New-Object System.Windows.Forms.Button
+  $btnDeleteExecute.Location = New-Object System.Drawing.Point(740, 300)
+  $btnDeleteExecute.Size = New-Object System.Drawing.Size(180, 42)
+  $btnDeleteExecute.Enabled = $false
+
+  $panelDelete.Controls.AddRange(@(
+    $lblDeleteTable, $cmbDeleteTable, $btnDeleteReloadTables,
+    $lblDeleteMaxRetries, $numDeleteMaxRetries,
+    $lblDeleteCode, $txtDeleteCode, $btnDeleteRegenerateCode,
+    $lblDeleteInput, $txtDeleteInput,
+    $lblDeleteDangerHint, $lblDeleteCodeHint,
+    $lblDeleteProgress, $prgDelete, $lblDeleteProgressValue,
+    $btnDeleteExecute
+  ))
+
   function Apply-Language {
     $form.Text = T "AppTitle"
     $tabExport.Text = T "TabExport"
     $tabViewEditor.Text = T "TabViewEditor"
     $tabSettings.Text = T "TabSettings"
+    $tabDelete.Text = T "TabDelete"
 
     $lblTable.Text = T "TargetTable"
     $btnReloadTables.Text = T "ReloadTables"
@@ -862,6 +1032,17 @@ try {
     $lblOutputFormat.Text = T "OutputFormat"
     $grpLog.Text = T "Log"
     $btnOpenFolder.Text = T "OpenFolder"
+
+    $lblDeleteTable.Text = T "DeleteTargetTable"
+    $btnDeleteReloadTables.Text = T "ReloadTables"
+    $lblDeleteMaxRetries.Text = T "DeleteMaxRetries"
+    $lblDeleteCode.Text = T "DeleteSafetyCode"
+    $lblDeleteInput.Text = T "DeleteSafetyInput"
+    $btnDeleteRegenerateCode.Text = T "DeleteGenerateCode"
+    $lblDeleteDangerHint.Text = T "DeleteDangerHint"
+    $lblDeleteCodeHint.Text = T "DeleteCodeHint"
+    $lblDeleteProgress.Text = T "DeleteProgress"
+    $btnDeleteExecute.Text = T "DeleteExecute"
 
     $lblViewName.Text = T "ViewName"
     $lblViewLabel.Text = T "ViewLabel"
@@ -1058,6 +1239,41 @@ try {
     return $text.Trim()
   }
 
+  function Get-SelectedDeleteTableName {
+    $text = ""
+    if ($cmbDeleteTable.SelectedItem) {
+      $text = [string]$cmbDeleteTable.SelectedItem
+    } else {
+      $text = [string]$cmbDeleteTable.Text
+    }
+    $idx = $text.IndexOf(" - ")
+    if ($idx -gt 0) { return $text.Substring(0, $idx).Trim() }
+    return $text.Trim()
+  }
+
+  function Set-DeleteProgress([int]$percent, [string]$text) {
+    if ($percent -lt 0) { $percent = 0 }
+    if ($percent -gt 100) { $percent = 100 }
+    $prgDelete.Value = $percent
+    if ([string]::IsNullOrWhiteSpace($text)) {
+      $lblDeleteProgressValue.Text = ("{0}%" -f $percent)
+    } else {
+      $lblDeleteProgressValue.Text = $text
+    }
+  }
+
+  function Refresh-DeleteExecuteButton {
+    $expected = ([string]$txtDeleteCode.Text).Trim().ToUpperInvariant()
+    $actual = ([string]$txtDeleteInput.Text).Trim().ToUpperInvariant()
+    $btnDeleteExecute.Enabled = (-not [string]::IsNullOrWhiteSpace($expected) -and $actual -eq $expected)
+  }
+
+  function Regenerate-DeleteCode {
+    $txtDeleteCode.Text = New-VerificationCode 4
+    $txtDeleteInput.Text = ""
+    Refresh-DeleteExecuteButton
+  }
+
   function Refresh-BaseTableItems {
     $cmbBaseTable.BeginUpdate()
     $cmbBaseTable.Items.Clear()
@@ -1069,9 +1285,30 @@ try {
     $cmbBaseTable.EndUpdate()
 
     $colJoinTable.Items.Clear()
+    $cmbDeleteTable.BeginUpdate()
+    $cmbDeleteTable.Items.Clear()
     if ($script:Settings.cachedTables) {
       foreach ($t in @($script:Settings.cachedTables)) {
         [void]$colJoinTable.Items.Add([string]$t.name)
+        [void]$cmbDeleteTable.Items.Add(("{0} - {1}" -f $t.name, $t.label))
+      }
+    }
+    $cmbDeleteTable.EndUpdate()
+
+    $deleteTableName = ([string]$script:Settings.deleteTargetTable).Trim()
+    if (-not [string]::IsNullOrWhiteSpace($deleteTableName)) {
+      $deleteCandidate = $null
+      foreach ($item in $cmbDeleteTable.Items) {
+        $itemText = [string]$item
+        if ($itemText.StartsWith($deleteTableName + " - ")) {
+          $deleteCandidate = $item
+          break
+        }
+      }
+      if ($deleteCandidate) {
+        $cmbDeleteTable.SelectedItem = $deleteCandidate
+      } else {
+        $cmbDeleteTable.Text = $deleteTableName
       }
     }
   }
@@ -1719,6 +1956,87 @@ try {
     return $q
   }
 
+  function Remove-AllTableRecords {
+    $table = Get-SelectedDeleteTableName
+    if ([string]::IsNullOrWhiteSpace($table)) { throw (T "WarnTable") }
+
+    $maxRetries = [int]$numDeleteMaxRetries.Value
+    if ($maxRetries -lt 1 -or $maxRetries -gt 999) { throw (T "DeleteMaxRetriesInvalid") }
+
+    $expectedCode = ([string]$txtDeleteCode.Text).Trim().ToUpperInvariant()
+    $actualCode = ([string]$txtDeleteInput.Text).Trim().ToUpperInvariant()
+    if ($expectedCode -ne $actualCode) { throw (T "DeleteCodeMismatch") }
+
+    $confirm = [System.Windows.Forms.MessageBox]::Show(
+      ([string]::Format((T "DeleteConfirmMessage"), $table, $expectedCode)),
+      (T "DeleteConfirmTitle"),
+      [System.Windows.Forms.MessageBoxButtons]::YesNo,
+      [System.Windows.Forms.MessageBoxIcon]::Warning
+    )
+    if ($confirm -ne [System.Windows.Forms.DialogResult]::Yes) {
+      return
+    }
+
+    Add-Log (T "DeleteFetchCount")
+    Set-DeleteProgress 0 (T "DeleteFetchCount")
+
+    $countPath = "/api/now/stats/{0}?sysparm_count=true" -f $table
+    $countRes = Invoke-SnowGet $countPath
+    $initialTotal = 0
+    try {
+      if ($countRes -and $countRes.result -and $countRes.result.stats -and $countRes.result.stats.count) {
+        $initialTotal = [int]$countRes.result.stats.count
+      }
+    } catch {
+      $initialTotal = 0
+    }
+
+    if ($initialTotal -le 0) {
+      Add-Log (T "DeleteNoRecord")
+      Set-DeleteProgress 100 "100% (0/0)"
+      [System.Windows.Forms.MessageBox]::Show((T "DeleteNoRecord")) | Out-Null
+      Regenerate-DeleteCode
+      return
+    }
+
+    $deleted = 0
+    $attempt = 0
+    while ($attempt -lt $maxRetries) {
+      $attempt++
+
+      $listPath = "/api/now/table/{0}?sysparm_fields=sys_id&sysparm_limit=1000&sysparm_display_value=false&sysparm_exclude_reference_link=true" -f $table
+      $listRes = Invoke-SnowGet $listPath
+      $rows = if ($listRes -and ($listRes.PSObject.Properties.Name -contains "result")) { @($listRes.result) } else { @() }
+
+      if ($rows.Count -eq 0) {
+        Add-Log ("{0}: {1}" -f (T "DeleteDone"), $table)
+        Set-DeleteProgress 100 ("100% ({0}/{1})" -f [Math]::Min($deleted, $initialTotal), $initialTotal)
+        [System.Windows.Forms.MessageBox]::Show((T "DeleteDone")) | Out-Null
+        Regenerate-DeleteCode
+        return
+      }
+
+      foreach ($r in $rows) {
+        $id = [string]$r.sys_id
+        if ([string]::IsNullOrWhiteSpace($id)) { continue }
+        try {
+          [void](Invoke-SnowDelete ("/api/now/table/{0}/{1}" -f $table, $id))
+          $deleted++
+          $pct = [int]([Math]::Floor(([Math]::Min($deleted, $initialTotal) * 100.0) / $initialTotal))
+          Set-DeleteProgress $pct ("{0}% ({1}/{2})" -f $pct, [Math]::Min($deleted, $initialTotal), $initialTotal)
+        } catch {
+          Add-Log ("{0}: {1}" -f (T "Failed"), $_.Exception.Message)
+        }
+      }
+
+      Add-Log ("{0} {1}/{2}" -f (T "DeleteRetry"), $attempt, $maxRetries)
+    }
+
+    Add-Log (T "DeleteStopped")
+    [System.Windows.Forms.MessageBox]::Show((T "DeleteStopped")) | Out-Null
+    Regenerate-DeleteCode
+  }
+
   function Export-Table {
     $table = Get-SelectedTableName
 
@@ -1913,6 +2231,11 @@ try {
   if ((@("csv","json","xlsx") -notcontains $initialOutputFormat)) { $initialOutputFormat = "csv" }
   $cmbOutputFormat.SelectedItem = $initialOutputFormat
 
+  $initialDeleteMaxRetries = 99
+  try { $initialDeleteMaxRetries = [int]$script:Settings.deleteMaxRetries } catch { $initialDeleteMaxRetries = 99 }
+  if ($initialDeleteMaxRetries -lt 1 -or $initialDeleteMaxRetries -gt 999) { $initialDeleteMaxRetries = 99 }
+  $numDeleteMaxRetries.Value = $initialDeleteMaxRetries
+
   try { $dtStart.Value = [datetime]::Parse([string]$script:Settings.startDateTime) } catch { }
   try { $dtEnd.Value   = [datetime]::Parse([string]$script:Settings.endDateTime) } catch { }
 
@@ -2006,6 +2329,8 @@ try {
   Update-AuthUI
   Update-FilterUI
   Apply-Language
+  Regenerate-DeleteCode
+  Set-DeleteProgress 0 "0%"
 
   # ----------------------------
   # Wire events for auto-save
@@ -2083,6 +2408,25 @@ try {
   $cmbTable.add_TextChanged({
     $script:Settings.selectedTableName = Get-SelectedTableName
     Request-SaveSettings
+  })
+
+  $cmbDeleteTable.add_SelectedIndexChanged({
+    $script:Settings.deleteTargetTable = Get-SelectedDeleteTableName
+    Request-SaveSettings
+  })
+
+  $cmbDeleteTable.add_TextChanged({
+    $script:Settings.deleteTargetTable = Get-SelectedDeleteTableName
+    Request-SaveSettings
+  })
+
+  $numDeleteMaxRetries.add_ValueChanged({
+    $script:Settings.deleteMaxRetries = [int]$numDeleteMaxRetries.Value
+    Request-SaveSettings
+  })
+
+  $txtDeleteInput.add_TextChanged({
+    Refresh-DeleteExecuteButton
   })
 
   $txtDir.add_TextChanged({
@@ -2196,7 +2540,7 @@ try {
   })
 
   $tabs.add_SelectedIndexChanged({
-    if ($tabs.SelectedTab -eq $tabViewEditor) {
+    if ($tabs.SelectedTab -eq $tabViewEditor -or $tabs.SelectedTab -eq $tabDelete) {
       Ensure-TablesLoaded
     }
   })
@@ -2247,7 +2591,17 @@ try {
   })
 
   $btnReloadTables.add_Click({ Fetch-Tables })
+  $btnDeleteReloadTables.add_Click({ Fetch-Tables })
   $btnExecute.add_Click({ Export-Table })
+  $btnDeleteRegenerateCode.add_Click({ Regenerate-DeleteCode })
+  $btnDeleteExecute.add_Click({
+    try {
+      Remove-AllTableRecords
+    } catch {
+      Add-Log ("{0}: {1}" -f (T "Failed"), $_.Exception.Message)
+      [System.Windows.Forms.MessageBox]::Show($_.Exception.Message) | Out-Null
+    }
+  })
 
   # First-run export dir
   try { [void](Ensure-ExportDir $txtDir.Text) } catch { }
