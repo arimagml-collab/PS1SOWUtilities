@@ -333,20 +333,24 @@ try {
 
   $lblExportMaxRowsHint = New-Object System.Windows.Forms.Label
   $lblExportMaxRowsHint.Location = New-Object System.Drawing.Point(340, 194)
-  $lblExportMaxRowsHint.Size = New-Object System.Drawing.Size(580, 48)
+  $lblExportMaxRowsHint.Size = New-Object System.Drawing.Size(580, 40)
   $lblExportMaxRowsHint.ForeColor = [System.Drawing.Color]::FromArgb(90,90,90)
 
   $lblOutputFormat = New-Object System.Windows.Forms.Label
-  $lblOutputFormat.Location = New-Object System.Drawing.Point(20, 234)
+  $lblOutputFormat.Location = New-Object System.Drawing.Point(20, 248)
   $lblOutputFormat.AutoSize = $true
 
   $cmbOutputFormat = New-Object System.Windows.Forms.ComboBox
-  $cmbOutputFormat.Location = New-Object System.Drawing.Point(160, 230)
+  $cmbOutputFormat.Location = New-Object System.Drawing.Point(160, 244)
   $cmbOutputFormat.Size = New-Object System.Drawing.Size(220, 28)
   $cmbOutputFormat.DropDownStyle = "DropDownList"
   [void]$cmbOutputFormat.Items.Add("csv")
   [void]$cmbOutputFormat.Items.Add("json")
   [void]$cmbOutputFormat.Items.Add("xlsx")
+
+  $chkOutputBom = New-Object System.Windows.Forms.CheckBox
+  $chkOutputBom.Location = New-Object System.Drawing.Point(390, 246)
+  $chkOutputBom.AutoSize = $true
 
   $btnExecute = New-Object System.Windows.Forms.Button
   $btnExecute.Location = New-Object System.Drawing.Point(740, 230)
@@ -373,7 +377,7 @@ try {
     $lblStart, $dtStart, $lblEnd, $dtEnd, $btnLast30Days,
     $lblDir, $txtDir, $btnBrowse,
     $lblExportMaxRows, $numExportMaxRows, $lblExportMaxRowsHint,
-    $lblOutputFormat, $cmbOutputFormat,
+    $lblOutputFormat, $cmbOutputFormat, $chkOutputBom,
     $btnOpenFolder, $btnExecute,
     $grpLog
   ))
@@ -733,6 +737,7 @@ try {
     $btnBrowse.Text = T "Browse"
     $btnExecute.Text = T "Execute"
     $lblOutputFormat.Text = T "OutputFormat"
+    $chkOutputBom.Text = T "OutputBom"
     $grpLog.Text = T "Log"
     $btnOpenFolder.Text = T "OpenFolder"
 
@@ -1729,10 +1734,10 @@ try {
     $format = $formatVal.Trim().ToLowerInvariant()
     if ((@("csv","json","xlsx") -notcontains $format)) { $format = "csv" }
 
-    $outputEncoding = ([string]$script:Settings.outputEncoding).Trim()
-    if ([string]::IsNullOrWhiteSpace($outputEncoding)) { $outputEncoding = "utf-8" }
+    $outputEncoding = "utf-8"
     $outputBom = $true
     try { $outputBom = [bool]$script:Settings.outputBom } catch { $outputBom = $true }
+    if ((@("csv", "json") -notcontains $format)) { $outputBom = $false }
 
     Add-Log ("outputEncoding={0}, outputBom={1}" -f $outputEncoding, $outputBom)
     if (-not [string]::IsNullOrWhiteSpace($query)) { Add-Log ("query={0}" -f $query) }
@@ -1798,6 +1803,20 @@ try {
   $initialOutputFormat = ([string]$script:Settings.outputFormat).Trim().ToLowerInvariant()
   if ((@("csv","json","xlsx") -notcontains $initialOutputFormat)) { $initialOutputFormat = "csv" }
   $cmbOutputFormat.SelectedItem = $initialOutputFormat
+
+  $initialOutputBom = $true
+  try { $initialOutputBom = [bool]$script:Settings.outputBom } catch { $initialOutputBom = $true }
+  $chkOutputBom.Checked = $initialOutputBom
+
+  function Update-OutputOptionState {
+    $selectedFormat = ([string]$cmbOutputFormat.SelectedItem).Trim().ToLowerInvariant()
+    $supportsBom = (@("csv", "json") -contains $selectedFormat)
+    $chkOutputBom.Enabled = $supportsBom
+    if (-not $supportsBom) {
+      $chkOutputBom.Checked = $false
+    }
+  }
+  Update-OutputOptionState
 
   $initialExportMaxRows = 10000
   try { $initialExportMaxRows = [int]$script:Settings.exportMaxRows } catch { $initialExportMaxRows = 10000 }
@@ -2122,6 +2141,21 @@ try {
 
   $cmbOutputFormat.add_SelectedIndexChanged({
     $script:Settings.outputFormat = [string]$cmbOutputFormat.SelectedItem
+    Update-OutputOptionState
+    if ($chkOutputBom.Enabled) {
+      $script:Settings.outputBom = [bool]$chkOutputBom.Checked
+    } else {
+      $script:Settings.outputBom = $false
+    }
+    Request-SaveSettings
+  })
+
+  $chkOutputBom.add_CheckedChanged({
+    if ($chkOutputBom.Enabled) {
+      $script:Settings.outputBom = [bool]$chkOutputBom.Checked
+    } else {
+      $script:Settings.outputBom = $false
+    }
     Request-SaveSettings
   })
 
