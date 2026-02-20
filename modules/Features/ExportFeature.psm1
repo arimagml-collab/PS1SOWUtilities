@@ -124,13 +124,36 @@ function Invoke-ExportUseCase {
       return ($Value | ConvertTo-Json -Depth 10 -Compress)
     }
 
+    function Convert-CsvField {
+      param([AllowNull()][string]$Text)
+
+      if ($null -eq $Text) { return '' }
+      $needsQuote = ($Text.Contains('"') -or $Text.Contains(',') -or $Text.Contains("`r") -or $Text.Contains("`n"))
+      if ($needsQuote) {
+        return ('"{0}"' -f ($Text -replace '"', '""'))
+      }
+      return $Text
+    }
+
     $line = foreach ($col in $Columns) {
       $v = $null
       try { $v = $Source.$col } catch { $v = $null }
       Convert-ServiceNowFieldValue -Value $v
     }
 
-    return ((,$line | ConvertTo-Csv -NoTypeInformation)[1])
+    return ((@($line) | ForEach-Object { Convert-CsvField -Text ([string]$_) }) -join ',')
+  }
+
+  function Convert-ToCsvHeaderText {
+    param([Parameter(Mandatory=$true)][string[]]$Columns)
+
+    return ((@($Columns) | ForEach-Object {
+      if ($_.Contains('"') -or $_.Contains(',') -or $_.Contains("`r") -or $_.Contains("`n")) {
+        ('"{0}"' -f ($_ -replace '"', '""'))
+      } else {
+        $_
+      }
+    }) -join ',')
   }
 
   try {
@@ -151,7 +174,7 @@ function Invoke-ExportUseCase {
       }
 
       if ($csvColumns.Count -gt 0) {
-        $csvWriter.WriteLine(((,$csvColumns | ConvertTo-Csv -NoTypeInformation)[1]))
+        $csvWriter.WriteLine((Convert-ToCsvHeaderText -Columns $csvColumns))
         $csvHeaderWritten = $true
       }
     }
@@ -204,7 +227,7 @@ function Invoke-ExportUseCase {
             $csvRowsInPart = 0
 
             if ($csvColumns.Count -gt 0) {
-              $csvWriter.WriteLine(((,$csvColumns | ConvertTo-Csv -NoTypeInformation)[1]))
+              $csvWriter.WriteLine((Convert-ToCsvHeaderText -Columns $csvColumns))
               $csvHeaderWritten = $true
             } else {
               $csvHeaderWritten = $false
@@ -214,7 +237,7 @@ function Invoke-ExportUseCase {
           if (-not $csvHeaderWritten) {
             $csvColumns = @($r.PSObject.Properties.Name)
             if ($csvColumns.Count -gt 0) {
-              $csvWriter.WriteLine(((,$csvColumns | ConvertTo-Csv -NoTypeInformation)[1]))
+              $csvWriter.WriteLine((Convert-ToCsvHeaderText -Columns $csvColumns))
               $csvHeaderWritten = $true
             }
           }
