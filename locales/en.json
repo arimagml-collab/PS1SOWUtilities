@@ -98,5 +98,9 @@
   "DeleteNoRecord": "No records to delete.",
   "DeleteRetry": "Retry",
   "DeleteCodeMismatch": "Verification code does not match.",
-  "DeleteMaxRetriesInvalid": "Max retry count must be between 1 and 999."
+  "DeleteMaxRetriesInvalid": "Max retry count must be between 1 and 999.",
+  "ExportMaxRows": "Max Export Rows",
+  "FetchSystemExportLimit": "Fetch System Limit",
+  "SystemExportLimitFetched": "Fetched system export limit: {0} (property: {1})",
+  "SystemExportLimitFetchFailed": "Could not fetch system export limit."
 }

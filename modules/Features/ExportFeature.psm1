@@ -32,6 +32,33 @@ function Validate-ExportInput {
   return [pscustomobject]@{ IsValid = $true; Errors = @() }
 }
 
+function Build-ExportQuery {
+  param(
+    [AllowEmptyString()][string]$BaseQuery,
+    [AllowNull()][string]$LastCreatedOn,
+    [AllowNull()][string]$LastSysId
+  )
+
+  $queryWithSort = if ([string]::IsNullOrWhiteSpace($BaseQuery)) {
+    "ORDERBYsys_created_on^ORDERBYsys_id"
+  } else {
+    "{0}^ORDERBYsys_created_on^ORDERBYsys_id" -f $BaseQuery
+  }
+
+  if ([string]::IsNullOrWhiteSpace($LastCreatedOn) -or [string]::IsNullOrWhiteSpace($LastSysId)) {
+    return $queryWithSort
+  }
+
+  $disjunct1 = "sys_created_on>{0}^ORDERBYsys_created_on^ORDERBYsys_id" -f $LastCreatedOn
+  $disjunct2 = "sys_created_on={0}^sys_id>{1}^ORDERBYsys_created_on^ORDERBYsys_id" -f $LastCreatedOn, $LastSysId
+
+  if ([string]::IsNullOrWhiteSpace($BaseQuery)) {
+    return "{0}^NQ{1}" -f $disjunct1, $disjunct2
+  }
+
+  return "{0}^{1}^NQ{0}^{2}" -f $BaseQuery, $disjunct1, $disjunct2
+}
+
 function Invoke-ExportUseCase {
   param(
     [Parameter(Mandatory=$true)]$Context,
@@ -39,12 +66,13 @@ function Invoke-ExportUseCase {
     [Parameter(Mandatory=$true)][scriptblock]$UrlEncode
   )
 
-  $offset = 0
   $total = 0
   $isFirstJson = $true
   $jsonWriter = $null
   $csvWriter = $null
   $all = New-Object System.Collections.Generic.List[object]
+  $lastCreatedOn = $null
+  $lastSysId = $null
 
   try {
     if ($Context.format -eq "json") {
@@ -55,16 +83,22 @@ function Invoke-ExportUseCase {
     }
 
     while ($true) {
+      $remaining = [int]$Context.maxRows - $total
+      if ($remaining -le 0) { break }
+
+      $limit = [Math]::Min([int]$Context.pageSize, $remaining)
+      $requestQuery = Build-ExportQuery -BaseQuery ([string]$Context.query) -LastCreatedOn $lastCreatedOn -LastSysId $lastSysId
+
       $qs = @{
-        sysparm_limit  = $Context.pageSize
-        sysparm_offset = $offset
+        sysparm_limit  = $limit
         sysparm_display_value = "false"
         sysparm_exclude_reference_link = "true"
+        sysparm_query = $requestQuery
       }
+      if (-not [string]::IsNullOrWhiteSpace([string]$Context.fields)) { $qs.sysparm_fields = [string]$Context.fields }
+
       $queryParts = New-Object System.Collections.Generic.List[string]
       foreach ($k2 in $qs.Keys) { [void]$queryParts.Add(("{0}={1}" -f $k2, (& $UrlEncode ([string]$qs[$k2])))) }
-      if (-not [string]::IsNullOrWhiteSpace([string]$Context.query)) { [void]$queryParts.Add(("sysparm_query={0}" -f (& $UrlEncode ([string]$Context.query)))) }
-      if (-not [string]::IsNullOrWhiteSpace([string]$Context.fields)) { [void]$queryParts.Add(("sysparm_fields={0}" -f (& $UrlEncode ([string]$Context.fields)))) }
 
       $path = "/api/now/table/" + $Context.table + "?" + ($queryParts -join "&")
       $res = & $InvokeSnowGet $path
@@ -83,12 +117,14 @@ function Invoke-ExportUseCase {
         } else {
           $all.Add($r)
         }
+
+        $lastCreatedOn = [string]$r.sys_created_on
+        $lastSysId = [string]$r.sys_id
       }
 
       $total += $batch.Count
-      if ($batch.Count -lt $Context.pageSize) { break }
-      $offset += $Context.pageSize
-      if ($offset -gt 2000000) { break }
+      if ($batch.Count -lt $limit) { break }
+      if ([string]::IsNullOrWhiteSpace($lastCreatedOn) -or [string]::IsNullOrWhiteSpace($lastSysId)) { break }
     }
 
     if ($Context.format -eq "xlsx") {
