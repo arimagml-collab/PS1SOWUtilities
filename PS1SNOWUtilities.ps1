@@ -353,11 +353,11 @@ try {
   $chkOutputBom.AutoSize = $true
 
   $btnExecute = New-Object System.Windows.Forms.Button
-  $btnExecute.Location = New-Object System.Drawing.Point(740, 230)
+  $btnExecute.Location = New-Object System.Drawing.Point(740, 236)
   $btnExecute.Size = New-Object System.Drawing.Size(180, 42)
 
   $btnOpenFolder = New-Object System.Windows.Forms.Button
-  $btnOpenFolder.Location = New-Object System.Drawing.Point(740, 278)
+  $btnOpenFolder.Location = New-Object System.Drawing.Point(740, 284)
   $btnOpenFolder.Size = New-Object System.Drawing.Size(180, 42)
 
   $grpLog = New-Object System.Windows.Forms.GroupBox
