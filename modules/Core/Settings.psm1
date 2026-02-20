@@ -22,6 +22,7 @@ function Unprotect-Secret {
 
 function New-DefaultSettings {
   return [pscustomobject]@{
+    settingsVersion = 2
     uiLanguage = "ja"
     instanceName = ""
     authType = "userpass"
@@ -49,23 +50,107 @@ function New-DefaultSettings {
   }
 }
 
+function Get-SettingsVersion {
+  param($Settings)
+
+  if (-not $Settings) { return 1 }
+  if ($Settings.PSObject.Properties.Name -contains 'settingsVersion') {
+    $ver = 0
+    if ([int]::TryParse([string]$Settings.settingsVersion, [ref]$ver) -and $ver -ge 1) {
+      return $ver
+    }
+  }
+  return 1
+}
+
+function Migrate-SettingsV1ToV2 {
+  param([Parameter(Mandatory=$true)]$Settings)
+
+  if (-not ($Settings.PSObject.Properties.Name -contains 'outputFormat')) {
+    $Settings | Add-Member -NotePropertyName outputFormat -NotePropertyValue 'csv'
+  }
+  if (-not ($Settings.PSObject.Properties.Name -contains 'viewEditorViewName')) {
+    $Settings | Add-Member -NotePropertyName viewEditorViewName -NotePropertyValue ''
+  }
+  if (-not ($Settings.PSObject.Properties.Name -contains 'viewEditorViewLabel')) {
+    $Settings | Add-Member -NotePropertyName viewEditorViewLabel -NotePropertyValue ''
+  }
+  if (-not ($Settings.PSObject.Properties.Name -contains 'viewEditorBaseTable')) {
+    $Settings | Add-Member -NotePropertyName viewEditorBaseTable -NotePropertyValue ''
+  }
+  if (-not ($Settings.PSObject.Properties.Name -contains 'viewEditorBasePrefix')) {
+    $Settings | Add-Member -NotePropertyName viewEditorBasePrefix -NotePropertyValue 't0'
+  }
+  if (-not ($Settings.PSObject.Properties.Name -contains 'viewEditorJoinsJson')) {
+    $Settings | Add-Member -NotePropertyName viewEditorJoinsJson -NotePropertyValue '[]'
+  }
+  if (-not ($Settings.PSObject.Properties.Name -contains 'viewEditorSelectedColumnsJson')) {
+    $Settings | Add-Member -NotePropertyName viewEditorSelectedColumnsJson -NotePropertyValue '[]'
+  }
+  if (-not ($Settings.PSObject.Properties.Name -contains 'deleteTargetTable')) {
+    $Settings | Add-Member -NotePropertyName deleteTargetTable -NotePropertyValue ''
+  }
+  if (-not ($Settings.PSObject.Properties.Name -contains 'deleteMaxRetries')) {
+    $Settings | Add-Member -NotePropertyName deleteMaxRetries -NotePropertyValue 99
+  }
+
+  if ($Settings.PSObject.Properties.Name -contains 'settingsVersion') {
+    $Settings.settingsVersion = 2
+  } else {
+    $Settings | Add-Member -NotePropertyName settingsVersion -NotePropertyValue 2
+  }
+
+  return $Settings
+}
+
+function Migrate-Settings {
+  param([Parameter(Mandatory=$true)]$Settings)
+
+  $originalVersion = Get-SettingsVersion -Settings $Settings
+  $currentVersion = $originalVersion
+  $migrated = $Settings
+
+  if ($currentVersion -lt 2) {
+    $migrated = Migrate-SettingsV1ToV2 -Settings $migrated
+    $currentVersion = 2
+  }
+
+  return [pscustomobject]@{
+    Settings = $migrated
+    Migrated = ($originalVersion -ne $currentVersion)
+  }
+}
+
 function Load-Settings {
   param(
     [Parameter(Mandatory=$true)][string]$SettingsPath
   )
 
   $defaults = New-DefaultSettings
+  $settings = $defaults
+  $isMigrated = $false
+
   if (Test-Path $SettingsPath) {
     try {
       $json = Get-Content $SettingsPath -Raw -Encoding UTF8 | ConvertFrom-Json
-      foreach ($p in $defaults.PSObject.Properties.Name) {
-        if ($json -and ($json.PSObject.Properties.Name -contains $p) -and $null -ne $json.$p) {
-          $defaults.$p = $json.$p
+      if ($json) {
+        $migration = Migrate-Settings -Settings $json
+        $settings = $migration.Settings
+        $isMigrated = [bool]$migration.Migrated
+
+        foreach ($p in $defaults.PSObject.Properties.Name) {
+          if ($settings -and ($settings.PSObject.Properties.Name -contains $p) -and $null -ne $settings.$p) {
+            $defaults.$p = $settings.$p
+          }
         }
       }
     } catch {
       # keep defaults
     }
+  }
+
+  if ($isMigrated) {
+    Save-Settings -Settings $defaults -SettingsPath $SettingsPath
   }
 
   return $defaults
@@ -85,4 +170,4 @@ function Save-Settings {
   }
 }
 
-Export-ModuleMember -Function Protect-Secret, Unprotect-Secret, New-DefaultSettings, Load-Settings, Save-Settings
+Export-ModuleMember -Function Protect-Secret, Unprotect-Secret, New-DefaultSettings, Get-SettingsVersion, Migrate-Settings, Load-Settings, Save-Settings
