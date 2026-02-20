@@ -283,65 +283,65 @@ try {
   $rbBetween.AutoSize = $true
 
   $lblStart = New-Object System.Windows.Forms.Label
-  $lblStart.Location = New-Object System.Drawing.Point(160, 95)
+  $lblStart.Location = New-Object System.Drawing.Point(160, 105)
   $lblStart.AutoSize = $true
 
   $dtStart = New-Object System.Windows.Forms.DateTimePicker
-  $dtStart.Location = New-Object System.Drawing.Point(210, 92)
+  $dtStart.Location = New-Object System.Drawing.Point(210, 102)
   $dtStart.Size = New-Object System.Drawing.Size(250, 28)
   $dtStart.Format = "Custom"
   $dtStart.CustomFormat = "yyyy-MM-dd HH:mm:ss"
   $dtStart.ShowUpDown = $true
 
   $lblEnd = New-Object System.Windows.Forms.Label
-  $lblEnd.Location = New-Object System.Drawing.Point(480, 95)
+  $lblEnd.Location = New-Object System.Drawing.Point(480, 105)
   $lblEnd.AutoSize = $true
 
   $dtEnd = New-Object System.Windows.Forms.DateTimePicker
-  $dtEnd.Location = New-Object System.Drawing.Point(525, 92)
+  $dtEnd.Location = New-Object System.Drawing.Point(525, 102)
   $dtEnd.Size = New-Object System.Drawing.Size(200, 28)
   $dtEnd.Format = "Custom"
   $dtEnd.CustomFormat = "yyyy-MM-dd HH:mm:ss"
   $dtEnd.ShowUpDown = $true
 
   $btnLast30Days = New-Object System.Windows.Forms.Button
-  $btnLast30Days.Location = New-Object System.Drawing.Point(740, 90)
+  $btnLast30Days.Location = New-Object System.Drawing.Point(740, 100)
   $btnLast30Days.Size = New-Object System.Drawing.Size(180, 32)
 
   $lblDir = New-Object System.Windows.Forms.Label
-  $lblDir.Location = New-Object System.Drawing.Point(20, 140)
+  $lblDir.Location = New-Object System.Drawing.Point(20, 150)
   $lblDir.AutoSize = $true
 
   $txtDir = New-Object System.Windows.Forms.TextBox
-  $txtDir.Location = New-Object System.Drawing.Point(160, 136)
+  $txtDir.Location = New-Object System.Drawing.Point(160, 146)
   $txtDir.Size = New-Object System.Drawing.Size(560, 28)
 
   $btnBrowse = New-Object System.Windows.Forms.Button
-  $btnBrowse.Location = New-Object System.Drawing.Point(740, 134)
+  $btnBrowse.Location = New-Object System.Drawing.Point(740, 144)
   $btnBrowse.Size = New-Object System.Drawing.Size(180, 32)
 
   $lblExportMaxRows = New-Object System.Windows.Forms.Label
-  $lblExportMaxRows.Location = New-Object System.Drawing.Point(20, 184)
+  $lblExportMaxRows.Location = New-Object System.Drawing.Point(20, 194)
   $lblExportMaxRows.AutoSize = $true
 
   $numExportMaxRows = New-Object System.Windows.Forms.NumericUpDown
-  $numExportMaxRows.Location = New-Object System.Drawing.Point(160, 180)
+  $numExportMaxRows.Location = New-Object System.Drawing.Point(160, 190)
   $numExportMaxRows.Size = New-Object System.Drawing.Size(170, 28)
   $numExportMaxRows.Minimum = 1
   $numExportMaxRows.Maximum = 1000000
   $numExportMaxRows.Value = 10000
 
   $lblExportMaxRowsHint = New-Object System.Windows.Forms.Label
-  $lblExportMaxRowsHint.Location = New-Object System.Drawing.Point(340, 184)
+  $lblExportMaxRowsHint.Location = New-Object System.Drawing.Point(340, 194)
   $lblExportMaxRowsHint.Size = New-Object System.Drawing.Size(580, 48)
   $lblExportMaxRowsHint.ForeColor = [System.Drawing.Color]::FromArgb(90,90,90)
 
   $lblOutputFormat = New-Object System.Windows.Forms.Label
-  $lblOutputFormat.Location = New-Object System.Drawing.Point(20, 224)
+  $lblOutputFormat.Location = New-Object System.Drawing.Point(20, 234)
   $lblOutputFormat.AutoSize = $true
 
   $cmbOutputFormat = New-Object System.Windows.Forms.ComboBox
-  $cmbOutputFormat.Location = New-Object System.Drawing.Point(160, 220)
+  $cmbOutputFormat.Location = New-Object System.Drawing.Point(160, 230)
   $cmbOutputFormat.Size = New-Object System.Drawing.Size(220, 28)
   $cmbOutputFormat.DropDownStyle = "DropDownList"
   [void]$cmbOutputFormat.Items.Add("csv")
@@ -349,15 +349,15 @@ try {
   [void]$cmbOutputFormat.Items.Add("xlsx")
 
   $btnExecute = New-Object System.Windows.Forms.Button
-  $btnExecute.Location = New-Object System.Drawing.Point(740, 220)
+  $btnExecute.Location = New-Object System.Drawing.Point(740, 230)
   $btnExecute.Size = New-Object System.Drawing.Size(180, 42)
 
   $btnOpenFolder = New-Object System.Windows.Forms.Button
-  $btnOpenFolder.Location = New-Object System.Drawing.Point(740, 268)
+  $btnOpenFolder.Location = New-Object System.Drawing.Point(740, 278)
   $btnOpenFolder.Size = New-Object System.Drawing.Size(180, 42)
 
   $grpLog = New-Object System.Windows.Forms.GroupBox
-  $grpLog.Location = New-Object System.Drawing.Point(20, 315)
+  $grpLog.Location = New-Object System.Drawing.Point(20, 325)
   $grpLog.Size = New-Object System.Drawing.Size(900, 360)
 
   $script:txtLog = New-Object System.Windows.Forms.TextBox
