@@ -73,6 +73,8 @@ function Invoke-ExportUseCase {
   $csvFiles = New-Object System.Collections.Generic.List[string]
   $csvPartNo = 0
   $csvRowsInPart = 0
+  $csvHeaderWritten = $false
+  $csvColumns = @()
   $all = New-Object System.Collections.Generic.List[object]
   $lastCreatedOn = $null
   $lastSysId = $null
@@ -88,6 +90,27 @@ function Invoke-ExportUseCase {
     return [pscustomobject]@{ File = $partFile; Writer = (New-Object System.IO.StreamWriter($partFile, $false, (New-Object System.Text.UTF8Encoding($false)))) }
   }
 
+  function Convert-ToCsvText {
+    param(
+      [Parameter(Mandatory=$true)][string[]]$Columns,
+      [Parameter(Mandatory=$true)]$Source
+    )
+
+    $line = foreach ($col in $Columns) {
+      $v = $null
+      try { $v = $Source.$col } catch { $v = $null }
+      if ($null -eq $v) {
+        ''
+      } elseif ($v -is [string] -or $v -is [ValueType]) {
+        [string]$v
+      } else {
+        ($v | ConvertTo-Json -Depth 10 -Compress)
+      }
+    }
+
+    return ((,$line | ConvertTo-Csv -NoTypeInformation)[1])
+  }
+
   try {
     if ($Context.format -eq "json") {
       $jsonWriter = New-Object System.IO.StreamWriter($Context.file, $false, (New-Object System.Text.UTF8Encoding($false)))
@@ -97,6 +120,18 @@ function Invoke-ExportUseCase {
       $firstPart = New-CsvPartWriter -PartNo $csvPartNo
       $csvWriter = $firstPart.Writer
       [void]$csvFiles.Add([string]$firstPart.File)
+      $csvHeaderWritten = $false
+      $csvColumns = @()
+
+      $rawFields = [string]$Context.fields
+      if (-not [string]::IsNullOrWhiteSpace($rawFields)) {
+        $csvColumns = @($rawFields.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+      }
+
+      if ($csvColumns.Count -gt 0) {
+        $csvWriter.WriteLine(((,$csvColumns | ConvertTo-Csv -NoTypeInformation)[1]))
+        $csvHeaderWritten = $true
+      }
     }
 
     while ($true) {
@@ -138,9 +173,27 @@ function Invoke-ExportUseCase {
             $csvWriter = $nextPart.Writer
             [void]$csvFiles.Add([string]$nextPart.File)
             $csvRowsInPart = 0
+
+            if ($csvColumns.Count -gt 0) {
+              $csvWriter.WriteLine(((,$csvColumns | ConvertTo-Csv -NoTypeInformation)[1]))
+              $csvHeaderWritten = $true
+            } else {
+              $csvHeaderWritten = $false
+            }
           }
-          $itemJson = ($r | ConvertTo-Json -Depth 10 -Compress).Replace('"','""')
-          $csvWriter.WriteLine(("`"{0}`"" -f $itemJson))
+
+          if (-not $csvHeaderWritten) {
+            $csvColumns = @($r.PSObject.Properties.Name)
+            if ($csvColumns.Count -gt 0) {
+              $csvWriter.WriteLine(((,$csvColumns | ConvertTo-Csv -NoTypeInformation)[1]))
+              $csvHeaderWritten = $true
+            }
+          }
+
+          if ($csvColumns.Count -gt 0) {
+            $csvLine = Convert-ToCsvText -Columns $csvColumns -Source $r
+            $csvWriter.WriteLine($csvLine)
+          }
           $csvRowsInPart++
         } else {
           $all.Add($r)
