@@ -16,6 +16,7 @@
   "Browse": "Browse...",
   "Execute": "Execute",
   "OutputFormat": "Output Format",
+  "OutputBom": "UTF-8 with BOM",
   "FormatCsv": "CSV",
   "FormatJson": "JSON",
   "FormatXlsx": "Excel (.xlsx)",

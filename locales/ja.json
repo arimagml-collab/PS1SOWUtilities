@@ -16,6 +16,7 @@
   "Browse": "参照...",
   "Execute": "実行",
   "OutputFormat": "出力形式",
+  "OutputBom": "UTF-8 BOM付き",
   "FormatCsv": "CSV",
   "FormatJson": "JSON",
   "FormatXlsx": "Excel (.xlsx)",
