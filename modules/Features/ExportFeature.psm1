@@ -70,23 +70,42 @@ function Invoke-ExportUseCase {
   $isFirstJson = $true
   $jsonWriter = $null
   $csvWriter = $null
+  $csvFiles = New-Object System.Collections.Generic.List[string]
+  $csvPartNo = 0
+  $csvRowsInPart = 0
   $all = New-Object System.Collections.Generic.List[object]
   $lastCreatedOn = $null
   $lastSysId = $null
+
+  function New-CsvPartWriter {
+    param([int]$PartNo)
+
+    $dir = [System.IO.Path]::GetDirectoryName([string]$Context.file)
+    if ([string]::IsNullOrWhiteSpace($dir)) { $dir = "." }
+    $name = [System.IO.Path]::GetFileNameWithoutExtension([string]$Context.file)
+    $ext = [System.IO.Path]::GetExtension([string]$Context.file)
+    $partFile = Join-Path $dir ("{0}-{1:000}{2}" -f $name, $PartNo, $ext)
+    return [pscustomobject]@{ File = $partFile; Writer = (New-Object System.IO.StreamWriter($partFile, $false, (New-Object System.Text.UTF8Encoding($false)))) }
+  }
 
   try {
     if ($Context.format -eq "json") {
       $jsonWriter = New-Object System.IO.StreamWriter($Context.file, $false, (New-Object System.Text.UTF8Encoding($false)))
       $jsonWriter.Write("[")
     } elseif ($Context.format -eq "csv") {
-      $csvWriter = New-Object System.IO.StreamWriter($Context.file, $false, (New-Object System.Text.UTF8Encoding($false)))
+      $csvPartNo = 1
+      $firstPart = New-CsvPartWriter -PartNo $csvPartNo
+      $csvWriter = $firstPart.Writer
+      [void]$csvFiles.Add([string]$firstPart.File)
     }
 
     while ($true) {
-      $remaining = [int]$Context.maxRows - $total
-      if ($remaining -le 0) { break }
-
-      $limit = [Math]::Min([int]$Context.pageSize, $remaining)
+      $limit = [int]$Context.pageSize
+      if ($Context.format -ne "csv") {
+        $remaining = [int]$Context.maxRows - $total
+        if ($remaining -le 0) { break }
+        $limit = [Math]::Min([int]$Context.pageSize, $remaining)
+      }
       $requestQuery = Build-ExportQuery -BaseQuery ([string]$Context.query) -LastCreatedOn $lastCreatedOn -LastSysId $lastSysId
 
       $qs = @{
@@ -112,8 +131,17 @@ function Invoke-ExportUseCase {
           $jsonWriter.Write($itemJson)
           $isFirstJson = $false
         } elseif ($Context.format -eq "csv") {
+          if ($csvRowsInPart -ge [int]$Context.maxRows) {
+            if ($csvWriter) { $csvWriter.Dispose() }
+            $csvPartNo++
+            $nextPart = New-CsvPartWriter -PartNo $csvPartNo
+            $csvWriter = $nextPart.Writer
+            [void]$csvFiles.Add([string]$nextPart.File)
+            $csvRowsInPart = 0
+          }
           $itemJson = ($r | ConvertTo-Json -Depth 10 -Compress).Replace('"','""')
           $csvWriter.WriteLine(("`"{0}`"" -f $itemJson))
+          $csvRowsInPart++
         } else {
           $all.Add($r)
         }
@@ -167,7 +195,17 @@ function Invoke-ExportUseCase {
     if ($csvWriter) { $csvWriter.Dispose() }
   }
 
-  return [pscustomobject]@{ file=$Context.file; total=$total }
+  if ($Context.format -eq "csv" -and $csvFiles.Count -eq 1) {
+    $singleFile = [string]$csvFiles[0]
+    if ($singleFile -ne [string]$Context.file) {
+      if (Test-Path $Context.file) { Remove-Item -LiteralPath $Context.file -Force }
+      Move-Item -LiteralPath $singleFile -Destination $Context.file
+      $csvFiles.Clear()
+      [void]$csvFiles.Add([string]$Context.file)
+    }
+  }
+
+  return [pscustomobject]@{ file=$Context.file; files=@($csvFiles); total=$total }
 }
 
 Export-ModuleMember -Function Validate-ExportInput, Invoke-ExportUseCase

@@ -102,5 +102,6 @@
   "ExportMaxRows": "Max Export Rows",
   "FetchSystemExportLimit": "Fetch System Limit",
   "SystemExportLimitFetched": "Fetched system export limit: {0} (property: {1})",
-  "SystemExportLimitFetchFailed": "Could not fetch system export limit."
+  "SystemExportLimitFetchFailed": "Could not fetch system export limit.",
+  "ExportMaxRowsCsvHint": "* Split export is supported only for CSV format."
 }
