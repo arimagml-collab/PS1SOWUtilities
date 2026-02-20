@@ -61,14 +61,14 @@ try {
   # i18n
   # ----------------------------
   $LocalesDir = Join-Path $ScriptDir "locales"
-  $script:I18N = CoreLoad-I18nResources -LocalesDirectory $LocalesDir -DefaultLanguage "ja"
+  $script:I18N = Load-CoreI18nResources -LocalesDirectory $LocalesDir -DefaultLanguage "ja"
   $script:MissingI18nKeys = @{}
 
   function T([string]$key) {
     $lang = "ja"
     if ($script:Settings -and $script:Settings.uiLanguage) { $lang = [string]$script:Settings.uiLanguage }
 
-    $text = CoreResolve-I18nText -I18nResources $script:I18N -Language $lang -Key $key -DefaultLanguage "ja"
+    $text = Resolve-CoreI18nText -I18nResources $script:I18N -Language $lang -Key $key -DefaultLanguage "ja"
     if ($text -eq $key) {
       $missingToken = "{0}:{1}" -f $lang, $key
       if (-not $script:MissingI18nKeys.ContainsKey($missingToken)) {
@@ -83,23 +83,23 @@ try {
   # Settings service wrappers
   # ----------------------------
   function Protect-Secret([string]$plain) {
-    return (CoreProtect-Secret -Plain $plain)
+    return (Protect-CoreSecret -Plain $plain)
   }
 
   function Unprotect-Secret([string]$enc) {
-    return (CoreUnprotect-Secret -Encrypted $enc)
+    return (Unprotect-CoreSecret -Encrypted $enc)
   }
 
   function New-DefaultSettings {
-    return (CoreNew-DefaultSettings)
+    return (New-CoreDefaultSettings)
   }
 
   function Load-Settings {
-    return (CoreLoad-Settings -SettingsPath $SettingsPath)
+    return (Load-CoreSettings -SettingsPath $SettingsPath)
   }
 
   function Save-Settings {
-    CoreSave-Settings -Settings $script:Settings -SettingsPath $SettingsPath
+    Save-CoreSettings -Settings $script:Settings -SettingsPath $SettingsPath
   }
 
   function Initialize-SettingsDebounceTimer {
@@ -131,15 +131,15 @@ try {
   # ServiceNow REST helper wrappers
   # ----------------------------
   function UrlEncode([string]$s) {
-    return (CoreUrlEncode -Value $s)
+    return (UrlEncode-Core -Value $s)
   }
 
   function Get-BaseUrl {
-    return (CoreGet-BaseUrl -Settings $script:Settings)
+    return (Get-CoreBaseUrl -Settings $script:Settings)
   }
 
   function New-SnowHeaders {
-    return (CoreNew-SnowHeaders -Settings $script:Settings -UnprotectSecret ${function:Unprotect-Secret})
+    return (New-CoreSnowHeaders -Settings $script:Settings -UnprotectSecret ${function:Unprotect-Secret})
   }
 
   function Invoke-SnowRequest {
@@ -160,7 +160,7 @@ try {
     }
     if ($PSBoundParameters.ContainsKey('Body')) { $params.Body = $Body }
 
-    return CoreInvoke-SnowRequest @params
+    return Invoke-CoreSnowRequest @params
   }
 
   function Invoke-SnowGet([string]$pathAndQuery) {
@@ -180,7 +180,7 @@ try {
   }
 
   function Invoke-SnowBatchDelete([string]$table, [string[]]$sysIds) {
-    return (CoreInvoke-SnowBatchDelete -Table $table -SysIds $sysIds -InvokePost ${function:Invoke-SnowPost})
+    return (Invoke-CoreSnowBatchDelete -Table $table -SysIds $sysIds -InvokePost ${function:Invoke-SnowPost})
   }
 
   function New-VerificationCode([int]$length = 4) {
@@ -201,7 +201,7 @@ try {
   # ----------------------------
   function Add-Log([string]$msg) {
     if (-not $script:txtLog) { return }
-    CoreWrite-UiLog -LogTextBox $script:txtLog -Message $msg
+    Write-CoreUiLog -LogTextBox $script:txtLog -Message $msg
   }
 
   function Invoke-Async([string]$name, [scriptblock]$work, [scriptblock]$onCompleted, $state = $null) {
