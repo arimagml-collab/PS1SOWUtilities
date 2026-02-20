@@ -320,12 +320,27 @@ try {
   $btnBrowse.Location = New-Object System.Drawing.Point(740, 134)
   $btnBrowse.Size = New-Object System.Drawing.Size(180, 32)
 
+  $lblExportMaxRows = New-Object System.Windows.Forms.Label
+  $lblExportMaxRows.Location = New-Object System.Drawing.Point(20, 184)
+  $lblExportMaxRows.AutoSize = $true
+
+  $numExportMaxRows = New-Object System.Windows.Forms.NumericUpDown
+  $numExportMaxRows.Location = New-Object System.Drawing.Point(160, 180)
+  $numExportMaxRows.Size = New-Object System.Drawing.Size(170, 28)
+  $numExportMaxRows.Minimum = 1
+  $numExportMaxRows.Maximum = 1000000
+  $numExportMaxRows.Value = 5000
+
+  $btnFetchExportLimit = New-Object System.Windows.Forms.Button
+  $btnFetchExportLimit.Location = New-Object System.Drawing.Point(340, 178)
+  $btnFetchExportLimit.Size = New-Object System.Drawing.Size(220, 32)
+
   $lblOutputFormat = New-Object System.Windows.Forms.Label
-  $lblOutputFormat.Location = New-Object System.Drawing.Point(20, 184)
+  $lblOutputFormat.Location = New-Object System.Drawing.Point(20, 224)
   $lblOutputFormat.AutoSize = $true
 
   $cmbOutputFormat = New-Object System.Windows.Forms.ComboBox
-  $cmbOutputFormat.Location = New-Object System.Drawing.Point(160, 180)
+  $cmbOutputFormat.Location = New-Object System.Drawing.Point(160, 220)
   $cmbOutputFormat.Size = New-Object System.Drawing.Size(220, 28)
   $cmbOutputFormat.DropDownStyle = "DropDownList"
   [void]$cmbOutputFormat.Items.Add("csv")
@@ -333,15 +348,15 @@ try {
   [void]$cmbOutputFormat.Items.Add("xlsx")
 
   $btnExecute = New-Object System.Windows.Forms.Button
-  $btnExecute.Location = New-Object System.Drawing.Point(740, 180)
+  $btnExecute.Location = New-Object System.Drawing.Point(740, 220)
   $btnExecute.Size = New-Object System.Drawing.Size(180, 42)
 
   $btnOpenFolder = New-Object System.Windows.Forms.Button
-  $btnOpenFolder.Location = New-Object System.Drawing.Point(740, 228)
+  $btnOpenFolder.Location = New-Object System.Drawing.Point(740, 268)
   $btnOpenFolder.Size = New-Object System.Drawing.Size(180, 42)
 
   $grpLog = New-Object System.Windows.Forms.GroupBox
-  $grpLog.Location = New-Object System.Drawing.Point(20, 275)
+  $grpLog.Location = New-Object System.Drawing.Point(20, 315)
   $grpLog.Size = New-Object System.Drawing.Size(900, 360)
 
   $script:txtLog = New-Object System.Windows.Forms.TextBox
@@ -356,6 +371,7 @@ try {
     $lblFilter, $rbAll, $rbBetween,
     $lblStart, $dtStart, $lblEnd, $dtEnd, $btnLast30Days,
     $lblDir, $txtDir, $btnBrowse,
+    $lblExportMaxRows, $numExportMaxRows, $btnFetchExportLimit,
     $lblOutputFormat, $cmbOutputFormat,
     $btnOpenFolder, $btnExecute,
     $grpLog
@@ -711,6 +727,8 @@ try {
     $lblEnd.Text = T "End"
     $btnLast30Days.Text = T "Last30Days"
     $lblDir.Text = T "ExportDir"
+    $lblExportMaxRows.Text = T "ExportMaxRows"
+    $btnFetchExportLimit.Text = T "FetchSystemExportLimit"
     $btnBrowse.Text = T "Browse"
     $btnExecute.Text = T "Execute"
     $lblOutputFormat.Text = T "OutputFormat"
@@ -1636,6 +1654,32 @@ try {
     return $q
   }
 
+  function Get-SystemExportLimit {
+    $propertyNames = @(
+      "glide.csv.export.limit",
+      "glide.xlsx.export.limit",
+      "glide.ui.export.limit"
+    )
+
+    foreach ($propertyName in $propertyNames) {
+      try {
+        $propertyQuery = UrlEncode ("name={0}" -f $propertyName)
+        $path = "/api/now/table/sys_properties?sysparm_fields=name,value&sysparm_limit=1&sysparm_query={0}" -f $propertyQuery
+        $res = Invoke-SnowGet $path
+        $rows = if ($res -and ($res.PSObject.Properties.Name -contains "result")) { @($res.result) } else { @() }
+        if ($rows.Count -lt 1) { continue }
+        $rawValue = [string]$rows[0].value
+        $parsed = 0
+        if ([int]::TryParse($rawValue, [ref]$parsed) -and $parsed -gt 0) {
+          return [pscustomobject]@{ IsSuccess = $true; Value = $parsed; PropertyName = $propertyName }
+        }
+      } catch {
+      }
+    }
+
+    return [pscustomobject]@{ IsSuccess = $false; Value = 0; PropertyName = "" }
+  }
+
   function Remove-AllTableRecords {
     $table = Get-SelectedDeleteTableName
     $maxRetries = [int]$numDeleteMaxRetries.Value
@@ -1694,8 +1738,11 @@ try {
     if ($pageSize -lt 100) { $pageSize = 100 }
     if ($pageSize -gt 5000) { $pageSize = 5000 }
 
+    $maxRowsVal = [int]$numExportMaxRows.Value
+    if ($maxRowsVal -lt 1) { $maxRowsVal = 1 }
+
     Add-Log (T "Exporting")
-    Add-Log ("table={0}, pageSize={1}" -f $table, $pageSize)
+    Add-Log ("table={0}, pageSize={1}, maxRows={2}" -f $table, $pageSize, $maxRowsVal)
     Add-Log ("outputFormat={0}" -f [string]$script:Settings.outputFormat)
     if (-not [string]::IsNullOrWhiteSpace($query)) { Add-Log ("query={0}" -f $query) }
 
@@ -1719,7 +1766,7 @@ try {
     }
     $file = Join-Path $exportDir ("{0}{1}_{2}.{3}" -f $table, $suffix, $stamp, $ext)
 
-    $ctx = [pscustomobject]@{ table=$table; pageSize=$pageSize; query=$query; fields=$fields; format=$format; file=$file }
+    $ctx = [pscustomobject]@{ table=$table; pageSize=$pageSize; maxRows=$maxRowsVal; query=$query; fields=$fields; format=$format; file=$file }
 
     Invoke-Async "Export-Table" {
       param($state)
@@ -1756,6 +1803,11 @@ try {
   $initialOutputFormat = ([string]$script:Settings.outputFormat).Trim().ToLowerInvariant()
   if ((@("csv","json","xlsx") -notcontains $initialOutputFormat)) { $initialOutputFormat = "csv" }
   $cmbOutputFormat.SelectedItem = $initialOutputFormat
+
+  $initialExportMaxRows = 5000
+  try { $initialExportMaxRows = [int]$script:Settings.exportMaxRows } catch { $initialExportMaxRows = 5000 }
+  if ($initialExportMaxRows -lt [int]$numExportMaxRows.Minimum -or $initialExportMaxRows -gt [int]$numExportMaxRows.Maximum) { $initialExportMaxRows = 5000 }
+  $numExportMaxRows.Value = $initialExportMaxRows
 
   $initialDeleteMaxRetries = 99
   try { $initialDeleteMaxRetries = [int]$script:Settings.deleteMaxRetries } catch { $initialDeleteMaxRetries = 99 }
@@ -1952,6 +2004,11 @@ try {
     Request-SaveSettings
   })
 
+  $numExportMaxRows.add_ValueChanged({
+    $script:Settings.exportMaxRows = [int]$numExportMaxRows.Value
+    Request-SaveSettings
+  })
+
   $txtDir.add_TextChanged({
     $script:Settings.exportDirectory = $txtDir.Text
     Request-SaveSettings
@@ -2087,6 +2144,27 @@ try {
       $btnToggleKey.Text = T "Show"
     } else {
       $btnToggleKey.Text = T "Hide"
+    }
+  })
+
+  $btnFetchExportLimit.add_Click({
+    Invoke-Async "Fetch-SystemExportLimit" {
+      param($state)
+      return Get-SystemExportLimit
+    } {
+      param($result)
+      if (-not $result -or -not [bool]$result.IsSuccess) {
+        Add-Log (T "SystemExportLimitFetchFailed")
+        [System.Windows.Forms.MessageBox]::Show((T "SystemExportLimitFetchFailed")) | Out-Null
+        return
+      }
+      $value = [int]$result.Value
+      if ($value -lt [int]$numExportMaxRows.Minimum) { $value = [int]$numExportMaxRows.Minimum }
+      if ($value -gt [int]$numExportMaxRows.Maximum) { $value = [int]$numExportMaxRows.Maximum }
+      $numExportMaxRows.Value = $value
+      $script:Settings.exportMaxRows = $value
+      Request-SaveSettings
+      Add-Log ((T "SystemExportLimitFetched") -f $value, [string]$result.PropertyName)
     }
   })
 

@@ -98,5 +98,9 @@
   "DeleteNoRecord": "削除対象レコードはありません。",
   "DeleteRetry": "再試行",
   "DeleteCodeMismatch": "確認コードが一致しません。",
-  "DeleteMaxRetriesInvalid": "最大再試行回数は1～999を指定してください。"
+  "DeleteMaxRetriesInvalid": "最大再試行回数は1～999を指定してください。",
+  "ExportMaxRows": "最大エクスポート行数",
+  "FetchSystemExportLimit": "システム上限取得",
+  "SystemExportLimitFetched": "システム上限を取得: {0} (property: {1})",
+  "SystemExportLimitFetchFailed": "システム上限を取得できませんでした。"
 }

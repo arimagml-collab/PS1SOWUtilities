@@ -37,7 +37,8 @@ function New-DefaultSettings {
     cachedTablesFetchedAt = ""
     selectedTableName = ""
     exportFields = ""
-    pageSize = 1000
+    pageSize = 5000
+    exportMaxRows = 5000
     outputFormat = "csv"
     viewEditorViewName = ""
     viewEditorViewLabel = ""
