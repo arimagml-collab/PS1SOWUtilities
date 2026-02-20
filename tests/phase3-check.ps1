@@ -34,6 +34,8 @@ try {
   $loaded = CoreLoad-Settings -SettingsPath $legacyPath
   if ($loaded.settingsVersion -ne 2) { throw 'settingsVersion migration failed.' }
   if (-not ($loaded.PSObject.Properties.Name -contains 'outputFormat')) { throw 'outputFormat was not added by migration.' }
+  if (-not ($loaded.PSObject.Properties.Name -contains 'outputEncoding')) { throw 'outputEncoding was not added by migration.' }
+  if (-not ($loaded.PSObject.Properties.Name -contains 'outputBom')) { throw 'outputBom was not added by migration.' }
 
   $persisted = Get-Content -Path $legacyPath -Raw -Encoding UTF8 | ConvertFrom-Json
   if ($persisted.settingsVersion -ne 2) { throw 'Migrated settings were not persisted.' }

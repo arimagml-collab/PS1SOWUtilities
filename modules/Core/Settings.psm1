@@ -40,6 +40,8 @@ function New-DefaultSettings {
     pageSize = 5000
     exportMaxRows = 10000
     outputFormat = "csv"
+    outputEncoding = "utf-8"
+    outputBom = $true
     viewEditorViewName = ""
     viewEditorViewLabel = ""
     viewEditorBaseTable = ""
@@ -69,6 +71,12 @@ function Migrate-SettingsV1ToV2 {
 
   if (-not ($Settings.PSObject.Properties.Name -contains 'outputFormat')) {
     $Settings | Add-Member -NotePropertyName outputFormat -NotePropertyValue 'csv'
+  }
+  if (-not ($Settings.PSObject.Properties.Name -contains 'outputEncoding')) {
+    $Settings | Add-Member -NotePropertyName outputEncoding -NotePropertyValue 'utf-8'
+  }
+  if (-not ($Settings.PSObject.Properties.Name -contains 'outputBom')) {
+    $Settings | Add-Member -NotePropertyName outputBom -NotePropertyValue $true
   }
   if (-not ($Settings.PSObject.Properties.Name -contains 'viewEditorViewName')) {
     $Settings | Add-Member -NotePropertyName viewEditorViewName -NotePropertyValue ''
