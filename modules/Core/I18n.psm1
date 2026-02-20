@@ -85,4 +85,23 @@ function Resolve-I18nText {
   return $Key
 }
 
-Export-ModuleMember -Function Load-I18nResources, Resolve-I18nText
+function Test-I18nKeyExists {
+  param(
+    [Parameter(Mandatory=$true)][hashtable]$I18nResources,
+    [Parameter(Mandatory=$true)][string]$Language,
+    [Parameter(Mandatory=$true)][string]$Key,
+    [string]$DefaultLanguage = 'ja'
+  )
+
+  if ($I18nResources.ContainsKey($Language) -and $I18nResources[$Language].ContainsKey($Key)) {
+    return $true
+  }
+
+  if ($I18nResources.ContainsKey($DefaultLanguage) -and $I18nResources[$DefaultLanguage].ContainsKey($Key)) {
+    return $true
+  }
+
+  return $false
+}
+
+Export-ModuleMember -Function Load-I18nResources, Resolve-I18nText, Test-I18nKeyExists
