@@ -47,6 +47,13 @@ try {
   $DefaultExportDir = Join-Path $ScriptDir "ExportedFiles"
 
   # ----------------------------
+  # Core modules
+  # ----------------------------
+  Import-Module (Join-Path $ScriptDir "modules/Core/Settings.psm1") -Force -Prefix Core
+  Import-Module (Join-Path $ScriptDir "modules/Core/ServiceNowClient.psm1") -Force -Prefix Core
+  Import-Module (Join-Path $ScriptDir "modules/Core/Logging.psm1") -Force -Prefix Core
+
+  # ----------------------------
   # i18n
   # ----------------------------
   $I18N = @{
@@ -264,82 +271,26 @@ try {
   }
 
   # ----------------------------
-  # Secret protect/unprotect (DPAPI CurrentUser)
+  # Settings service wrappers
   # ----------------------------
   function Protect-Secret([string]$plain) {
-    if ([string]::IsNullOrWhiteSpace($plain)) { return "" }
-    $sec = ConvertTo-SecureString $plain -AsPlainText -Force
-    return (ConvertFrom-SecureString $sec)
-  }
-  function Unprotect-Secret([string]$enc) {
-    if ([string]::IsNullOrWhiteSpace($enc)) { return "" }
-    try {
-      $sec = ConvertTo-SecureString $enc
-      $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)
-      try { return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
-      finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
-    } catch {
-      return ""
-    }
+    return (CoreProtect-Secret -Plain $plain)
   }
 
-  # ----------------------------
-  # Settings load/save (PSCustomObject)
-  # ----------------------------
+  function Unprotect-Secret([string]$enc) {
+    return (CoreUnprotect-Secret -Encrypted $enc)
+  }
+
   function New-DefaultSettings {
-    $o = [pscustomobject]@{
-      uiLanguage = "ja"
-      instanceName = ""
-      authType = "userpass"      # userpass | apikey
-      userId = ""
-      passwordEnc = ""
-      apiKeyEnc = ""
-      exportDirectory = ""
-      filterMode = "all"         # all | updated_between
-      startDateTime = (Get-Date).AddDays(-1).ToString("yyyy-MM-dd HH:mm:ss")
-      endDateTime   = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-      cachedTables = @()
-      cachedTablesFetchedAt = ""
-      selectedTableName = ""
-      exportFields = ""          # optional: comma separated sysparm_fields
-      pageSize = 1000
-      outputFormat = "csv"       # csv | json | xlsx
-      viewEditorViewName = ""
-      viewEditorViewLabel = ""
-      viewEditorBaseTable = ""
-      viewEditorBasePrefix = "t0"
-      viewEditorJoinsJson = "[]"
-      viewEditorSelectedColumnsJson = "[]"
-      deleteTargetTable = ""
-      deleteMaxRetries = 99
-    }
-    return $o
+    return (CoreNew-DefaultSettings)
   }
 
   function Load-Settings {
-    $def = New-DefaultSettings
-    if (Test-Path $SettingsPath) {
-      try {
-        $json = Get-Content $SettingsPath -Raw -Encoding UTF8 | ConvertFrom-Json
-        foreach ($p in $def.PSObject.Properties.Name) {
-          if ($json -and ($json.PSObject.Properties.Name -contains $p) -and $null -ne $json.$p) {
-            $def.$p = $json.$p
-          }
-        }
-      } catch {
-        # ignore and use default
-      }
-    }
-    return $def
+    return (CoreLoad-Settings -SettingsPath $SettingsPath)
   }
 
   function Save-Settings {
-    try {
-      $out = ($script:Settings | ConvertTo-Json -Depth 8)
-      [System.IO.File]::WriteAllText($SettingsPath, $out, (New-Object System.Text.UTF8Encoding($false)))
-    } catch {
-      # ignore
-    }
+    CoreSave-Settings -Settings $script:Settings -SettingsPath $SettingsPath
   }
 
   function Initialize-SettingsDebounceTimer {
@@ -368,174 +319,59 @@ try {
   $script:SettingsSaveTimer = $null
 
   # ----------------------------
-  # ServiceNow REST helper
+  # ServiceNow REST helper wrappers
   # ----------------------------
   function UrlEncode([string]$s) {
-    return [System.Uri]::EscapeDataString($s)
+    return (CoreUrlEncode -Value $s)
   }
 
   function Get-BaseUrl {
-    $instVal = $script:Settings.instanceName
-    if ($null -eq $instVal) { $instVal = "" }
-    $inst = ([string]$instVal).Trim()
-    if ([string]::IsNullOrWhiteSpace($inst)) { return "" }
-
-    if ($inst -match '^https?://') { return $inst.TrimEnd('/') }
-    if ($inst -match '\.service-now\.com$') { return ("https://{0}" -f $inst).TrimEnd('/') }
-    return ("https://{0}.service-now.com" -f $inst).TrimEnd('/')
+    return (CoreGet-BaseUrl -Settings $script:Settings)
   }
 
   function New-SnowHeaders {
-    $headers = @{
-      "Accept" = "application/json"
-      "Content-Type" = "application/json; charset=utf-8"
+    return (CoreNew-SnowHeaders -Settings $script:Settings -UnprotectSecret ${function:Unprotect-Secret})
+  }
+
+  function Invoke-SnowRequest {
+    param(
+      [Parameter(Mandatory=$true)][ValidateSet('Get','Post','Patch','Delete')][string]$Method,
+      [Parameter(Mandatory=$true)][string]$Path,
+      [AllowNull()]$Body,
+      [int]$TimeoutSec = 120
+    )
+
+    $params = @{
+      Method = $Method
+      Path = $Path
+      Settings = $script:Settings
+      UnprotectSecret = ${function:Unprotect-Secret}
+      GetText = ${function:T}
+      TimeoutSec = $TimeoutSec
     }
-    if ($script:Settings.authType -eq "apikey") {
-      $key = Unprotect-Secret ([string]$script:Settings.apiKeyEnc
-      )
-      if (-not [string]::IsNullOrWhiteSpace($key)) {
-        # Default: Bearer token. If your org uses another scheme, edit here.
-        $headers["Authorization"] = "Bearer $key"
-      }
-    }
-    return $headers
+    if ($PSBoundParameters.ContainsKey('Body')) { $params.Body = $Body }
+
+    return CoreInvoke-SnowRequest @params
   }
 
   function Invoke-SnowGet([string]$pathAndQuery) {
-    $base = Get-BaseUrl
-    if ([string]::IsNullOrWhiteSpace($base)) { throw (T "WarnInstance") }
-
-    $uri = $base + $pathAndQuery
-    $headers = New-SnowHeaders
-
-    if ($script:Settings.authType -eq "userpass") {
-      $user = ([string]$script:Settings.userId).Trim()
-      $pass = Unprotect-Secret ([string]$script:Settings.passwordEnc)
-      if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($pass)) { throw (T "WarnAuth") }
-      $sec = ConvertTo-SecureString $pass -AsPlainText -Force
-      $cred = New-Object System.Management.Automation.PSCredential($user, $sec)
-      return Invoke-RestMethod -Method Get -Uri $uri -Headers $headers -Credential $cred -TimeoutSec 120
-    } else {
-      return Invoke-RestMethod -Method Get -Uri $uri -Headers $headers -TimeoutSec 120
-    }
+    return Invoke-SnowRequest -Method Get -Path $pathAndQuery
   }
 
   function Invoke-SnowPost([string]$path, [hashtable]$body) {
-    $base = Get-BaseUrl
-    if ([string]::IsNullOrWhiteSpace($base)) { throw (T "WarnInstance") }
-
-    $uri = $base + $path
-    $headers = New-SnowHeaders
-    $jsonBody = ($body | ConvertTo-Json -Depth 8)
-    $jsonBytes = [System.Text.Encoding]::UTF8.GetBytes($jsonBody)
-
-    if ($script:Settings.authType -eq "userpass") {
-      $user = ([string]$script:Settings.userId).Trim()
-      $pass = Unprotect-Secret ([string]$script:Settings.passwordEnc)
-      if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($pass)) { throw (T "WarnAuth") }
-      $sec = ConvertTo-SecureString $pass -AsPlainText -Force
-      $cred = New-Object System.Management.Automation.PSCredential($user, $sec)
-      return Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -Credential $cred -TimeoutSec 120 -Body $jsonBytes
-    } else {
-      return Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -TimeoutSec 120 -Body $jsonBytes
-    }
+    return Invoke-SnowRequest -Method Post -Path $path -Body $body
   }
 
   function Invoke-SnowPatch([string]$path, [hashtable]$body) {
-    $base = Get-BaseUrl
-    if ([string]::IsNullOrWhiteSpace($base)) { throw (T "WarnInstance") }
-
-    $uri = $base + $path
-    $headers = New-SnowHeaders
-    $jsonBody = ($body | ConvertTo-Json -Depth 8)
-    $jsonBytes = [System.Text.Encoding]::UTF8.GetBytes($jsonBody)
-
-    if ($script:Settings.authType -eq "userpass") {
-      $user = ([string]$script:Settings.userId).Trim()
-      $pass = Unprotect-Secret ([string]$script:Settings.passwordEnc)
-      if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($pass)) { throw (T "WarnAuth") }
-      $sec = ConvertTo-SecureString $pass -AsPlainText -Force
-      $cred = New-Object System.Management.Automation.PSCredential($user, $sec)
-      return Invoke-RestMethod -Method Patch -Uri $uri -Headers $headers -Credential $cred -TimeoutSec 120 -Body $jsonBytes
-    } else {
-      return Invoke-RestMethod -Method Patch -Uri $uri -Headers $headers -TimeoutSec 120 -Body $jsonBytes
-    }
+    return Invoke-SnowRequest -Method Patch -Path $path -Body $body
   }
 
-
   function Invoke-SnowDelete([string]$path) {
-    $base = Get-BaseUrl
-    if ([string]::IsNullOrWhiteSpace($base)) { throw (T "WarnInstance") }
-
-    $uri = $base + $path
-    $headers = New-SnowHeaders
-
-    if ($script:Settings.authType -eq "userpass") {
-      $user = ([string]$script:Settings.userId).Trim()
-      $pass = Unprotect-Secret ([string]$script:Settings.passwordEnc)
-      if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($pass)) { throw (T "WarnAuth") }
-      $sec = ConvertTo-SecureString $pass -AsPlainText -Force
-      $cred = New-Object System.Management.Automation.PSCredential($user, $sec)
-      return Invoke-RestMethod -Method Delete -Uri $uri -Headers $headers -Credential $cred -TimeoutSec 120
-    } else {
-      return Invoke-RestMethod -Method Delete -Uri $uri -Headers $headers -TimeoutSec 120
-    }
+    return Invoke-SnowRequest -Method Delete -Path $path
   }
 
   function Invoke-SnowBatchDelete([string]$table, [string[]]$sysIds) {
-    if ([string]::IsNullOrWhiteSpace($table)) {
-      return @{ deletedCount = 0; failedIds = @() }
-    }
-    $ids = @($sysIds | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
-    if ($ids.Count -eq 0) { return @{ deletedCount = 0; failedIds = @() } }
-
-    $requests = New-Object System.Collections.Generic.List[hashtable]
-    $index = 0
-    foreach ($id in $ids) {
-      $index++
-      $requests.Add(@{
-        id = [string]$index
-        method = "DELETE"
-        url = ("/api/now/table/{0}/{1}" -f $table, [string]$id)
-        headers = @{ "X-no-response-body" = "true" }
-      }) | Out-Null
-    }
-
-    $batchBody = @{
-      batch_request_id = [Guid]::NewGuid().ToString("N")
-      rest_requests = @($requests)
-    }
-
-    $res = Invoke-SnowPost "/api/now/v1/batch" $batchBody
-    $responses = @()
-    if ($res -and ($res.PSObject.Properties.Name -contains "result")) {
-      $responses = @($res.result)
-    }
-
-    $ok = 0
-    $failedIds = New-Object System.Collections.Generic.List[string]
-    foreach ($item in $responses) {
-      $status = 0
-      try { $status = [int]$item.status_code } catch { $status = 0 }
-      $responseId = ""
-      try { $responseId = [string]$item.id } catch { $responseId = "" }
-      $reqIndex = 0
-      if (-not [int]::TryParse($responseId, [ref]$reqIndex)) { $reqIndex = 0 }
-      $targetId = ""
-      if ($reqIndex -ge 1 -and $reqIndex -le $ids.Count) {
-        $targetId = [string]$ids[$reqIndex - 1]
-      }
-      if ($status -ge 200 -and $status -lt 300) {
-        $ok++
-      } elseif (-not [string]::IsNullOrWhiteSpace($targetId)) {
-        $failedIds.Add($targetId) | Out-Null
-      }
-    }
-    if ($responses.Count -eq 0) {
-      # If response parsing is unavailable, assume request-level success.
-      return @{ deletedCount = $ids.Count; failedIds = @() }
-    }
-    return @{ deletedCount = $ok; failedIds = @($failedIds) }
+    return (CoreInvoke-SnowBatchDelete -Table $table -SysIds $sysIds -InvokePost ${function:Invoke-SnowPost})
   }
 
   function New-VerificationCode([int]$length = 4) {
@@ -555,18 +391,8 @@ try {
   # UI helpers
   # ----------------------------
   function Add-Log([string]$msg) {
-    if ($script:txtLog -and $script:txtLog.InvokeRequired) {
-      $appendAction = [System.Action[string]]{
-        param($m)
-        Add-Log $m
-      }
-      [void]$script:txtLog.BeginInvoke($appendAction, @($msg))
-      return
-    }
-    $ts = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-    $script:txtLog.AppendText("[$ts] $msg`r`n")
-    $script:txtLog.SelectionStart = $script:txtLog.TextLength
-    $script:txtLog.ScrollToCaret()
+    if (-not $script:txtLog) { return }
+    CoreWrite-UiLog -LogTextBox $script:txtLog -Message $msg
   }
 
   function Invoke-Async([string]$name, [scriptblock]$work, [scriptblock]$onCompleted, $state = $null) {
