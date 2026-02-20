@@ -38,7 +38,7 @@ function New-DefaultSettings {
     selectedTableName = ""
     exportFields = ""
     pageSize = 5000
-    exportMaxRows = 5000
+    exportMaxRows = 10000
     outputFormat = "csv"
     viewEditorViewName = ""
     viewEditorViewLabel = ""
