@@ -8,6 +8,23 @@
 
 PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）・Database View の作成（Database View Editor）・レコード全削除（Truncate）を行える PowerShell (WinForms) ユーティリティです。
 
+### 現在のツール状況（2026-02 時点）
+
+- **Export**: 安定稼働
+  - CSV / JSON / Excel（`.xlsx`）出力に対応
+  - `sys_updated_on` 期間指定に加え、Last 30 Days のクイック指定に対応
+  - CSV は「CSV Split Rows」で分割出力しつつ全件エクスポート可能（`sys_created_on` 昇順）
+  - UTF-8 BOM 付与の ON/OFF に対応
+- **Database View Editor**: 実運用可能（インスタンス依存の制約あり）
+  - ベーステーブル + JOIN 定義（LEFT JOIN / Prefix 指定含む）の作成に対応
+  - 一部インスタンスでは where句 / JOIN 定義の自動保存に制約があり、作成後の手動補完が必要
+- **Truncate（全削除）**: 安全確認付きで利用可能
+  - 4文字の検証コード入力 + 実行確認ダイアログ
+  - 最大再試行回数（1～999）を指定可能
+- **Settings / i18n**: 安定稼働
+  - 設定は `settings.json` へ自動保存
+  - UI 文言は `locales/ja.json` / `locales/en.json` で管理
+
 ### タブ別の活用シーン
 
 - **Export**
@@ -94,6 +111,23 @@ https://www.ixam.net
 ## English
 
 PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow table data, creating Database Views, and truncating table records with a guided GUI.
+
+### Current tool status (as of 2026-02)
+
+- **Export**: stable
+  - Supports CSV / JSON / Excel (`.xlsx`)
+  - Supports both `sys_updated_on` date-range filtering and a Last 30 Days quick filter
+  - CSV supports split output via "CSV Split Rows" while exporting all records in ascending `sys_created_on`
+  - UTF-8 BOM on/off is supported
+- **Database View Editor**: production-usable with instance-dependent limitations
+  - Supports base-table + join-definition creation (including LEFT JOIN and prefixes)
+  - Some instances may block automatic persistence of where clause / join definitions, requiring manual completion after creation
+- **Truncate (Delete all)**: usable with safety checks
+  - 4-character verification code + confirmation dialog
+  - Configurable max retry count (1-999)
+- **Settings / i18n**: stable
+  - Settings are auto-saved to `settings.json`
+  - UI strings are managed in `locales/ja.json` and `locales/en.json`
 
 ### Useful situations by tab
 
