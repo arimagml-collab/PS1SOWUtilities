@@ -79,6 +79,52 @@ function Invoke-ExportUseCase {
   $lastCreatedOn = $null
   $lastSysId = $null
 
+  function Resolve-OutputEncoding {
+    param([Parameter(Mandatory=$true)]$State)
+
+    $format = ([string]$State.format).Trim().ToLowerInvariant()
+    $rawName = ([string]$State.outputEncoding).Trim()
+    $normalized = $rawName.ToLowerInvariant()
+
+    $useBom = $false
+    if ($State.PSObject.Properties.Name -contains 'outputBom') {
+      $useBom = [bool]$State.outputBom
+    } elseif ($format -eq 'csv') {
+      # Excel / ServiceNow import workflows often mis-detect UTF-8 without BOM.
+      $useBom = $true
+    }
+
+    if ([string]::IsNullOrWhiteSpace($normalized)) {
+      $normalized = 'utf-8'
+    }
+
+    switch ($normalized) {
+      { $_ -in @('utf8', 'utf-8', 'utf8bom', 'utf-8-bom') } {
+        return [pscustomobject]@{
+          Name = 'utf-8'
+          Encoding = (New-Object System.Text.UTF8Encoding($useBom))
+          Bom = $useBom
+        }
+      }
+      { $_ -in @('sjis', 'shift-jis', 'shift_jis', 'cp932', 'ms932', 'windows-31j') } {
+        return [pscustomobject]@{
+          Name = 'shift_jis'
+          Encoding = [System.Text.Encoding]::GetEncoding(932)
+          Bom = $false
+        }
+      }
+      default {
+        return [pscustomobject]@{
+          Name = 'utf-8'
+          Encoding = (New-Object System.Text.UTF8Encoding($useBom))
+          Bom = $useBom
+        }
+      }
+    }
+  }
+
+  $encodingMeta = Resolve-OutputEncoding -State $Context
+
   function New-CsvPartWriter {
     param([int]$PartNo)
 
@@ -87,7 +133,7 @@ function Invoke-ExportUseCase {
     $name = [System.IO.Path]::GetFileNameWithoutExtension([string]$Context.file)
     $ext = [System.IO.Path]::GetExtension([string]$Context.file)
     $partFile = Join-Path $dir ("{0}-{1:000}{2}" -f $name, $PartNo, $ext)
-    return [pscustomobject]@{ File = $partFile; Writer = (New-Object System.IO.StreamWriter($partFile, $false, (New-Object System.Text.UTF8Encoding($false)))) }
+    return [pscustomobject]@{ File = $partFile; Writer = (New-Object System.IO.StreamWriter($partFile, $false, $encodingMeta.Encoding)) }
   }
 
   function Convert-ToCsvText {
@@ -158,7 +204,7 @@ function Invoke-ExportUseCase {
 
   try {
     if ($Context.format -eq "json") {
-      $jsonWriter = New-Object System.IO.StreamWriter($Context.file, $false, (New-Object System.Text.UTF8Encoding($false)))
+      $jsonWriter = New-Object System.IO.StreamWriter($Context.file, $false, $encodingMeta.Encoding)
       $jsonWriter.Write("[")
     } elseif ($Context.format -eq "csv") {
       $csvPartNo = 1
@@ -312,7 +358,7 @@ function Invoke-ExportUseCase {
     }
   }
 
-  return [pscustomobject]@{ file=$Context.file; files=@($csvFiles); total=$total }
+  return [pscustomobject]@{ file=$Context.file; files=@($csvFiles); total=$total; outputEncoding=$encodingMeta.Name; outputBom=$encodingMeta.Bom }
 }
 
 Export-ModuleMember -Function Validate-ExportInput, Invoke-ExportUseCase

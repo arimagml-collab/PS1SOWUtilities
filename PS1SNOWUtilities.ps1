@@ -1719,7 +1719,6 @@ try {
     Add-Log (T "Exporting")
     Add-Log ("table={0}, pageSize={1}, maxRows={2}" -f $table, $pageSize, $maxRowsVal)
     Add-Log ("outputFormat={0}" -f [string]$script:Settings.outputFormat)
-    if (-not [string]::IsNullOrWhiteSpace($query)) { Add-Log ("query={0}" -f $query) }
 
     $fieldsVal = $script:Settings.exportFields
     if ($null -eq $fieldsVal) { $fieldsVal = "" }
@@ -1729,6 +1728,14 @@ try {
     if ([string]::IsNullOrWhiteSpace($formatVal)) { $formatVal = "csv" }
     $format = $formatVal.Trim().ToLowerInvariant()
     if ((@("csv","json","xlsx") -notcontains $format)) { $format = "csv" }
+
+    $outputEncoding = ([string]$script:Settings.outputEncoding).Trim()
+    if ([string]::IsNullOrWhiteSpace($outputEncoding)) { $outputEncoding = "utf-8" }
+    $outputBom = $true
+    try { $outputBom = [bool]$script:Settings.outputBom } catch { $outputBom = $true }
+
+    Add-Log ("outputEncoding={0}, outputBom={1}" -f $outputEncoding, $outputBom)
+    if (-not [string]::IsNullOrWhiteSpace($query)) { Add-Log ("query={0}" -f $query) }
 
     $stamp = (Get-Date).ToString("yyyyMMdd_HHmmss")
     $suffix = if ($rbBetween.Checked) {
@@ -1741,7 +1748,7 @@ try {
     }
     $file = Join-Path $exportDir ("{0}{1}_{2}.{3}" -f $table, $suffix, $stamp, $ext)
 
-    $ctx = [pscustomobject]@{ table=$table; pageSize=$pageSize; maxRows=$maxRowsVal; query=$query; fields=$fields; format=$format; file=$file }
+    $ctx = [pscustomobject]@{ table=$table; pageSize=$pageSize; maxRows=$maxRowsVal; query=$query; fields=$fields; format=$format; file=$file; outputEncoding=$outputEncoding; outputBom=$outputBom }
 
     Invoke-Async "Export-Table" {
       param($state)
@@ -1763,6 +1770,9 @@ try {
 
       $donePathText = [string]::Join(", ", $resultFiles)
       Add-Log ("{0}: {1}" -f (T "Done"), $donePathText)
+      if ($result -and ($result.PSObject.Properties.Name -contains "outputEncoding")) {
+        Add-Log ("encodedAs={0}, bom={1}" -f [string]$result.outputEncoding, [bool]$result.outputBom)
+      }
       $fileLines = [string]::Join("`r`n", $resultFiles)
       [System.Windows.Forms.MessageBox]::Show(("OK`r`n{0}`r`nRecords: {1}" -f $fileLines, [int]$result.total)) | Out-Null
     } $ctx
