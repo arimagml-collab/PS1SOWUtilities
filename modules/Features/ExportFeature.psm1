@@ -96,16 +96,38 @@ function Invoke-ExportUseCase {
       [Parameter(Mandatory=$true)]$Source
     )
 
+    function Convert-ServiceNowFieldValue {
+      param([AllowNull()]$Value)
+
+      if ($null -eq $Value) { return '' }
+      if ($Value -is [string] -or $Value -is [ValueType]) { return [string]$Value }
+
+      $valueProp = $null
+      try { $valueProp = $Value.PSObject.Properties['value'] } catch { $valueProp = $null }
+      if ($valueProp) {
+        return (Convert-ServiceNowFieldValue -Value $valueProp.Value)
+      }
+
+      if ($Value -is [System.Collections.IEnumerable] -and -not ($Value -is [string])) {
+        $items = New-Object System.Collections.Generic.List[string]
+        foreach ($entry in $Value) {
+          $resolved = Convert-ServiceNowFieldValue -Value $entry
+          if (-not [string]::IsNullOrWhiteSpace($resolved)) {
+            [void]$items.Add($resolved)
+          }
+        }
+        if ($items.Count -gt 0) {
+          return ($items -join ";")
+        }
+      }
+
+      return ($Value | ConvertTo-Json -Depth 10 -Compress)
+    }
+
     $line = foreach ($col in $Columns) {
       $v = $null
       try { $v = $Source.$col } catch { $v = $null }
-      if ($null -eq $v) {
-        ''
-      } elseif ($v -is [string] -or $v -is [ValueType]) {
-        [string]$v
-      } else {
-        ($v | ConvertTo-Json -Depth 10 -Compress)
-      }
+      Convert-ServiceNowFieldValue -Value $v
     }
 
     return ((,$line | ConvertTo-Csv -NoTypeInformation)[1])
@@ -157,7 +179,14 @@ function Invoke-ExportUseCase {
       $path = "/api/now/table/" + $Context.table + "?" + ($queryParts -join "&")
       $res = & $InvokeSnowGet $path
       $batchRes = if ($res -and ($res.PSObject.Properties.Name -contains "result")) { $res.result } else { @() }
-      $batch = @($batchRes)
+      $batch = New-Object System.Collections.Generic.List[object]
+      foreach ($item in @($batchRes)) {
+        if ($item -is [System.Array]) {
+          foreach ($nestedItem in $item) { [void]$batch.Add($nestedItem) }
+        } else {
+          [void]$batch.Add($item)
+        }
+      }
 
       foreach ($r in $batch) {
         if ($Context.format -eq "json") {
