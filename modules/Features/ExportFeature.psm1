@@ -181,18 +181,20 @@ function Invoke-ExportUseCase {
 
     while ($true) {
       $limit = [int]$Context.pageSize
-      if ($Context.format -ne "csv") {
-        $remaining = [int]$Context.maxRows - $total
-        if ($remaining -le 0) { break }
+      if ($Context.format -eq "csv") {
+        $remaining = [int]$Context.maxRows - $csvRowsInPart
+        if ($remaining -le 0) { $remaining = [int]$Context.maxRows }
         $limit = [Math]::Min([int]$Context.pageSize, $remaining)
       }
       $requestQuery = Build-ExportQuery -BaseQuery ([string]$Context.query) -LastCreatedOn $lastCreatedOn -LastSysId $lastSysId
 
       $qs = @{
-        sysparm_limit  = $limit
         sysparm_display_value = "false"
         sysparm_exclude_reference_link = "true"
         sysparm_query = $requestQuery
+      }
+      if ($Context.format -eq "csv") {
+        $qs.sysparm_limit = $limit
       }
       if (-not [string]::IsNullOrWhiteSpace([string]$Context.fields)) { $qs.sysparm_fields = [string]$Context.fields }
 

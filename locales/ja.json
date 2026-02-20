@@ -99,9 +99,6 @@
   "DeleteRetry": "再試行",
   "DeleteCodeMismatch": "確認コードが一致しません。",
   "DeleteMaxRetriesInvalid": "最大再試行回数は1～999を指定してください。",
-  "ExportMaxRows": "最大エクスポート行数",
-  "FetchSystemExportLimit": "システム上限取得",
-  "SystemExportLimitFetched": "システム上限を取得: {0} (property: {1})",
-  "SystemExportLimitFetchFailed": "システム上限を取得できませんでした。",
-  "ExportMaxRowsCsvHint": "※分割エクスポートはCSV形式のみ対応です。"
+  "ExportMaxRows": "CSV分割行数",
+  "ExportMaxRowsCsvHint": "※CSVのみ最大行数を指定して数万オーダーの巨大なテーブルもsys_created_onの昇順でファイル分割し、全件エクスポートする事が出来ます。（イージフィルタの設定は反映されます。その場合、フィルタの範囲で全件エクスポートします。）"
 }

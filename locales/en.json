@@ -99,9 +99,6 @@
   "DeleteRetry": "Retry",
   "DeleteCodeMismatch": "Verification code does not match.",
   "DeleteMaxRetriesInvalid": "Max retry count must be between 1 and 999.",
-  "ExportMaxRows": "Max Export Rows",
-  "FetchSystemExportLimit": "Fetch System Limit",
-  "SystemExportLimitFetched": "Fetched system export limit: {0} (property: {1})",
-  "SystemExportLimitFetchFailed": "Could not fetch system export limit.",
-  "ExportMaxRowsCsvHint": "* Split export is supported only for CSV format."
+  "ExportMaxRows": "CSV Split Rows",
+  "ExportMaxRowsCsvHint": "* Only CSV uses this max row value to split files and export all records in ascending sys_created_on order (Easy Filter is still applied; all records in that filtered range are exported)."
 }
