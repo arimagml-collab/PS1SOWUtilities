@@ -44,6 +44,15 @@ PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）�
 3. エクスポート先フォルダと出力形式（CSV / JSON / Excel）を指定して **実行** を押します。
 4. ログを確認し、必要に応じて **フォルダを開く** で出力先を開きます。
 
+##### CSV分割エクスポートの使い方
+
+1. 出力形式で **CSV** を選択します。
+2. **CSV分割エクスポート** を有効にし、1ファイルあたりの分割件数（行数）を指定します。
+3. 実行すると、連番付きの複数CSVファイルとして順次出力されます。
+4. ログで各ファイルの出力状況を確認し、必要に応じて後続処理で結合・集計します。
+
+> 💡 使用シチュエーション：巨大テーブルを1ファイルで出力すると、ネットワークや処理時間の都合で途中で切れてしまう可能性がある場合に、分割して全件を安全に出力したいときに有効です。
+
 #### Database View Editor の手順
 
 1. **Database View Editor** タブで View 内部名と View ラベルを入力します。
@@ -130,6 +139,15 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
 2. Optionally set filters (All records or `sys_updated_on` date range).
 3. Choose an export directory and output format (CSV / JSON / Excel), then click **Execute**.
 4. Check logs and use **Open Folder** to view exported files.
+
+##### How to use split CSV export
+
+1. Select **CSV** as the output format.
+2. Enable **Split CSV Export** and set the number of rows per file.
+3. Run export to generate multiple numbered CSV files in sequence.
+4. Check logs for each generated file, then merge/process them as needed.
+
+> 💡 Typical use case: when exporting a huge table to a single file may get cut off due to network or processing limits, split CSV export helps you safely output the full dataset in chunks.
 
 #### Database View Editor workflow
 
