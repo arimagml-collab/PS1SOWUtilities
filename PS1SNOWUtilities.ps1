@@ -52,6 +52,9 @@ try {
   Import-Module (Join-Path $ScriptDir "modules/Core/Settings.psm1") -Force -Prefix Core
   Import-Module (Join-Path $ScriptDir "modules/Core/ServiceNowClient.psm1") -Force -Prefix Core
   Import-Module (Join-Path $ScriptDir "modules/Core/Logging.psm1") -Force -Prefix Core
+  Import-Module (Join-Path $ScriptDir "modules/Features/ExportFeature.psm1") -Force
+  Import-Module (Join-Path $ScriptDir "modules/Features/ViewEditorFeature.psm1") -Force
+  Import-Module (Join-Path $ScriptDir "modules/Features/TruncateFeature.psm1") -Force
 
   # ----------------------------
   # i18n
@@ -1776,16 +1779,12 @@ try {
     $viewName = ([string]$txtViewName.Text).Trim()
     $viewLabel = ([string]$txtViewLabel.Text).Trim()
     $baseTable = Get-SelectedBaseTableName
-
-    if ([string]::IsNullOrWhiteSpace($viewName)) { [System.Windows.Forms.MessageBox]::Show((T "WarnViewName")) | Out-Null; return }
-    if ([string]::IsNullOrWhiteSpace($viewLabel)) { [System.Windows.Forms.MessageBox]::Show((T "WarnViewLabel")) | Out-Null; return }
-    if ([string]::IsNullOrWhiteSpace($baseTable)) { [System.Windows.Forms.MessageBox]::Show((T "WarnBaseTable")) | Out-Null; return }
-
     $joinDefs = @(Get-JoinDefinitions)
-    foreach ($j in $joinDefs) {
-      if ([string]::IsNullOrWhiteSpace([string]$j.joinTable)) { [System.Windows.Forms.MessageBox]::Show((T "WarnJoinTable")) | Out-Null; return }
-      if ([string]::IsNullOrWhiteSpace([string]$j.baseColumn)) { [System.Windows.Forms.MessageBox]::Show((T "WarnJoinBaseColumn")) | Out-Null; return }
-      if ([string]::IsNullOrWhiteSpace([string]$j.targetColumn)) { [System.Windows.Forms.MessageBox]::Show((T "WarnJoinTargetColumn")) | Out-Null; return }
+
+    $validation = Validate-ViewInput -ViewName $viewName -ViewLabel $viewLabel -BaseTable $baseTable -JoinDefinitions @($joinDefs) -GetText ${function:T}
+    if (-not $validation.IsValid) {
+      [System.Windows.Forms.MessageBox]::Show([string]$validation.Errors[0]) | Out-Null
+      return
     }
 
     $basePrefix = ([string]$txtBasePrefix.Text).Trim()
@@ -1796,65 +1795,14 @@ try {
     $ctx = [pscustomobject]@{ viewName=$viewName; viewLabel=$viewLabel; baseTable=$baseTable; basePrefix=$basePrefix; selectedColumns=@($selectedColumns); joinDefs=@($joinDefs) }
     Invoke-Async "Create-DatabaseView" {
       param($state)
-      $body = @{ name = $state.viewName; table = $state.baseTable }
-      if (@($state.selectedColumns).Count -gt 0) { $body["view_field_list"] = (@($state.selectedColumns) -join ",") }
-      $createRes = Invoke-SnowPost "/api/now/table/sys_db_view" $body
-      $created = if ($createRes -and ($createRes.PSObject.Properties.Name -contains "result")) { $createRes.result } else { $null }
-      $sysId = if ($created) { [string]$created.sys_id } else { "" }
-
-      $joinsSaved = $true
-      if (-not [string]::IsNullOrWhiteSpace($sysId)) {
-        [void](Invoke-SnowPatch ("/api/now/table/sys_db_view/{0}" -f $sysId) @{ label = $state.viewLabel })
-
-        if (@($state.selectedColumns).Count -gt 0) {
-          $fieldCsv = (@($state.selectedColumns) -join ",")
-          foreach ($fieldKey in @("view_fields", "field_names", "view_field_list")) {
-            try { [void](Invoke-SnowPatch ("/api/now/table/sys_db_view/{0}" -f $sysId) @{ $fieldKey = $fieldCsv }); break } catch {}
-          }
-        }
-
-        $baseTableRowId = ""
-        try {
-          $query = "view={0}^table={1}" -f $sysId, $state.baseTable
-          $path = "/api/now/table/sys_db_view_table?sysparm_fields=sys_id&sysparm_limit=1&sysparm_query={0}" -f (UrlEncode $query)
-          $baseTableRes = Invoke-SnowGet $path
-          $baseTableRow = if ($baseTableRes -and ($baseTableRes.PSObject.Properties.Name -contains "result") -and @($baseTableRes.result).Count -gt 0) { $baseTableRes.result[0] } else { $null }
-          if ($baseTableRow) { $baseTableRowId = [string]$baseTableRow.sys_id }
-        } catch {}
-
-        if ([string]::IsNullOrWhiteSpace($baseTableRowId)) {
-          try {
-            $baseCreate = Invoke-SnowPost "/api/now/table/sys_db_view_table" @{ view = $sysId; table = $state.baseTable; order = 0; variable_prefix = $state.basePrefix }
-            if ($baseCreate -and ($baseCreate.PSObject.Properties.Name -contains "result") -and $baseCreate.result) { $baseTableRowId = [string]$baseCreate.result.sys_id }
-          } catch {}
-        }
-
-        [void](Save-ViewTableMetadata $baseTableRowId $state.basePrefix "" $false $false)
-
-        if (@($state.joinDefs).Count -gt 0) {
-          $joinsSaved = $false
-          $joinIndex = 1
-          foreach ($joinDef in @($state.joinDefs)) {
-            $joinPrefix = ([string]$joinDef.joinPrefix).Trim()
-            if ([string]::IsNullOrWhiteSpace($joinPrefix)) { $joinPrefix = ("t{0}" -f $joinIndex) }
-            $joinSource = ([string]$joinDef.joinSource).Trim()
-            $leftPrefix = if ([string]::IsNullOrWhiteSpace($joinSource) -or $joinSource -eq "__base__") { $state.basePrefix } else { $joinSource }
-            $isLeftJoin = $false
-            if ($joinDef.PSObject.Properties.Name -contains "leftJoin") { $isLeftJoin = [System.Convert]::ToBoolean($joinDef.leftJoin) }
-            $joinWhereClause = Build-JoinWhereClause $leftPrefix ([string]$joinDef.baseColumn) $joinPrefix ([string]$joinDef.targetColumn)
-            $joinOrder = $joinIndex * 100
-            $joinCreate = Try-CreateViewJoinRow $sysId $joinDef $joinWhereClause $joinPrefix $isLeftJoin $joinOrder
-            if (-not [bool]$joinCreate.saved) { $joinsSaved = $false; break }
-            if (-not [string]::IsNullOrWhiteSpace([string]$joinCreate.rowId)) { [void](Save-ViewTableMetadata ([string]$joinCreate.rowId) $joinPrefix $joinWhereClause $isLeftJoin $true) }
-            $joinIndex++
-            $joinsSaved = $true
-          }
-        }
-      }
-
-      return [pscustomobject]@{ viewName=$state.viewName; sysId=$sysId; joinsSaved=$joinsSaved }
+      return Invoke-CreateViewUseCase -Context $state -InvokeSnowPost ${function:Invoke-SnowPost} -InvokeSnowPatch ${function:Invoke-SnowPatch} -InvokeSnowGet ${function:Invoke-SnowGet} -UrlEncode ${function:UrlEncode} -SaveViewTableMetadata ${function:Save-ViewTableMetadata} -BuildJoinWhereClause ${function:Build-JoinWhereClause} -TryCreateViewJoinRow ${function:Try-CreateViewJoinRow}
     } {
       param($result)
+      if ([string]::IsNullOrWhiteSpace([string]$result.sysId)) {
+        Add-Log ("{0}: {1}" -f (T "ViewCreateFailed"), [string]$result.viewName)
+        [System.Windows.Forms.MessageBox]::Show((T "ViewCreateFailed")) | Out-Null
+        return
+      }
       if (-not [bool]$result.joinsSaved) {
         Add-Log (T "ViewJoinFallback")
         [System.Windows.Forms.MessageBox]::Show((T "ViewJoinFallback")) | Out-Null
@@ -1883,15 +1831,16 @@ try {
 
   function Remove-AllTableRecords {
     $table = Get-SelectedDeleteTableName
-    if ([string]::IsNullOrWhiteSpace($table)) { throw (T "WarnTable") }
-
     $maxRetries = [int]$numDeleteMaxRetries.Value
-    if ($maxRetries -lt 1 -or $maxRetries -gt 999) { throw (T "DeleteMaxRetriesInvalid") }
 
     $verification = Request-DeleteVerificationCode
     $expectedCode = [string]$verification.ExpectedCode
     $actualCode = [string]$verification.InputCode
-    if ($expectedCode -ne $actualCode) { throw (T "DeleteCodeMismatch") }
+
+    $validation = Validate-TruncateInput -Table $table -MaxRetries $maxRetries -ExpectedCode $expectedCode -InputCode $actualCode -GetText ${function:T}
+    if (-not $validation.IsValid) {
+      throw [string]$validation.Errors[0]
+    }
 
     $confirm = [System.Windows.Forms.MessageBox]::Show(
       ([string]::Format((T "DeleteConfirmMessage"), $table, $expectedCode)),
@@ -1903,116 +1852,27 @@ try {
       return
     }
 
-    Add-Log (T "DeleteFetchCount")
-    Set-DeleteProgress 0 (T "DeleteFetchCount")
+    $result = Invoke-TruncateUseCase -Context ([pscustomobject]@{ table = $table; maxRetries = $maxRetries }) -InvokeSnowGet ${function:Invoke-SnowGet} -InvokeSnowDelete ${function:Invoke-SnowDelete} -InvokeSnowBatchDelete ${function:Invoke-SnowBatchDelete} -WriteLog ${function:Add-Log} -SetProgress ${function:Set-DeleteProgress} -GetText ${function:T}
 
-    $countPath = "/api/now/stats/{0}?sysparm_count=true" -f $table
-    $countRes = Invoke-SnowGet $countPath
-    $initialTotal = 0
-    try {
-      if ($countRes -and $countRes.result -and $countRes.result.stats -and $countRes.result.stats.count) {
-        $initialTotal = [int]$countRes.result.stats.count
-      }
-    } catch {
-      $initialTotal = 0
-    }
-
-    if ($initialTotal -le 0) {
-      Add-Log (T "DeleteNoRecord")
-      Set-DeleteProgress 100 "100% (0/0)"
+    if ($result.Status -eq "NoRecord") {
       [System.Windows.Forms.MessageBox]::Show((T "DeleteNoRecord")) | Out-Null
       return
     }
-
-    $deleted = 0
-    $attempt = 0
-    while ($attempt -lt $maxRetries) {
-      $attempt++
-
-      $listPath = "/api/now/table/{0}?sysparm_fields=sys_id&sysparm_limit=10000&sysparm_display_value=false&sysparm_exclude_reference_link=true" -f $table
-      $listRes = Invoke-SnowGet $listPath
-      $rows = if ($listRes -and ($listRes.PSObject.Properties.Name -contains "result")) { @($listRes.result) } else { @() }
-
-      if ($rows.Count -eq 0) {
-        Add-Log ("{0}: {1}" -f (T "DeleteDone"), $table)
-        Set-DeleteProgress 100 ("100% ({0}/{1})" -f [Math]::Min($deleted, $initialTotal), $initialTotal)
-        [System.Windows.Forms.MessageBox]::Show((T "DeleteDone")) | Out-Null
-        return
-      }
-
-      $ids = @()
-      foreach ($r in $rows) {
-        $id = [string]$r.sys_id
-        if ([string]::IsNullOrWhiteSpace($id)) { continue }
-        $ids += $id
-      }
-
-      $batchSize = 50
-      for ($i = 0; $i -lt $ids.Count; $i += $batchSize) {
-        $take = [Math]::Min($batchSize, $ids.Count - $i)
-        $chunk = $ids[$i..($i + $take - 1)]
-        try {
-          $batchResult = Invoke-SnowBatchDelete $table $chunk
-          $ok = [int]$batchResult.deletedCount
-          $deleted += $ok
-          $failedIds = if ($batchResult -and ($batchResult.PSObject.Properties.Name -contains "failedIds")) { @($batchResult.failedIds) } else { @() }
-          if ($failedIds.Count -gt 0) {
-            foreach ($failedId in $failedIds) {
-              try {
-                [void](Invoke-SnowDelete ("/api/now/table/{0}/{1}" -f $table, $failedId))
-                $deleted++
-              } catch {
-                Add-Log ("{0}: {1}" -f (T "Failed"), $_.Exception.Message)
-              }
-            }
-          }
-        } catch {
-          foreach ($id in $chunk) {
-            try {
-              [void](Invoke-SnowDelete ("/api/now/table/{0}/{1}" -f $table, $id))
-              $deleted++
-            } catch {
-              Add-Log ("{0}: {1}" -f (T "Failed"), $_.Exception.Message)
-            }
-          }
-        }
-
-        $pct = [int]([Math]::Floor(([Math]::Min($deleted, $initialTotal) * 100.0) / $initialTotal))
-        Set-DeleteProgress $pct ("{0}% ({1}/{2})" -f $pct, [Math]::Min($deleted, $initialTotal), $initialTotal)
-      }
-
-      Add-Log ("{0} {1}/{2}" -f (T "DeleteRetry"), $attempt, $maxRetries)
+    if ($result.Status -eq "Done") {
+      [System.Windows.Forms.MessageBox]::Show((T "DeleteDone")) | Out-Null
+      return
     }
 
-    Add-Log (T "DeleteStopped")
     [System.Windows.Forms.MessageBox]::Show((T "DeleteStopped")) | Out-Null
   }
 
   function Export-Table {
     $table = Get-SelectedTableName
 
-    if ([string]::IsNullOrWhiteSpace((Get-BaseUrl))) {
-      [System.Windows.Forms.MessageBox]::Show((T "WarnInstance")) | Out-Null
+    $validation = Validate-ExportInput -BaseUrl (Get-BaseUrl) -Table $table -Settings $script:Settings -UnprotectSecret ${function:Unprotect-Secret} -GetText ${function:T}
+    if (-not $validation.IsValid) {
+      [System.Windows.Forms.MessageBox]::Show([string]$validation.Errors[0]) | Out-Null
       return
-    }
-    if ([string]::IsNullOrWhiteSpace($table)) {
-      [System.Windows.Forms.MessageBox]::Show((T "WarnTable")) | Out-Null
-      return
-    }
-
-    if ($script:Settings.authType -eq "userpass") {
-      $u = [string]$script:Settings.userId
-      $p = Unprotect-Secret ([string]$script:Settings.passwordEnc)
-      if ([string]::IsNullOrWhiteSpace($u) -or [string]::IsNullOrWhiteSpace($p)) {
-        [System.Windows.Forms.MessageBox]::Show((T "WarnAuth")) | Out-Null
-        return
-      }
-    } else {
-      $k = Unprotect-Secret ([string]$script:Settings.apiKeyEnc)
-      if ([string]::IsNullOrWhiteSpace($k)) {
-        [System.Windows.Forms.MessageBox]::Show((T "WarnAuth")) | Out-Null
-        return
-      }
     }
 
     $exportDir = Ensure-ExportDir $txtDir.Text
@@ -2056,99 +1916,7 @@ try {
 
     Invoke-Async "Export-Table" {
       param($state)
-      $offset = 0
-      $total = 0
-      $isFirstJson = $true
-      $jsonWriter = $null
-      $csvWriter = $null
-      $all = New-Object System.Collections.Generic.List[object]
-
-      try {
-        if ($state.format -eq "json") {
-          $jsonWriter = New-Object System.IO.StreamWriter($state.file, $false, (New-Object System.Text.UTF8Encoding($false)))
-          $jsonWriter.Write("[")
-        } elseif ($state.format -eq "csv") {
-          $csvWriter = New-Object System.IO.StreamWriter($state.file, $false, (New-Object System.Text.UTF8Encoding($false)))
-        }
-
-        while ($true) {
-          $qs = @{
-            sysparm_limit  = $state.pageSize
-            sysparm_offset = $offset
-            sysparm_display_value = "false"
-            sysparm_exclude_reference_link = "true"
-          }
-          $queryParts = New-Object System.Collections.Generic.List[string]
-          foreach ($k2 in $qs.Keys) { [void]$queryParts.Add(("{0}={1}" -f $k2, (UrlEncode ([string]$qs[$k2])))) }
-          if (-not [string]::IsNullOrWhiteSpace([string]$state.query)) { [void]$queryParts.Add(("sysparm_query={0}" -f (UrlEncode ([string]$state.query)))) }
-          if (-not [string]::IsNullOrWhiteSpace([string]$state.fields)) { [void]$queryParts.Add(("sysparm_fields={0}" -f (UrlEncode ([string]$state.fields)))) }
-
-          $path = "/api/now/table/" + $state.table + "?" + ($queryParts -join "&")
-          $res = Invoke-SnowGet $path
-          $batchRes = if ($res -and ($res.PSObject.Properties.Name -contains "result")) { $res.result } else { @() }
-          $batch = @($batchRes)
-
-          foreach ($r in $batch) {
-            if ($state.format -eq "json") {
-              $itemJson = ($r | ConvertTo-Json -Depth 10 -Compress)
-              if (-not $isFirstJson) { $jsonWriter.Write(",") }
-              $jsonWriter.Write($itemJson)
-              $isFirstJson = $false
-            } elseif ($state.format -eq "csv") {
-              $itemJson = ($r | ConvertTo-Json -Depth 10 -Compress).Replace('"','""')
-              $csvWriter.WriteLine(("`"{0}`"" -f $itemJson))
-            } else {
-              $all.Add($r)
-            }
-          }
-
-          $total += $batch.Count
-          if ($batch.Count -lt $state.pageSize) { break }
-          $offset += $state.pageSize
-          if ($offset -gt 2000000) { break }
-        }
-
-        if ($state.format -eq "xlsx") {
-          if ($all.Count -gt 0) {
-            $colNameSet = New-Object System.Collections.Generic.HashSet[string]
-            foreach ($obj in $all) { foreach ($p in $obj.PSObject.Properties) { [void]$colNameSet.Add($p.Name) } }
-            $cols = @($colNameSet) | Sort-Object
-            $outRows = foreach ($obj in $all) {
-              $h = [ordered]@{}
-              foreach ($c in $cols) { try { $h[$c] = $obj.$c } catch { $h[$c] = $null } }
-              [pscustomobject]$h
-            }
-            $excel = $null; $workbook = $null; $worksheet = $null
-            try {
-              $excel = New-Object -ComObject Excel.Application
-              $excel.Visible = $false
-              $excel.DisplayAlerts = $false
-              $workbook = $excel.Workbooks.Add()
-              $worksheet = $workbook.Worksheets.Item(1)
-              for ($i = 0; $i -lt $cols.Count; $i++) { $worksheet.Cells.Item(1, $i + 1) = [string]$cols[$i] }
-              $rowIndex = 2
-              foreach ($row in $outRows) {
-                for ($i = 0; $i -lt $cols.Count; $i++) {
-                  $v = $row.($cols[$i])
-                  if ($null -eq $v) { $worksheet.Cells.Item($rowIndex, $i + 1) = "" } else { $worksheet.Cells.Item($rowIndex, $i + 1) = [string]$v }
-                }
-                $rowIndex++
-              }
-              $workbook.SaveAs($state.file, 51)
-            } finally {
-              if ($workbook) { $workbook.Close($false) | Out-Null }
-              if ($excel) { $excel.Quit() }
-              foreach ($obj in @($worksheet, $workbook, $excel)) { if ($obj) { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($obj) } }
-              [GC]::Collect(); [GC]::WaitForPendingFinalizers()
-            }
-          }
-        }
-      } finally {
-        if ($jsonWriter) { $jsonWriter.Write("]"); $jsonWriter.Dispose() }
-        if ($csvWriter) { $csvWriter.Dispose() }
-      }
-
-      return [pscustomobject]@{ file=$state.file; total=$total }
+      return Invoke-ExportUseCase -Context $state -InvokeSnowGet ${function:Invoke-SnowGet} -UrlEncode ${function:UrlEncode}
     } {
       param($result)
       if ([int]$result.total -eq 0) {
