@@ -102,5 +102,6 @@
   "ExportMaxRows": "最大エクスポート行数",
   "FetchSystemExportLimit": "システム上限取得",
   "SystemExportLimitFetched": "システム上限を取得: {0} (property: {1})",
-  "SystemExportLimitFetchFailed": "システム上限を取得できませんでした。"
+  "SystemExportLimitFetchFailed": "システム上限を取得できませんでした。",
+  "ExportMaxRowsCsvHint": "※分割エクスポートはCSV形式のみ対応です。"
 }

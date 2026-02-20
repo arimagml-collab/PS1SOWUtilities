@@ -331,6 +331,11 @@ try {
   $numExportMaxRows.Maximum = 1000000
   $numExportMaxRows.Value = 5000
 
+  $lblExportMaxRowsHint = New-Object System.Windows.Forms.Label
+  $lblExportMaxRowsHint.Location = New-Object System.Drawing.Point(570, 184)
+  $lblExportMaxRowsHint.Size = New-Object System.Drawing.Size(350, 24)
+  $lblExportMaxRowsHint.ForeColor = [System.Drawing.Color]::FromArgb(90,90,90)
+
   $btnFetchExportLimit = New-Object System.Windows.Forms.Button
   $btnFetchExportLimit.Location = New-Object System.Drawing.Point(340, 178)
   $btnFetchExportLimit.Size = New-Object System.Drawing.Size(220, 32)
@@ -371,7 +376,7 @@ try {
     $lblFilter, $rbAll, $rbBetween,
     $lblStart, $dtStart, $lblEnd, $dtEnd, $btnLast30Days,
     $lblDir, $txtDir, $btnBrowse,
-    $lblExportMaxRows, $numExportMaxRows, $btnFetchExportLimit,
+    $lblExportMaxRows, $numExportMaxRows, $lblExportMaxRowsHint, $btnFetchExportLimit,
     $lblOutputFormat, $cmbOutputFormat,
     $btnOpenFolder, $btnExecute,
     $grpLog
@@ -728,6 +733,7 @@ try {
     $btnLast30Days.Text = T "Last30Days"
     $lblDir.Text = T "ExportDir"
     $lblExportMaxRows.Text = T "ExportMaxRows"
+    $lblExportMaxRowsHint.Text = T "ExportMaxRowsCsvHint"
     $btnFetchExportLimit.Text = T "FetchSystemExportLimit"
     $btnBrowse.Text = T "Browse"
     $btnExecute.Text = T "Execute"
@@ -1655,29 +1661,26 @@ try {
   }
 
   function Get-SystemExportLimit {
-    $propertyNames = @(
-      "glide.csv.export.limit",
-      "glide.xlsx.export.limit",
-      "glide.ui.export.limit"
-    )
+    $propertyName = "glide.csv.export.limit"
 
-    foreach ($propertyName in $propertyNames) {
-      try {
-        $propertyQuery = UrlEncode ("name={0}" -f $propertyName)
-        $path = "/api/now/table/sys_properties?sysparm_fields=name,value&sysparm_limit=1&sysparm_query={0}" -f $propertyQuery
-        $res = Invoke-SnowGet $path
-        $rows = if ($res -and ($res.PSObject.Properties.Name -contains "result")) { @($res.result) } else { @() }
-        if ($rows.Count -lt 1) { continue }
-        $rawValue = [string]$rows[0].value
-        $parsed = 0
-        if ([int]::TryParse($rawValue, [ref]$parsed) -and $parsed -gt 0) {
-          return [pscustomobject]@{ IsSuccess = $true; Value = $parsed; PropertyName = $propertyName }
-        }
-      } catch {
+    try {
+      $query = "name={0}" -f $propertyName
+      $path = "/api/now/table/sys_properties?sysparm_fields=name,value&sysparm_limit=1&sysparm_query={0}" -f (& ${function:UrlEncode} $query)
+      $res = Invoke-SnowGet $path
+      $rows = if ($res -and ($res.PSObject.Properties.Name -contains "result")) { @($res.result) } else { @() }
+      if ($rows.Count -lt 1) {
+        return [pscustomobject]@{ IsSuccess = $false; Value = 0; PropertyName = $propertyName }
       }
+
+      $rawValue = [string]$rows[0].value
+      $parsed = 0
+      if ([int]::TryParse($rawValue, [ref]$parsed) -and $parsed -gt 0) {
+        return [pscustomobject]@{ IsSuccess = $true; Value = $parsed; PropertyName = $propertyName }
+      }
+    } catch {
     }
 
-    return [pscustomobject]@{ IsSuccess = $false; Value = 0; PropertyName = "" }
+    return [pscustomobject]@{ IsSuccess = $false; Value = 0; PropertyName = $propertyName }
   }
 
   function Remove-AllTableRecords {
@@ -1778,8 +1781,18 @@ try {
         [System.Windows.Forms.MessageBox]::Show("0 records.") | Out-Null
         return
       }
-      Add-Log ("{0}: {1}" -f (T "Done"), [string]$result.file)
-      [System.Windows.Forms.MessageBox]::Show(("OK`r`n{0}`r`nRecords: {1}" -f [string]$result.file, [int]$result.total)) | Out-Null
+      $resultFiles = @()
+      if ($result -and ($result.PSObject.Properties.Name -contains "files")) {
+        $resultFiles = @($result.files | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+      }
+      if ($resultFiles.Count -lt 1 -and -not [string]::IsNullOrWhiteSpace([string]$result.file)) {
+        $resultFiles = @([string]$result.file)
+      }
+
+      $donePathText = [string]::Join(", ", $resultFiles)
+      Add-Log ("{0}: {1}" -f (T "Done"), $donePathText)
+      $fileLines = [string]::Join("`r`n", $resultFiles)
+      [System.Windows.Forms.MessageBox]::Show(("OK`r`n{0}`r`nRecords: {1}" -f $fileLines, [int]$result.total)) | Out-Null
     } $ctx
   }
 
