@@ -69,7 +69,8 @@ try {
     if ($script:Settings -and $script:Settings.uiLanguage) { $lang = [string]$script:Settings.uiLanguage }
 
     $text = Resolve-CoreI18nText -I18nResources $script:I18N -Language $lang -Key $key -DefaultLanguage "ja"
-    if ($text -eq $key) {
+    $exists = Test-CoreI18nKeyExists -I18nResources $script:I18N -Language $lang -Key $key -DefaultLanguage "ja"
+    if (-not $exists) {
       $missingToken = "{0}:{1}" -f $lang, $key
       if (-not $script:MissingI18nKeys.ContainsKey($missingToken)) {
         $script:MissingI18nKeys[$missingToken] = $true
@@ -131,7 +132,7 @@ try {
   # ServiceNow REST helper wrappers
   # ----------------------------
   function UrlEncode([string]$s) {
-    return (UrlEncode-Core -Value $s)
+    return (CoreUrlEncode -Value $s)
   }
 
   function Get-BaseUrl {
