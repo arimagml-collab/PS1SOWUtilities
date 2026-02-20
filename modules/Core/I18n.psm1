@@ -1,4 +1,4 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
 
 function ConvertTo-HashtableRecursive {
   param([Parameter(Mandatory=$true)]$InputObject)
