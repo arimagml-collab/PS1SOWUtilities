@@ -53,9 +53,39 @@ try {
   Import-Module (Join-Path $ScriptDir "modules/Core/ServiceNowClient.psm1") -Force -Prefix Core
   Import-Module (Join-Path $ScriptDir "modules/Core/Logging.psm1") -Force -Prefix Core
   Import-Module (Join-Path $ScriptDir "modules/Core/I18n.psm1") -Force -Prefix Core
-  Import-Module (Join-Path $ScriptDir "modules/Features/ExportFeature.psm1") -Force
-  Import-Module (Join-Path $ScriptDir "modules/Features/ViewEditorFeature.psm1") -Force
-  Import-Module (Join-Path $ScriptDir "modules/Features/TruncateFeature.psm1") -Force
+
+  function Import-OptionalFeatureModule {
+    param(
+      [Parameter(Mandatory=$true)][string]$ModulePath,
+      [Parameter(Mandatory=$true)][string]$FeatureKey,
+      [Parameter(Mandatory=$true)][string[]]$RequiredFunctions
+    )
+
+    if (-not (Test-Path $ModulePath)) {
+      return [pscustomobject]@{ Enabled = $false; Message = ("Feature module not found: {0}" -f $ModulePath) }
+    }
+
+    Import-Module $ModulePath -Force
+
+    foreach ($funcName in $RequiredFunctions) {
+      if (-not (Get-Command -Name $funcName -CommandType Function -ErrorAction SilentlyContinue)) {
+        return [pscustomobject]@{ Enabled = $false; Message = ("Feature module missing required function ({0}): {1}" -f $FeatureKey, $funcName) }
+      }
+    }
+
+    return [pscustomobject]@{ Enabled = $true; Message = $null }
+  }
+
+  $featureModuleStatus = @{
+    Export = Import-OptionalFeatureModule -ModulePath (Join-Path $ScriptDir "modules/Features/ExportFeature.psm1") -FeatureKey "Export" -RequiredFunctions @("Validate-ExportInput", "Invoke-ExportUseCase")
+    ViewEditor = Import-OptionalFeatureModule -ModulePath (Join-Path $ScriptDir "modules/Features/ViewEditorFeature.psm1") -FeatureKey "ViewEditor" -RequiredFunctions @("Validate-ViewInput", "Invoke-CreateViewUseCase")
+    Delete = Import-OptionalFeatureModule -ModulePath (Join-Path $ScriptDir "modules/Features/TruncateFeature.psm1") -FeatureKey "Delete" -RequiredFunctions @("Validate-TruncateInput", "Invoke-TruncateUseCase")
+  }
+
+  $script:IsExportFeatureEnabled = [bool]$featureModuleStatus.Export.Enabled
+  $script:IsViewEditorFeatureEnabled = [bool]$featureModuleStatus.ViewEditor.Enabled
+  $script:IsDeleteFeatureEnabled = [bool]$featureModuleStatus.Delete.Enabled
+  $script:DisabledFeatureMessages = @($featureModuleStatus.Values | Where-Object { -not $_.Enabled -and -not [string]::IsNullOrWhiteSpace([string]$_.Message) } | ForEach-Object { [string]$_.Message })
 
   # ----------------------------
   # i18n
@@ -244,9 +274,9 @@ try {
   $tabSettings = New-Object System.Windows.Forms.TabPage
   $tabDelete = New-Object System.Windows.Forms.TabPage
 
-  [void]$tabs.TabPages.Add($tabExport)
-  [void]$tabs.TabPages.Add($tabViewEditor)
-  [void]$tabs.TabPages.Add($tabDelete)
+  if ($script:IsExportFeatureEnabled) { [void]$tabs.TabPages.Add($tabExport) }
+  if ($script:IsViewEditorFeatureEnabled) { [void]$tabs.TabPages.Add($tabViewEditor) }
+  if ($script:IsDeleteFeatureEnabled) { [void]$tabs.TabPages.Add($tabDelete) }
   [void]$tabs.TabPages.Add($tabSettings)
   $form.Controls.Add($tabs)
 
@@ -718,10 +748,10 @@ try {
 
   function Apply-Language {
     $form.Text = T "AppTitle"
-    $tabExport.Text = T "TabExport"
-    $tabViewEditor.Text = T "TabViewEditor"
+    if ($script:IsExportFeatureEnabled) { $tabExport.Text = T "TabExport" }
+    if ($script:IsViewEditorFeatureEnabled) { $tabViewEditor.Text = T "TabViewEditor" }
     $tabSettings.Text = T "TabSettings"
-    $tabDelete.Text = T "TabDelete"
+    if ($script:IsDeleteFeatureEnabled) { $tabDelete.Text = T "TabDelete" }
 
     $lblTable.Text = T "TargetTable"
     $btnReloadTables.Text = T "ReloadTables"
@@ -2134,7 +2164,7 @@ try {
   })
 
   $tabs.add_SelectedIndexChanged({
-    if ($tabs.SelectedTab -eq $tabViewEditor -or $tabs.SelectedTab -eq $tabDelete) {
+    if (($script:IsViewEditorFeatureEnabled -and $tabs.SelectedTab -eq $tabViewEditor) -or ($script:IsDeleteFeatureEnabled -and $tabs.SelectedTab -eq $tabDelete)) {
       Ensure-TablesLoaded
     }
   })
@@ -2200,16 +2230,22 @@ try {
   })
 
   $btnReloadTables.add_Click({ Fetch-Tables })
-  $btnDeleteReloadTables.add_Click({ Fetch-Tables })
-  $btnExecute.add_Click({ Export-Table })
-  $btnDeleteExecute.add_Click({
-    try {
-      Remove-AllTableRecords
-    } catch {
-      Add-Log ("{0}: {1}" -f (T "Failed"), $_.Exception.Message)
-      [System.Windows.Forms.MessageBox]::Show($_.Exception.Message) | Out-Null
-    }
-  })
+  if ($script:IsDeleteFeatureEnabled) {
+    $btnDeleteReloadTables.add_Click({ Fetch-Tables })
+  }
+  if ($script:IsExportFeatureEnabled) {
+    $btnExecute.add_Click({ Export-Table })
+  }
+  if ($script:IsDeleteFeatureEnabled) {
+    $btnDeleteExecute.add_Click({
+      try {
+        Remove-AllTableRecords
+      } catch {
+        Add-Log ("{0}: {1}" -f (T "Failed"), $_.Exception.Message)
+        [System.Windows.Forms.MessageBox]::Show($_.Exception.Message) | Out-Null
+      }
+    })
+  }
 
   # First-run export dir
   try { [void](Ensure-ExportDir $txtDir.Text) } catch { }
@@ -2220,6 +2256,10 @@ try {
     $script:Settings.viewEditorSelectedColumnsJson = (@(Get-SelectedViewFieldTokens) | ConvertTo-Json -Compress)
     Request-SaveSettings -Immediate
   })
+
+  foreach ($disabledMessage in @($script:DisabledFeatureMessages)) {
+    Add-Log $disabledMessage
+  }
 
   Add-Log "Ready."
   Add-Log "Notice: MIT License / https://www.ixam.net"
