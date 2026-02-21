@@ -23,6 +23,8 @@
   "Log": "Log",
   "UiLang": "UI Language",
   "Instance": "ServiceNow Instance",
+  "BaseUrlLabel": "Base URL",
+  "BaseUrlNotSet": "(not set)",
   "AuthType": "Authentication",
   "AuthUserPass": "User + Password",
   "AuthApiKey": "API Key",

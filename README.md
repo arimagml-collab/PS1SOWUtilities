@@ -37,6 +37,21 @@ PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）�
    - 必要に応じて UI 言語
 3. 入力内容はアプリ初回実行後に生成される `settings.json` に自動保存されます（リポジトリには含めていません）。
 
+##### 独自ドメイン運用時の設定（`instance-name.service-now.com` 以外）
+
+`settings.json` に `instanceDomain` を追加すると、API 接続先 URL を明示指定できます。
+
+```json
+{
+  "instanceName": "dev12345",
+  "instanceDomain": "example.com"
+}
+```
+
+- `instanceDomain` を設定した場合はそちらが優先されます。
+- `instanceDomain` には `example.com` または `https://example.com` のどちらでも指定できます（`https://` なしで記載した場合は自動補完）。
+- `instanceDomain` が未設定または空の場合は、従来どおり `instanceName` から `https://<instanceName>.service-now.com` を組み立てます。
+
 #### Export の手順
 
 1. **Export**タブで対象テーブルを選択（または手動入力）します。
@@ -139,6 +154,21 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
    - Authentication method (User ID + Password or API Key)
    - UI language if needed
 3. Inputs are auto-saved to `settings.json` generated after first run (the file is not tracked in this repository).
+
+##### Custom domain setup (when not using `instance-name.service-now.com`)
+
+Add `instanceDomain` to `settings.json` to explicitly control the API base URL.
+
+```json
+{
+  "instanceName": "dev12345",
+  "instanceDomain": "example.com"
+}
+```
+
+- When `instanceDomain` is set, it takes precedence.
+- You can set `instanceDomain` as either `example.com` or `https://example.com` (`https://` is automatically added if omitted).
+- When `instanceDomain` is missing or empty, the app keeps the previous behavior and builds `https://<instanceName>.service-now.com` from `instanceName`.
 
 #### Export workflow
 

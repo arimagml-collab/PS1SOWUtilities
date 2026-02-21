@@ -22,9 +22,10 @@ function Unprotect-Secret {
 
 function New-DefaultSettings {
   return [pscustomobject]@{
-    settingsVersion = 3
+    settingsVersion = 4
     uiLanguage = "ja"
     instanceName = ""
+    instanceDomain = ""
     authType = "userpass"
     userId = ""
     passwordEnc = ""
@@ -144,6 +145,20 @@ function Migrate-Settings {
   if ($currentVersion -lt 3) {
     $migrated = Migrate-SettingsV2ToV3 -Settings $migrated
     $currentVersion = 3
+  }
+
+  if ($currentVersion -lt 4) {
+    if (-not ($migrated.PSObject.Properties.Name -contains 'instanceDomain')) {
+      $migrated | Add-Member -NotePropertyName instanceDomain -NotePropertyValue ''
+    }
+
+    if ($migrated.PSObject.Properties.Name -contains 'settingsVersion') {
+      $migrated.settingsVersion = 4
+    } else {
+      $migrated | Add-Member -NotePropertyName settingsVersion -NotePropertyValue 4
+    }
+
+    $currentVersion = 4
   }
 
   return [pscustomobject]@{

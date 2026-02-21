@@ -593,59 +593,64 @@ try {
   $txtInstance.Location = New-Object System.Drawing.Point(220, 56)
   $txtInstance.Size = New-Object System.Drawing.Size(500, 28)
 
+  $lblBaseUrl = New-Object System.Windows.Forms.Label
+  $lblBaseUrl.Location = New-Object System.Drawing.Point(220, 88)
+  $lblBaseUrl.Size = New-Object System.Drawing.Size(700, 18)
+  $lblBaseUrl.ForeColor = [System.Drawing.Color]::FromArgb(70,70,70)
+
   $lblAuthType = New-Object System.Windows.Forms.Label
-  $lblAuthType.Location = New-Object System.Drawing.Point(20, 105)
+  $lblAuthType.Location = New-Object System.Drawing.Point(20, 125)
   $lblAuthType.AutoSize = $true
 
   $rbUserPass = New-Object System.Windows.Forms.RadioButton
-  $rbUserPass.Location = New-Object System.Drawing.Point(220, 103)
+  $rbUserPass.Location = New-Object System.Drawing.Point(220, 123)
   $rbUserPass.AutoSize = $true
 
   $rbApiKey = New-Object System.Windows.Forms.RadioButton
-  $rbApiKey.Location = New-Object System.Drawing.Point(420, 103)
+  $rbApiKey.Location = New-Object System.Drawing.Point(420, 123)
   $rbApiKey.AutoSize = $true
 
   $lblUser = New-Object System.Windows.Forms.Label
-  $lblUser.Location = New-Object System.Drawing.Point(20, 150)
+  $lblUser.Location = New-Object System.Drawing.Point(20, 170)
   $lblUser.AutoSize = $true
 
   $txtUser = New-Object System.Windows.Forms.TextBox
-  $txtUser.Location = New-Object System.Drawing.Point(220, 146)
+  $txtUser.Location = New-Object System.Drawing.Point(220, 166)
   $txtUser.Size = New-Object System.Drawing.Size(260, 28)
 
   $lblPass = New-Object System.Windows.Forms.Label
-  $lblPass.Location = New-Object System.Drawing.Point(20, 190)
+  $lblPass.Location = New-Object System.Drawing.Point(20, 210)
   $lblPass.AutoSize = $true
 
   $txtPass = New-Object System.Windows.Forms.TextBox
-  $txtPass.Location = New-Object System.Drawing.Point(220, 186)
+  $txtPass.Location = New-Object System.Drawing.Point(220, 206)
   $txtPass.Size = New-Object System.Drawing.Size(360, 28)
   $txtPass.UseSystemPasswordChar = $true
 
   $btnTogglePass = New-Object System.Windows.Forms.Button
-  $btnTogglePass.Location = New-Object System.Drawing.Point(600, 184)
+  $btnTogglePass.Location = New-Object System.Drawing.Point(600, 204)
   $btnTogglePass.Size = New-Object System.Drawing.Size(120, 32)
 
   $lblKey = New-Object System.Windows.Forms.Label
-  $lblKey.Location = New-Object System.Drawing.Point(20, 230)
+  $lblKey.Location = New-Object System.Drawing.Point(20, 250)
   $lblKey.AutoSize = $true
 
   $txtKey = New-Object System.Windows.Forms.TextBox
-  $txtKey.Location = New-Object System.Drawing.Point(220, 226)
+  $txtKey.Location = New-Object System.Drawing.Point(220, 246)
   $txtKey.Size = New-Object System.Drawing.Size(360, 28)
   $txtKey.UseSystemPasswordChar = $true
 
   $btnToggleKey = New-Object System.Windows.Forms.Button
-  $btnToggleKey.Location = New-Object System.Drawing.Point(600, 224)
+  $btnToggleKey.Location = New-Object System.Drawing.Point(600, 244)
   $btnToggleKey.Size = New-Object System.Drawing.Size(120, 32)
 
   $lblSaveHint = New-Object System.Windows.Forms.Label
-  $lblSaveHint.Location = New-Object System.Drawing.Point(20, 285)
+  $lblSaveHint.Location = New-Object System.Drawing.Point(20, 305)
   $lblSaveHint.AutoSize = $true
   $lblSaveHint.ForeColor = [System.Drawing.Color]::FromArgb(70,70,70)
 
   $lblTablesHint = New-Object System.Windows.Forms.Label
-  $lblTablesHint.Location = New-Object System.Drawing.Point(20, 315)
+  $lblTablesHint.Location = New-Object System.Drawing.Point(20, 335)
   $lblTablesHint.Size = New-Object System.Drawing.Size(900, 60)
   $lblTablesHint.ForeColor = [System.Drawing.Color]::FromArgb(70,70,70)
 
@@ -663,7 +668,7 @@ try {
 
   $panelSettings.Controls.AddRange(@(
     $lblUiLang, $cmbLang,
-    $lblInstance, $txtInstance,
+    $lblInstance, $txtInstance, $lblBaseUrl,
     $lblAuthType, $rbUserPass, $rbApiKey,
     $lblUser, $txtUser,
     $lblPass, $txtPass, $btnTogglePass,
@@ -816,6 +821,7 @@ try {
 
     $lblUiLang.Text = T "UiLang"
     $lblInstance.Text = T "Instance"
+    Update-BaseUrlLabel
     $lblAuthType.Text = T "AuthType"
     $rbUserPass.Text = T "AuthUserPass"
     $rbApiKey.Text = T "AuthApiKey"
@@ -849,6 +855,15 @@ try {
   })
 
   $panelSettings.add_Resize({ Position-CopyrightLink })
+
+  function Update-BaseUrlLabel {
+    $base = Get-BaseUrl
+    if ([string]::IsNullOrWhiteSpace($base)) {
+      $lblBaseUrl.Text = "{0}: {1}" -f (T "BaseUrlLabel"), (T "BaseUrlNotSet")
+    } else {
+      $lblBaseUrl.Text = "{0}: {1}" -f (T "BaseUrlLabel"), $base
+    }
+  }
 
   function Update-AuthUI {
     $isUserPass = $rbUserPass.Checked
@@ -1998,6 +2013,7 @@ try {
   $txtInstance.add_TextChanged({
     $script:Settings.instanceName = $txtInstance.Text
     Request-SaveSettings
+    Update-BaseUrlLabel
     Refresh-DeleteExecuteButton
   })
 
