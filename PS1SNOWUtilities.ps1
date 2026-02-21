@@ -848,32 +848,32 @@ try {
   $lblDeleteAllowedInstances.AutoSize = $true
 
   $txtDeleteAllowedInstances = New-Object System.Windows.Forms.TextBox
-  $txtDeleteAllowedInstances.Location = New-Object System.Drawing.Point(220, 171)
-  $txtDeleteAllowedInstances.Size = New-Object System.Drawing.Size(500, 28)
+  $txtDeleteAllowedInstances.Location = New-Object System.Drawing.Point(220, 196)
+  $txtDeleteAllowedInstances.Size = New-Object System.Drawing.Size(700, 28)
   $txtDeleteAllowedInstances.ReadOnly = $true
 
   $lblDeleteAllowedInstancesHint = New-Object System.Windows.Forms.Label
-  $lblDeleteAllowedInstancesHint.Location = New-Object System.Drawing.Point(20, 206)
+  $lblDeleteAllowedInstancesHint.Location = New-Object System.Drawing.Point(20, 230)
   $lblDeleteAllowedInstancesHint.Size = New-Object System.Drawing.Size(900, 32)
   $lblDeleteAllowedInstancesHint.ForeColor = [System.Drawing.Color]::FromArgb(110,70,70)
 
   $lblDeleteProgress = New-Object System.Windows.Forms.Label
-  $lblDeleteProgress.Location = New-Object System.Drawing.Point(20, 250)
+  $lblDeleteProgress.Location = New-Object System.Drawing.Point(20, 278)
   $lblDeleteProgress.AutoSize = $true
 
   $prgDelete = New-Object System.Windows.Forms.ProgressBar
-  $prgDelete.Location = New-Object System.Drawing.Point(220, 247)
+  $prgDelete.Location = New-Object System.Drawing.Point(220, 275)
   $prgDelete.Size = New-Object System.Drawing.Size(500, 24)
   $prgDelete.Minimum = 0
   $prgDelete.Maximum = 100
   $prgDelete.Value = 0
 
   $lblDeleteProgressValue = New-Object System.Windows.Forms.Label
-  $lblDeleteProgressValue.Location = New-Object System.Drawing.Point(740, 250)
+  $lblDeleteProgressValue.Location = New-Object System.Drawing.Point(740, 278)
   $lblDeleteProgressValue.Size = New-Object System.Drawing.Size(180, 24)
 
   $btnDeleteExecute = New-Object System.Windows.Forms.Button
-  $btnDeleteExecute.Location = New-Object System.Drawing.Point(740, 305)
+  $btnDeleteExecute.Location = New-Object System.Drawing.Point(740, 333)
   $btnDeleteExecute.Size = New-Object System.Drawing.Size(180, 42)
   $btnDeleteExecute.Enabled = $false
 
