@@ -105,5 +105,9 @@
   "ExportMaxRowsCsvHint": "* Only CSV uses this max row value to split files and export all records in ascending sys_created_on order (Easy Filter is still applied; all records in that filtered range are exported).",
   "DeleteAllowedInstances": "Allowed instances for Truncate (read-only)",
   "DeleteAllowedInstancesHint": "How to edit: modify settings.json directly. Parameter name: truncateAllowedInstances (supports wildcard and comma-separated multiple patterns).",
-  "DeleteInstanceNotAllowed": "Truncate is not allowed for this instance. Check truncateAllowedInstances in settings.json."
+  "DeleteInstanceNotAllowed": "Truncate is not allowed for this instance. Check truncateAllowedInstances in settings.json.",
+  "TabAttachmentHarvester": "Attachment Harvester",
+  "AttachmentSetLastRunToNow": "Set last run to now",
+  "AttachmentDownloadDir": "Download Directory",
+  "AttachmentCreateSubfolderPerTable": "Create subfolder per source table"
 }

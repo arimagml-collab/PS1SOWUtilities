@@ -45,6 +45,7 @@ try {
   $ScriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
   $SettingsPath = Join-Path $ScriptDir "settings.json"
   $DefaultExportDir = Join-Path $ScriptDir "ExportedFiles"
+  $DefaultAttachmentDir = Join-Path $ScriptDir "DownloadedAttachments"
 
   # ----------------------------
   # Core modules
@@ -80,11 +81,13 @@ try {
     Export = Import-OptionalFeatureModule -ModulePath (Join-Path $ScriptDir "modules/Features/ExportFeature.psm1") -FeatureKey "Export" -RequiredFunctions @("Validate-ExportInput", "Invoke-ExportUseCase")
     ViewEditor = Import-OptionalFeatureModule -ModulePath (Join-Path $ScriptDir "modules/Features/ViewEditorFeature.psm1") -FeatureKey "ViewEditor" -RequiredFunctions @("Validate-ViewInput", "Invoke-CreateViewUseCase")
     Delete = Import-OptionalFeatureModule -ModulePath (Join-Path $ScriptDir "modules/Features/TruncateFeature.psm1") -FeatureKey "Delete" -RequiredFunctions @("Validate-TruncateInput", "Invoke-TruncateUseCase")
+    AttachmentHarvester = Import-OptionalFeatureModule -ModulePath (Join-Path $ScriptDir "modules/Features/AttachmentHarvesterFeature.psm1") -FeatureKey "AttachmentHarvester" -RequiredFunctions @("Validate-AttachmentHarvesterInput", "Invoke-AttachmentHarvesterUseCase")
   }
 
   $script:IsExportFeatureEnabled = [bool]$featureModuleStatus.Export.Enabled
   $script:IsViewEditorFeatureEnabled = [bool]$featureModuleStatus.ViewEditor.Enabled
   $script:IsDeleteFeatureEnabled = [bool]$featureModuleStatus.Delete.Enabled
+  $script:IsAttachmentHarvesterFeatureEnabled = [bool]$featureModuleStatus.AttachmentHarvester.Enabled
   $script:DisabledFeatureMessages = @($featureModuleStatus.Values | Where-Object { -not $_.Enabled -and -not [string]::IsNullOrWhiteSpace([string]$_.Message) } | ForEach-Object { [string]$_.Message })
 
   # ----------------------------
@@ -210,6 +213,31 @@ try {
     return Invoke-SnowRequest -Method Delete -Path $path
   }
 
+  function Invoke-SnowDownloadAttachmentBytes([string]$attachmentSysId) {
+    $base = Get-BaseUrl
+    if ([string]::IsNullOrWhiteSpace($base)) { throw (T "WarnInstance") }
+    $uri = "{0}/api/now/attachment/{1}/file" -f $base, $attachmentSysId
+
+    if ($script:Settings.authType -eq "userpass") {
+      $user = ([string]$script:Settings.userId).Trim()
+      $pass = Unprotect-Secret ([string]$script:Settings.passwordEnc)
+      $sec = ConvertTo-SecureString $pass -AsPlainText -Force
+      $cred = New-Object System.Management.Automation.PSCredential($user, $sec)
+      $response = Invoke-WebRequest -Uri $uri -Method Get -Credential $cred -UseBasicParsing
+    } else {
+      $headers = @{ Authorization = ("Bearer {0}" -f (Unprotect-Secret ([string]$script:Settings.apiKeyEnc))) }
+      $response = Invoke-WebRequest -Uri $uri -Method Get -Headers $headers -UseBasicParsing
+    }
+
+    $memory = New-Object System.IO.MemoryStream
+    try {
+      $response.RawContentStream.CopyTo($memory)
+      return $memory.ToArray()
+    } finally {
+      $memory.Dispose()
+    }
+  }
+
   function Invoke-SnowBatchDelete([string]$table, [string[]]$sysIds) {
     return (Invoke-CoreSnowBatchDelete -Table $table -SysIds $sysIds -InvokePost ${function:Invoke-SnowPost})
   }
@@ -233,6 +261,11 @@ try {
   function Add-Log([string]$msg) {
     if (-not $script:txtLog) { return }
     Write-CoreUiLog -LogTextBox $script:txtLog -Message $msg
+  }
+
+  function Add-AttachmentLog([string]$msg) {
+    if (-not $txtAttachmentLog) { return }
+    Write-CoreUiLog -LogTextBox $txtAttachmentLog -Message $msg
   }
 
   function Invoke-Async([string]$name, [scriptblock]$work, [scriptblock]$onCompleted, $state = $null) {
@@ -270,11 +303,13 @@ try {
   $tabs.Dock = "Fill"
 
   $tabExport = New-Object System.Windows.Forms.TabPage
+  $tabAttachmentHarvester = New-Object System.Windows.Forms.TabPage
   $tabViewEditor = New-Object System.Windows.Forms.TabPage
   $tabSettings = New-Object System.Windows.Forms.TabPage
   $tabDelete = New-Object System.Windows.Forms.TabPage
 
   if ($script:IsExportFeatureEnabled) { [void]$tabs.TabPages.Add($tabExport) }
+  if ($script:IsAttachmentHarvesterFeatureEnabled) { [void]$tabs.TabPages.Add($tabAttachmentHarvester) }
   if ($script:IsViewEditorFeatureEnabled) { [void]$tabs.TabPages.Add($tabViewEditor) }
   if ($script:IsDeleteFeatureEnabled) { [void]$tabs.TabPages.Add($tabDelete) }
   [void]$tabs.TabPages.Add($tabSettings)
@@ -410,6 +445,96 @@ try {
     $lblOutputFormat, $cmbOutputFormat, $chkOutputBom,
     $btnOpenFolder, $btnExecute,
     $grpLog
+  ))
+
+
+  # --- Attachment Harvester tab layout
+  $panelAttachment = New-Object System.Windows.Forms.Panel
+  $panelAttachment.Dock = "Fill"
+  $panelAttachment.AutoScroll = $true
+  $panelAttachment.AutoScrollMinSize = New-Object System.Drawing.Size(940, 660)
+  $tabAttachmentHarvester.Controls.Add($panelAttachment)
+
+  $lblAttachmentTable = New-Object System.Windows.Forms.Label
+  $lblAttachmentTable.Location = New-Object System.Drawing.Point(20, 20)
+  $lblAttachmentTable.AutoSize = $true
+
+  $cmbAttachmentTable = New-Object System.Windows.Forms.ComboBox
+  $cmbAttachmentTable.Location = New-Object System.Drawing.Point(220, 16)
+  $cmbAttachmentTable.Size = New-Object System.Drawing.Size(500, 28)
+  $cmbAttachmentTable.DropDownStyle = "DropDown"
+
+  $cmbAttachmentDateField = New-Object System.Windows.Forms.ComboBox
+  $cmbAttachmentDateField.Location = New-Object System.Drawing.Point(740, 16)
+  $cmbAttachmentDateField.Size = New-Object System.Drawing.Size(180, 28)
+  $cmbAttachmentDateField.DropDownStyle = "DropDownList"
+  [void]$cmbAttachmentDateField.Items.Add('sys_created_on')
+  [void]$cmbAttachmentDateField.Items.Add('sys_updated_on')
+
+  $lblAttachmentStart = New-Object System.Windows.Forms.Label
+  $lblAttachmentStart.Location = New-Object System.Drawing.Point(20, 65)
+  $lblAttachmentStart.AutoSize = $true
+
+  $dtAttachmentStart = New-Object System.Windows.Forms.DateTimePicker
+  $dtAttachmentStart.Location = New-Object System.Drawing.Point(220, 61)
+  $dtAttachmentStart.Size = New-Object System.Drawing.Size(250, 28)
+  $dtAttachmentStart.Format = "Custom"
+  $dtAttachmentStart.CustomFormat = "yyyy-MM-dd HH:mm:ss"
+  $dtAttachmentStart.ShowUpDown = $true
+
+  $lblAttachmentEnd = New-Object System.Windows.Forms.Label
+  $lblAttachmentEnd.Location = New-Object System.Drawing.Point(490, 65)
+  $lblAttachmentEnd.AutoSize = $true
+
+  $dtAttachmentEnd = New-Object System.Windows.Forms.DateTimePicker
+  $dtAttachmentEnd.Location = New-Object System.Drawing.Point(560, 61)
+  $dtAttachmentEnd.Size = New-Object System.Drawing.Size(160, 28)
+  $dtAttachmentEnd.Format = "Custom"
+  $dtAttachmentEnd.CustomFormat = "yyyy-MM-dd HH:mm:ss"
+  $dtAttachmentEnd.ShowUpDown = $true
+
+  $btnAttachmentLastRunToNow = New-Object System.Windows.Forms.Button
+  $btnAttachmentLastRunToNow.Location = New-Object System.Drawing.Point(740, 59)
+  $btnAttachmentLastRunToNow.Size = New-Object System.Drawing.Size(180, 32)
+
+  $lblAttachmentDir = New-Object System.Windows.Forms.Label
+  $lblAttachmentDir.Location = New-Object System.Drawing.Point(20, 108)
+  $lblAttachmentDir.AutoSize = $true
+
+  $txtAttachmentDir = New-Object System.Windows.Forms.TextBox
+  $txtAttachmentDir.Location = New-Object System.Drawing.Point(220, 104)
+  $txtAttachmentDir.Size = New-Object System.Drawing.Size(500, 28)
+
+  $btnAttachmentBrowse = New-Object System.Windows.Forms.Button
+  $btnAttachmentBrowse.Location = New-Object System.Drawing.Point(740, 102)
+  $btnAttachmentBrowse.Size = New-Object System.Drawing.Size(180, 32)
+
+  $chkAttachmentSubfolder = New-Object System.Windows.Forms.CheckBox
+  $chkAttachmentSubfolder.Location = New-Object System.Drawing.Point(220, 145)
+  $chkAttachmentSubfolder.AutoSize = $true
+
+  $btnAttachmentExecute = New-Object System.Windows.Forms.Button
+  $btnAttachmentExecute.Location = New-Object System.Drawing.Point(740, 145)
+  $btnAttachmentExecute.Size = New-Object System.Drawing.Size(180, 42)
+
+  $grpAttachmentLog = New-Object System.Windows.Forms.GroupBox
+  $grpAttachmentLog.Location = New-Object System.Drawing.Point(20, 200)
+  $grpAttachmentLog.Size = New-Object System.Drawing.Size(900, 485)
+
+  $txtAttachmentLog = New-Object System.Windows.Forms.TextBox
+  $txtAttachmentLog.Multiline = $true
+  $txtAttachmentLog.ScrollBars = "Both"
+  $txtAttachmentLog.Dock = "Fill"
+  $txtAttachmentLog.ReadOnly = $true
+  $grpAttachmentLog.Controls.Add($txtAttachmentLog)
+
+  $panelAttachment.Controls.AddRange(@(
+    $lblAttachmentTable, $cmbAttachmentTable, $cmbAttachmentDateField,
+    $lblAttachmentStart, $dtAttachmentStart, $lblAttachmentEnd, $dtAttachmentEnd, $btnAttachmentLastRunToNow,
+    $lblAttachmentDir, $txtAttachmentDir, $btnAttachmentBrowse,
+    $chkAttachmentSubfolder,
+    $btnAttachmentExecute,
+    $grpAttachmentLog
   ))
 
   # --- DataBase View Editor tab layout
@@ -764,6 +889,7 @@ try {
   function Apply-Language {
     $form.Text = T "AppTitle"
     if ($script:IsExportFeatureEnabled) { $tabExport.Text = T "TabExport" }
+    if ($script:IsAttachmentHarvesterFeatureEnabled) { $tabAttachmentHarvester.Text = T "TabAttachmentHarvester" }
     if ($script:IsViewEditorFeatureEnabled) { $tabViewEditor.Text = T "TabViewEditor" }
     $tabSettings.Text = T "TabSettings"
     if ($script:IsDeleteFeatureEnabled) { $tabDelete.Text = T "TabDelete" }
@@ -785,6 +911,16 @@ try {
     $chkOutputBom.Text = T "OutputBom"
     $grpLog.Text = T "Log"
     $btnOpenFolder.Text = T "OpenFolder"
+
+    $lblAttachmentTable.Text = T "TargetTable"
+    $lblAttachmentStart.Text = T "Start"
+    $lblAttachmentEnd.Text = T "End"
+    $btnAttachmentLastRunToNow.Text = T "AttachmentSetLastRunToNow"
+    $lblAttachmentDir.Text = T "AttachmentDownloadDir"
+    $btnAttachmentBrowse.Text = T "Browse"
+    $chkAttachmentSubfolder.Text = T "AttachmentCreateSubfolderPerTable"
+    $btnAttachmentExecute.Text = T "Execute"
+    $grpAttachmentLog.Text = T "Log"
 
     $lblDeleteTable.Text = T "DeleteTargetTable"
     $btnDeleteReloadTables.Text = T "ReloadTables"
@@ -1013,6 +1149,18 @@ try {
     return $text.Trim()
   }
 
+  function Get-SelectedAttachmentTableName {
+    $text = ""
+    if ($cmbAttachmentTable.SelectedItem) {
+      $text = [string]$cmbAttachmentTable.SelectedItem
+    } else {
+      $text = [string]$cmbAttachmentTable.Text
+    }
+    $idx = $text.IndexOf(" - ")
+    if ($idx -gt 0) { return $text.Substring(0, $idx).Trim() }
+    return $text.Trim()
+  }
+
   function Get-TruncateAllowedInstancePatterns {
     $raw = [string]$script:Settings.truncateAllowedInstances
     if ([string]::IsNullOrWhiteSpace($raw)) { $raw = "*dev*,*stg*" }
@@ -1137,13 +1285,17 @@ try {
     $colJoinTable.Items.Clear()
     $cmbDeleteTable.BeginUpdate()
     $cmbDeleteTable.Items.Clear()
+    $cmbAttachmentTable.BeginUpdate()
+    $cmbAttachmentTable.Items.Clear()
     if ($script:Settings.cachedTables) {
       foreach ($t in @($script:Settings.cachedTables)) {
         [void]$colJoinTable.Items.Add([string]$t.name)
         [void]$cmbDeleteTable.Items.Add(("{0} - {1}" -f $t.name, $t.label))
+        [void]$cmbAttachmentTable.Items.Add(("{0} - {1}" -f $t.name, $t.label))
       }
     }
     $cmbDeleteTable.EndUpdate()
+    $cmbAttachmentTable.EndUpdate()
 
     $deleteTableName = ([string]$script:Settings.deleteTargetTable).Trim()
     if (-not [string]::IsNullOrWhiteSpace($deleteTableName)) {
@@ -1159,6 +1311,23 @@ try {
         $cmbDeleteTable.SelectedItem = $deleteCandidate
       } else {
         $cmbDeleteTable.Text = $deleteTableName
+      }
+    }
+
+    $attachmentTableName = ([string]$script:Settings.attachmentSelectedTableName).Trim()
+    if (-not [string]::IsNullOrWhiteSpace($attachmentTableName)) {
+      $attachmentCandidate = $null
+      foreach ($item in $cmbAttachmentTable.Items) {
+        $itemText = [string]$item
+        if ($itemText.StartsWith($attachmentTableName + " - ")) {
+          $attachmentCandidate = $item
+          break
+        }
+      }
+      if ($attachmentCandidate) {
+        $cmbAttachmentTable.SelectedItem = $attachmentCandidate
+      } else {
+        $cmbAttachmentTable.Text = $attachmentTableName
       }
     }
   }
@@ -1751,6 +1920,112 @@ try {
     return $q
   }
 
+  function Get-AttachmentLastRunMap {
+    $map = @{}
+    if ($script:Settings -and ($script:Settings.PSObject.Properties.Name -contains 'attachmentHarvesterLastRunMap')) {
+      $src = $script:Settings.attachmentHarvesterLastRunMap
+      if ($src -is [hashtable]) {
+        $map = $src
+      } elseif ($src) {
+        foreach ($p in $src.PSObject.Properties) {
+          $map[$p.Name] = [string]$p.Value
+        }
+      }
+    }
+    return $map
+  }
+
+  function Set-AttachmentLastRunRangeFromHistory {
+    $table = Get-SelectedAttachmentTableName
+    $dateField = [string]$cmbAttachmentDateField.SelectedItem
+    if ([string]::IsNullOrWhiteSpace($table) -or [string]::IsNullOrWhiteSpace($dateField)) { return }
+
+    $key = "{0}:{1}" -f $table, $dateField
+    $map = Get-AttachmentLastRunMap
+    $now = Get-Date
+    if ($map.ContainsKey($key)) {
+      try {
+        $dtAttachmentStart.Value = [datetime]::ParseExact([string]$map[$key], 'yyyy-MM-dd HH:mm:ss', $null)
+      } catch {
+        $dtAttachmentStart.Value = $now.AddDays(-30)
+      }
+      $dtAttachmentEnd.Value = $now
+      return
+    }
+
+    $result = [System.Windows.Forms.MessageBox]::Show(
+      '前回取得時間の記録がないため過去30日を自動設定します',
+      'Attachment Harvester',
+      [System.Windows.Forms.MessageBoxButtons]::OKCancel,
+      [System.Windows.Forms.MessageBoxIcon]::Information
+    )
+    if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+      $dtAttachmentStart.Value = $now.AddDays(-30)
+      $dtAttachmentEnd.Value = $now
+    }
+  }
+
+  function Harvest-Attachments {
+    $table = Get-SelectedAttachmentTableName
+    $dateField = [string]$cmbAttachmentDateField.SelectedItem
+    $baseDir = [string]$txtAttachmentDir.Text
+    if ([string]::IsNullOrWhiteSpace($baseDir)) {
+      $baseDir = [string]$script:Settings.attachmentDownloadDirectory
+    }
+    if ([string]::IsNullOrWhiteSpace($baseDir)) {
+      $baseDir = $DefaultAttachmentDir
+    }
+    if (-not (Test-Path $baseDir)) { [void](New-Item -ItemType Directory -Path $baseDir -Force) }
+    $txtAttachmentDir.Text = $baseDir
+
+    $validation = Validate-AttachmentHarvesterInput -BaseUrl (Get-BaseUrl) -Table $table -DownloadDirectory $baseDir -Settings $script:Settings -UnprotectSecret ${function:Unprotect-Secret} -GetText ${function:T}
+    if (-not $validation.IsValid) {
+      [System.Windows.Forms.MessageBox]::Show([string]$validation.Errors[0]) | Out-Null
+      return
+    }
+
+    $start = $dtAttachmentStart.Value
+    $end = $dtAttachmentEnd.Value
+    if ($start -gt $end) { $tmp = $start; $start = $end; $end = $tmp }
+
+    $script:Settings.attachmentDownloadDirectory = $baseDir
+    $script:Settings.attachmentCreateSubfolderPerTable = [bool]$chkAttachmentSubfolder.Checked
+    $script:Settings.attachmentFilterDateField = $dateField
+    $script:Settings.attachmentStartDateTime = $start.ToString('yyyy-MM-dd HH:mm:ss')
+    $script:Settings.attachmentEndDateTime = $end.ToString('yyyy-MM-dd HH:mm:ss')
+    $script:Settings.attachmentSelectedTableName = $table
+    Request-SaveSettings
+
+    Add-AttachmentLog ("Target table: {0}" -f $table)
+    Add-AttachmentLog ("DateField: {0}" -f $dateField)
+    Add-AttachmentLog ("Date range: {0} - {1}" -f $start.ToString('yyyy-MM-dd HH:mm:ss'), $end.ToString('yyyy-MM-dd HH:mm:ss'))
+    Add-AttachmentLog ("Save directory: {0}" -f $baseDir)
+
+    $ctx = [pscustomobject]@{
+      table = $table
+      dateField = $dateField
+      startDateTime = $start
+      endDateTime = $end
+      downloadDirectory = $baseDir
+      createSubfolderPerTable = [bool]$chkAttachmentSubfolder.Checked
+    }
+
+    Invoke-Async "Attachment-Harvester" {
+      param($state)
+      return Invoke-AttachmentHarvesterUseCase -Context $state -InvokeSnowGet ${function:Invoke-SnowGet} -UrlEncode ${function:UrlEncode} -DownloadAttachmentBytes ${function:Invoke-SnowDownloadAttachmentBytes} -WriteLog ${function:Add-AttachmentLog}
+    } {
+      param($result)
+      Add-AttachmentLog ("saved={0}, skipped={1}, failed={2}" -f [int]$result.Saved, [int]$result.Skipped, [int]$result.Failed)
+      if ([bool]$result.Success) {
+        $map = Get-AttachmentLastRunMap
+        $map["{0}:{1}" -f $table, $dateField] = $end.ToString('yyyy-MM-dd HH:mm:ss')
+        $script:Settings.attachmentHarvesterLastRunMap = $map
+        Request-SaveSettings
+      }
+      [System.Windows.Forms.MessageBox]::Show(("Attachment Harvester complete`r`nSaved: {0}`r`nSkipped: {1}`r`nFailed: {2}" -f [int]$result.Saved, [int]$result.Skipped, [int]$result.Failed)) | Out-Null
+    } $ctx
+  }
+
   function Remove-AllTableRecords {
     $table = Get-SelectedDeleteTableName
     $maxRetries = [int]$numDeleteMaxRetries.Value
@@ -1889,6 +2164,12 @@ try {
     $txtDir.Text = [string]$script:Settings.exportDirectory
   }
 
+  if ([string]::IsNullOrWhiteSpace([string]$script:Settings.attachmentDownloadDirectory)) {
+    $txtAttachmentDir.Text = $DefaultAttachmentDir
+  } else {
+    $txtAttachmentDir.Text = [string]$script:Settings.attachmentDownloadDirectory
+  }
+
   if ([string]$script:Settings.filterMode -eq "updated_between") { $rbBetween.Checked = $true } else { $rbAll.Checked = $true }
 
   $initialOutputFormat = ([string]$script:Settings.outputFormat).Trim().ToLowerInvariant()
@@ -1923,6 +2204,13 @@ try {
 
   try { $dtStart.Value = [datetime]::Parse([string]$script:Settings.startDateTime) } catch { }
   try { $dtEnd.Value   = [datetime]::Parse([string]$script:Settings.endDateTime) } catch { }
+  try { $dtAttachmentStart.Value = [datetime]::Parse([string]$script:Settings.attachmentStartDateTime) } catch { }
+  try { $dtAttachmentEnd.Value = [datetime]::Parse([string]$script:Settings.attachmentEndDateTime) } catch { }
+
+  $initialAttachmentDateField = ([string]$script:Settings.attachmentFilterDateField).Trim()
+  if ((@('sys_created_on','sys_updated_on') -notcontains $initialAttachmentDateField)) { $initialAttachmentDateField = 'sys_updated_on' }
+  $cmbAttachmentDateField.SelectedItem = $initialAttachmentDateField
+  $chkAttachmentSubfolder.Checked = [bool]$script:Settings.attachmentCreateSubfolderPerTable
 
   if ([string]$script:Settings.authType -eq "apikey") { $rbApiKey.Checked = $true } else { $rbUserPass.Checked = $true }
 
@@ -1937,6 +2225,11 @@ try {
     }
     $cmbTable.EndUpdate()
     Refresh-BaseTableItems
+  }
+
+  $initialAttachmentTableName = ([string]$script:Settings.attachmentSelectedTableName).Trim()
+  if (-not [string]::IsNullOrWhiteSpace($initialAttachmentTableName) -and @($cmbAttachmentTable.Items).Count -eq 0) {
+    $cmbAttachmentTable.Text = $initialAttachmentTableName
   }
 
   $initialTableName = ([string]$script:Settings.selectedTableName).Trim()
@@ -2096,6 +2389,41 @@ try {
     Request-SaveSettings
   })
 
+  $cmbAttachmentTable.add_SelectedIndexChanged({
+    $script:Settings.attachmentSelectedTableName = Get-SelectedAttachmentTableName
+    Request-SaveSettings
+  })
+
+  $cmbAttachmentTable.add_TextChanged({
+    $script:Settings.attachmentSelectedTableName = Get-SelectedAttachmentTableName
+    Request-SaveSettings
+  })
+
+  $cmbAttachmentDateField.add_SelectedIndexChanged({
+    $script:Settings.attachmentFilterDateField = [string]$cmbAttachmentDateField.SelectedItem
+    Request-SaveSettings
+  })
+
+  $dtAttachmentStart.add_ValueChanged({
+    $script:Settings.attachmentStartDateTime = $dtAttachmentStart.Value.ToString('yyyy-MM-dd HH:mm:ss')
+    Request-SaveSettings
+  })
+
+  $dtAttachmentEnd.add_ValueChanged({
+    $script:Settings.attachmentEndDateTime = $dtAttachmentEnd.Value.ToString('yyyy-MM-dd HH:mm:ss')
+    Request-SaveSettings
+  })
+
+  $txtAttachmentDir.add_TextChanged({
+    $script:Settings.attachmentDownloadDirectory = $txtAttachmentDir.Text
+    Request-SaveSettings
+  })
+
+  $chkAttachmentSubfolder.add_CheckedChanged({
+    $script:Settings.attachmentCreateSubfolderPerTable = [bool]$chkAttachmentSubfolder.Checked
+    Request-SaveSettings
+  })
+
   $cmbDeleteTable.add_SelectedIndexChanged({
     $script:Settings.deleteTargetTable = Get-SelectedDeleteTableName
     Request-SaveSettings
@@ -2229,7 +2557,7 @@ try {
   })
 
   $tabs.add_SelectedIndexChanged({
-    if (($script:IsViewEditorFeatureEnabled -and $tabs.SelectedTab -eq $tabViewEditor) -or ($script:IsDeleteFeatureEnabled -and $tabs.SelectedTab -eq $tabDelete)) {
+    if (($script:IsAttachmentHarvesterFeatureEnabled -and $tabs.SelectedTab -eq $tabAttachmentHarvester) -or ($script:IsViewEditorFeatureEnabled -and $tabs.SelectedTab -eq $tabViewEditor) -or ($script:IsDeleteFeatureEnabled -and $tabs.SelectedTab -eq $tabDelete)) {
       Ensure-TablesLoaded
     }
   })
@@ -2282,12 +2610,25 @@ try {
     if ($dlg.ShowDialog() -eq "OK") { $txtDir.Text = $dlg.SelectedPath }
   })
 
+  $btnAttachmentBrowse.add_Click({
+    $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
+    $dlg.Description = (T "AttachmentDownloadDir")
+    if (Test-Path $txtAttachmentDir.Text) {
+      $dlg.SelectedPath = $txtAttachmentDir.Text
+    } else {
+      $dlg.SelectedPath = $DefaultAttachmentDir
+    }
+    if ($dlg.ShowDialog() -eq "OK") { $txtAttachmentDir.Text = $dlg.SelectedPath }
+  })
+
   $btnLast30Days.add_Click({
     $now = Get-Date
     $dtStart.Value = $now.AddDays(-30)
     $dtEnd.Value = $now
     $rbBetween.Checked = $true
   })
+
+  $btnAttachmentLastRunToNow.add_Click({ Set-AttachmentLastRunRangeFromHistory })
 
   $btnOpenFolder.add_Click({
     $dir = Ensure-ExportDir $txtDir.Text
@@ -2300,6 +2641,9 @@ try {
   }
   if ($script:IsExportFeatureEnabled) {
     $btnExecute.add_Click({ Export-Table })
+  }
+  if ($script:IsAttachmentHarvesterFeatureEnabled) {
+    $btnAttachmentExecute.add_Click({ Harvest-Attachments })
   }
   if ($script:IsDeleteFeatureEnabled) {
     $btnDeleteExecute.add_Click({

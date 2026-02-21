@@ -22,7 +22,7 @@ function Unprotect-Secret {
 
 function New-DefaultSettings {
   return [pscustomobject]@{
-    settingsVersion = 4
+    settingsVersion = 5
     uiLanguage = "ja"
     instanceName = ""
     instanceDomain = ""
@@ -52,6 +52,13 @@ function New-DefaultSettings {
     deleteTargetTable = ""
     deleteMaxRetries = 99
     truncateAllowedInstances = "*dev*,*stg*"
+    attachmentDownloadDirectory = ""
+    attachmentCreateSubfolderPerTable = $true
+    attachmentFilterDateField = "sys_updated_on"
+    attachmentStartDateTime = (Get-Date).AddDays(-1).ToString("yyyy-MM-dd HH:mm:ss")
+    attachmentEndDateTime = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+    attachmentSelectedTableName = ""
+    attachmentHarvesterLastRunMap = @{}
   }
 }
 
@@ -159,6 +166,37 @@ function Migrate-Settings {
     }
 
     $currentVersion = 4
+  }
+  if ($currentVersion -lt 5) {
+    if (-not ($migrated.PSObject.Properties.Name -contains 'attachmentDownloadDirectory')) {
+      $migrated | Add-Member -NotePropertyName attachmentDownloadDirectory -NotePropertyValue ''
+    }
+    if (-not ($migrated.PSObject.Properties.Name -contains 'attachmentCreateSubfolderPerTable')) {
+      $migrated | Add-Member -NotePropertyName attachmentCreateSubfolderPerTable -NotePropertyValue $true
+    }
+    if (-not ($migrated.PSObject.Properties.Name -contains 'attachmentFilterDateField')) {
+      $migrated | Add-Member -NotePropertyName attachmentFilterDateField -NotePropertyValue 'sys_updated_on'
+    }
+    if (-not ($migrated.PSObject.Properties.Name -contains 'attachmentStartDateTime')) {
+      $migrated | Add-Member -NotePropertyName attachmentStartDateTime -NotePropertyValue (Get-Date).AddDays(-1).ToString('yyyy-MM-dd HH:mm:ss')
+    }
+    if (-not ($migrated.PSObject.Properties.Name -contains 'attachmentEndDateTime')) {
+      $migrated | Add-Member -NotePropertyName attachmentEndDateTime -NotePropertyValue (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+    }
+    if (-not ($migrated.PSObject.Properties.Name -contains 'attachmentSelectedTableName')) {
+      $migrated | Add-Member -NotePropertyName attachmentSelectedTableName -NotePropertyValue ''
+    }
+    if (-not ($migrated.PSObject.Properties.Name -contains 'attachmentHarvesterLastRunMap')) {
+      $migrated | Add-Member -NotePropertyName attachmentHarvesterLastRunMap -NotePropertyValue @{}
+    }
+
+    if ($migrated.PSObject.Properties.Name -contains 'settingsVersion') {
+      $migrated.settingsVersion = 5
+    } else {
+      $migrated | Add-Member -NotePropertyName settingsVersion -NotePropertyValue 5
+    }
+
+    $currentVersion = 5
   }
 
   return [pscustomobject]@{

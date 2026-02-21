@@ -105,5 +105,9 @@
   "ExportMaxRowsCsvHint": "※CSVのみ最大行数を指定して数万オーダーの巨大なテーブルもsys_created_onの昇順でファイル分割し、全件エクスポートする事が出来ます。（イージフィルタの設定は反映されます。その場合、フィルタの範囲で全件エクスポートします。）",
   "DeleteAllowedInstances": "Truncate許可インスタンス(読取専用)",
   "DeleteAllowedInstancesHint": "編集方法: settings.json を直接編集してください。編集パラメータ名: truncateAllowedInstances（ワイルドカード可、カンマ区切りで複数指定）。",
-  "DeleteInstanceNotAllowed": "このインスタンスではTruncateは許可されていません。settings.json の truncateAllowedInstances を確認してください。"
+  "DeleteInstanceNotAllowed": "このインスタンスではTruncateは許可されていません。settings.json の truncateAllowedInstances を確認してください。",
+  "TabAttachmentHarvester": "Attachment Harvester",
+  "AttachmentSetLastRunToNow": "前回取得～現在を設定",
+  "AttachmentDownloadDir": "ダウンロードDirectory",
+  "AttachmentCreateSubfolderPerTable": "取得元テーブル名毎にサブフォルダを作成"
 }
