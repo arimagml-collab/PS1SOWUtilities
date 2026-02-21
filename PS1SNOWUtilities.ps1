@@ -1022,12 +1022,27 @@ try {
   }
 
   function Test-TruncateInstanceAllowed {
-    $instance = ([string]$txtInstance.Text).Trim().ToLowerInvariant()
-    if ([string]::IsNullOrWhiteSpace($instance)) { return $false }
+    $baseUrl = ([string](Get-BaseUrl)).Trim().ToLowerInvariant()
+    if ([string]::IsNullOrWhiteSpace($baseUrl)) { return $false }
+
+    $candidates = New-Object System.Collections.Generic.List[string]
+    $candidates.Add($baseUrl) | Out-Null
+
+    try {
+      $uri = [System.Uri]$baseUrl
+      if ($uri -and -not [string]::IsNullOrWhiteSpace($uri.Host)) {
+        $candidates.Add($uri.Host.ToLowerInvariant()) | Out-Null
+      }
+    } catch {
+      # ignore parse errors and use baseUrl only
+    }
 
     $patterns = @(Get-TruncateAllowedInstancePatterns)
     foreach ($pattern in $patterns) {
-      if ($instance -like ([string]$pattern).ToLowerInvariant()) { return $true }
+      $normalized = ([string]$pattern).ToLowerInvariant()
+      foreach ($candidate in $candidates) {
+        if ($candidate -like $normalized) { return $true }
+      }
     }
     return $false
   }
