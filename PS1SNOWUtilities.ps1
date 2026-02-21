@@ -713,49 +713,44 @@ try {
   $lblDeleteUsageHint.Size = New-Object System.Drawing.Size(900, 40)
   $lblDeleteUsageHint.ForeColor = [System.Drawing.Color]::FromArgb(140,70,30)
 
-  $lblDeleteCodeHint = New-Object System.Windows.Forms.Label
-  $lblDeleteCodeHint.Location = New-Object System.Drawing.Point(20, 175)
-  $lblDeleteCodeHint.Size = New-Object System.Drawing.Size(900, 24)
-  $lblDeleteCodeHint.ForeColor = [System.Drawing.Color]::FromArgb(110,70,70)
-
   $lblDeleteAllowedInstances = New-Object System.Windows.Forms.Label
-  $lblDeleteAllowedInstances.Location = New-Object System.Drawing.Point(20, 205)
+  $lblDeleteAllowedInstances.Location = New-Object System.Drawing.Point(20, 175)
   $lblDeleteAllowedInstances.AutoSize = $true
 
   $txtDeleteAllowedInstances = New-Object System.Windows.Forms.TextBox
-  $txtDeleteAllowedInstances.Location = New-Object System.Drawing.Point(220, 201)
+  $txtDeleteAllowedInstances.Location = New-Object System.Drawing.Point(220, 171)
   $txtDeleteAllowedInstances.Size = New-Object System.Drawing.Size(500, 28)
   $txtDeleteAllowedInstances.ReadOnly = $true
 
   $lblDeleteAllowedInstancesHint = New-Object System.Windows.Forms.Label
-  $lblDeleteAllowedInstancesHint.Location = New-Object System.Drawing.Point(20, 236)
+  $lblDeleteAllowedInstancesHint.Location = New-Object System.Drawing.Point(20, 206)
   $lblDeleteAllowedInstancesHint.Size = New-Object System.Drawing.Size(900, 32)
   $lblDeleteAllowedInstancesHint.ForeColor = [System.Drawing.Color]::FromArgb(110,70,70)
 
   $lblDeleteProgress = New-Object System.Windows.Forms.Label
-  $lblDeleteProgress.Location = New-Object System.Drawing.Point(20, 280)
+  $lblDeleteProgress.Location = New-Object System.Drawing.Point(20, 250)
   $lblDeleteProgress.AutoSize = $true
 
   $prgDelete = New-Object System.Windows.Forms.ProgressBar
-  $prgDelete.Location = New-Object System.Drawing.Point(220, 277)
+  $prgDelete.Location = New-Object System.Drawing.Point(220, 247)
   $prgDelete.Size = New-Object System.Drawing.Size(500, 24)
   $prgDelete.Minimum = 0
   $prgDelete.Maximum = 100
   $prgDelete.Value = 0
 
   $lblDeleteProgressValue = New-Object System.Windows.Forms.Label
-  $lblDeleteProgressValue.Location = New-Object System.Drawing.Point(740, 280)
+  $lblDeleteProgressValue.Location = New-Object System.Drawing.Point(740, 250)
   $lblDeleteProgressValue.Size = New-Object System.Drawing.Size(180, 24)
 
   $btnDeleteExecute = New-Object System.Windows.Forms.Button
-  $btnDeleteExecute.Location = New-Object System.Drawing.Point(740, 335)
+  $btnDeleteExecute.Location = New-Object System.Drawing.Point(740, 305)
   $btnDeleteExecute.Size = New-Object System.Drawing.Size(180, 42)
   $btnDeleteExecute.Enabled = $false
 
   $panelDelete.Controls.AddRange(@(
     $lblDeleteTable, $cmbDeleteTable, $btnDeleteReloadTables,
     $lblDeleteMaxRetries, $numDeleteMaxRetries,
-    $lblDeleteDangerHint, $lblDeleteUsageHint, $lblDeleteCodeHint,
+    $lblDeleteDangerHint, $lblDeleteUsageHint,
     $lblDeleteAllowedInstances, $txtDeleteAllowedInstances, $lblDeleteAllowedInstancesHint,
     $lblDeleteProgress, $prgDelete, $lblDeleteProgressValue,
     $btnDeleteExecute
@@ -791,7 +786,6 @@ try {
     $lblDeleteMaxRetries.Text = T "DeleteMaxRetries"
     $lblDeleteDangerHint.Text = T "DeleteDangerHint"
     $lblDeleteUsageHint.Text = T "DeleteUsageHint"
-    $lblDeleteCodeHint.Text = T "DeleteCodeHint"
     $lblDeleteAllowedInstances.Text = T "DeleteAllowedInstances"
     $lblDeleteAllowedInstancesHint.Text = T "DeleteAllowedInstancesHint"
     $lblDeleteProgress.Text = T "DeleteProgress"
