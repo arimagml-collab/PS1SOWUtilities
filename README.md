@@ -72,6 +72,12 @@ PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）�
 
 > ⚠️ 本機能は本番環境での利用を推奨しません。開発環境での大量データインポート試験など、限定的な用途でのみ利用してください。
 
+#### 社内配布向けに特定機能を除外する方法
+
+- 危険性のある機能（例：Truncate）を含めずに配布したい場合は、`modules/Features` 配下の該当機能ファイル（例：`TruncateFeature.psm1`）を配布対象から除外してください。
+- 除外した機能はアプリ起動時に読み込まれないため、対応タブ/操作は UI に表示されません。
+- これにより、同一コードベースでも配布用途に応じて機能を絞った構成にできます。
+
 ### 補足（権限・制約）
 
 - テーブル一覧は `sys_db_object` から取得するため、ACL により一覧取得できない場合があります（その場合は手動入力で対応）。
@@ -167,6 +173,12 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
 > 💡 Typical use case: You want to repeatedly delete data after large-volume import tests (tens of thousands of records) in development, but record-by-record deletion from the table management screen is too time-consuming.
 
 > ⚠️ This feature is not recommended for production environments. Use it only for limited scenarios such as repeated large-volume import tests in development environments.
+
+#### How to exclude specific features for internal distribution
+
+- If you want to distribute the tool without high-risk features (for example, Truncate), exclude the corresponding feature file under `modules/Features` (for example, `TruncateFeature.psm1`) from the distribution package.
+- Excluded features are not loaded at startup, so the related tab/actions will not appear in the UI.
+- This allows you to ship a reduced-function build from the same codebase based on the target audience and operational policy.
 
 ### Notes (permissions and limitations)
 
