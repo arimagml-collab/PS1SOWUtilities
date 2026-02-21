@@ -1,4 +1,4 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
 
 function Validate-AttachmentHarvesterInput {
   param(
@@ -123,7 +123,7 @@ function Invoke-AttachmentHarvesterUseCase {
 
   if (-not (Test-Path $downloadDirectory)) { [void](New-Item -Path $downloadDirectory -ItemType Directory -Force) }
 
-  $query = "{0}BETWEENjavascript:gs.dateGenerate('{1}','{2}')@javascript:gs.dateGenerate('{3}','{4}')" -f \
+  $query = "{0}BETWEENjavascript:gs.dateGenerate('{1}','{2}')@javascript:gs.dateGenerate('{3}','{4}')" -f `
     $dateField,
     $start.ToString('yyyy-MM-dd'), $start.ToString('HH:mm:ss'),
     $end.ToString('yyyy-MM-dd'), $end.ToString('HH:mm:ss')
