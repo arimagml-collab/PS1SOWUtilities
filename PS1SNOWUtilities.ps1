@@ -718,23 +718,37 @@ try {
   $lblDeleteCodeHint.Size = New-Object System.Drawing.Size(900, 24)
   $lblDeleteCodeHint.ForeColor = [System.Drawing.Color]::FromArgb(110,70,70)
 
+  $lblDeleteAllowedInstances = New-Object System.Windows.Forms.Label
+  $lblDeleteAllowedInstances.Location = New-Object System.Drawing.Point(20, 205)
+  $lblDeleteAllowedInstances.AutoSize = $true
+
+  $txtDeleteAllowedInstances = New-Object System.Windows.Forms.TextBox
+  $txtDeleteAllowedInstances.Location = New-Object System.Drawing.Point(220, 201)
+  $txtDeleteAllowedInstances.Size = New-Object System.Drawing.Size(500, 28)
+  $txtDeleteAllowedInstances.ReadOnly = $true
+
+  $lblDeleteAllowedInstancesHint = New-Object System.Windows.Forms.Label
+  $lblDeleteAllowedInstancesHint.Location = New-Object System.Drawing.Point(20, 236)
+  $lblDeleteAllowedInstancesHint.Size = New-Object System.Drawing.Size(900, 32)
+  $lblDeleteAllowedInstancesHint.ForeColor = [System.Drawing.Color]::FromArgb(110,70,70)
+
   $lblDeleteProgress = New-Object System.Windows.Forms.Label
-  $lblDeleteProgress.Location = New-Object System.Drawing.Point(20, 220)
+  $lblDeleteProgress.Location = New-Object System.Drawing.Point(20, 280)
   $lblDeleteProgress.AutoSize = $true
 
   $prgDelete = New-Object System.Windows.Forms.ProgressBar
-  $prgDelete.Location = New-Object System.Drawing.Point(220, 217)
+  $prgDelete.Location = New-Object System.Drawing.Point(220, 277)
   $prgDelete.Size = New-Object System.Drawing.Size(500, 24)
   $prgDelete.Minimum = 0
   $prgDelete.Maximum = 100
   $prgDelete.Value = 0
 
   $lblDeleteProgressValue = New-Object System.Windows.Forms.Label
-  $lblDeleteProgressValue.Location = New-Object System.Drawing.Point(740, 220)
+  $lblDeleteProgressValue.Location = New-Object System.Drawing.Point(740, 280)
   $lblDeleteProgressValue.Size = New-Object System.Drawing.Size(180, 24)
 
   $btnDeleteExecute = New-Object System.Windows.Forms.Button
-  $btnDeleteExecute.Location = New-Object System.Drawing.Point(740, 275)
+  $btnDeleteExecute.Location = New-Object System.Drawing.Point(740, 335)
   $btnDeleteExecute.Size = New-Object System.Drawing.Size(180, 42)
   $btnDeleteExecute.Enabled = $false
 
@@ -742,6 +756,7 @@ try {
     $lblDeleteTable, $cmbDeleteTable, $btnDeleteReloadTables,
     $lblDeleteMaxRetries, $numDeleteMaxRetries,
     $lblDeleteDangerHint, $lblDeleteUsageHint, $lblDeleteCodeHint,
+    $lblDeleteAllowedInstances, $txtDeleteAllowedInstances, $lblDeleteAllowedInstancesHint,
     $lblDeleteProgress, $prgDelete, $lblDeleteProgressValue,
     $btnDeleteExecute
   ))
@@ -777,6 +792,8 @@ try {
     $lblDeleteDangerHint.Text = T "DeleteDangerHint"
     $lblDeleteUsageHint.Text = T "DeleteUsageHint"
     $lblDeleteCodeHint.Text = T "DeleteCodeHint"
+    $lblDeleteAllowedInstances.Text = T "DeleteAllowedInstances"
+    $lblDeleteAllowedInstancesHint.Text = T "DeleteAllowedInstancesHint"
     $lblDeleteProgress.Text = T "DeleteProgress"
     $btnDeleteExecute.Text = T "DeleteExecute"
 
@@ -987,6 +1004,25 @@ try {
     return $text.Trim()
   }
 
+  function Get-TruncateAllowedInstancePatterns {
+    $raw = [string]$script:Settings.truncateAllowedInstances
+    if ([string]::IsNullOrWhiteSpace($raw)) { $raw = "*dev*,*stg*" }
+    $parts = @($raw.Split(',') | ForEach-Object { ([string]$_).Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ($parts.Count -lt 1) { $parts = @("*dev*", "*stg*") }
+    return $parts
+  }
+
+  function Test-TruncateInstanceAllowed {
+    $instance = ([string]$txtInstance.Text).Trim().ToLowerInvariant()
+    if ([string]::IsNullOrWhiteSpace($instance)) { return $false }
+
+    $patterns = @(Get-TruncateAllowedInstancePatterns)
+    foreach ($pattern in $patterns) {
+      if ($instance -like ([string]$pattern).ToLowerInvariant()) { return $true }
+    }
+    return $false
+  }
+
   function Set-DeleteProgress([int]$percent, [string]$text) {
     if ($percent -lt 0) { $percent = 0 }
     if ($percent -gt 100) { $percent = 100 }
@@ -1000,7 +1036,8 @@ try {
 
   function Refresh-DeleteExecuteButton {
     $table = Get-SelectedDeleteTableName
-    $btnDeleteExecute.Enabled = (-not [string]::IsNullOrWhiteSpace($table))
+    $isAllowed = Test-TruncateInstanceAllowed
+    $btnDeleteExecute.Enabled = ((-not [string]::IsNullOrWhiteSpace($table)) -and $isAllowed)
   }
 
   function Request-DeleteVerificationCode {
@@ -1698,7 +1735,7 @@ try {
     $expectedCode = [string]$verification.ExpectedCode
     $actualCode = [string]$verification.InputCode
 
-    $validation = Validate-TruncateInput -Table $table -MaxRetries $maxRetries -ExpectedCode $expectedCode -InputCode $actualCode -GetText ${function:T}
+    $validation = Validate-TruncateInput -Table $table -MaxRetries $maxRetries -ExpectedCode $expectedCode -InputCode $actualCode -GetText ${function:T} -IsInstanceAllowed (Test-TruncateInstanceAllowed)
     if (-not $validation.IsValid) {
       throw [string]$validation.Errors[0]
     }
@@ -1853,6 +1890,8 @@ try {
   if ($initialExportMaxRows -lt [int]$numExportMaxRows.Minimum -or $initialExportMaxRows -gt [int]$numExportMaxRows.Maximum) { $initialExportMaxRows = 10000 }
   $numExportMaxRows.Value = $initialExportMaxRows
 
+  $txtDeleteAllowedInstances.Text = [string]::Join(",", @(Get-TruncateAllowedInstancePatterns))
+
   $initialDeleteMaxRetries = 99
   try { $initialDeleteMaxRetries = [int]$script:Settings.deleteMaxRetries } catch { $initialDeleteMaxRetries = 99 }
   if ($initialDeleteMaxRetries -lt 1 -or $initialDeleteMaxRetries -gt 999) { $initialDeleteMaxRetries = 99 }
@@ -1965,6 +2004,7 @@ try {
   $txtInstance.add_TextChanged({
     $script:Settings.instanceName = $txtInstance.Text
     Request-SaveSettings
+    Refresh-DeleteExecuteButton
   })
 
   $rbUserPass.add_CheckedChanged({

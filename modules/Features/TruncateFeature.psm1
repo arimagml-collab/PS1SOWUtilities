@@ -6,7 +6,8 @@ function Validate-TruncateInput {
     [Parameter(Mandatory=$true)][int]$MaxRetries,
     [Parameter(Mandatory=$true)][string]$ExpectedCode,
     [Parameter(Mandatory=$true)][string]$InputCode,
-    [Parameter(Mandatory=$true)][scriptblock]$GetText
+    [Parameter(Mandatory=$true)][scriptblock]$GetText,
+    [Parameter(Mandatory=$true)][bool]$IsInstanceAllowed
   )
 
   if ([string]::IsNullOrWhiteSpace($Table)) {
@@ -17,6 +18,9 @@ function Validate-TruncateInput {
   }
   if ($ExpectedCode -ne $InputCode) {
     return [pscustomobject]@{ IsValid = $false; Errors = @((& $GetText "DeleteCodeMismatch")) }
+  }
+  if (-not $IsInstanceAllowed) {
+    return [pscustomobject]@{ IsValid = $false; Errors = @((& $GetText "DeleteInstanceNotAllowed")) }
   }
 
   return [pscustomobject]@{ IsValid = $true; Errors = @() }
