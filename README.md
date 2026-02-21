@@ -6,13 +6,16 @@
 
 ## 日本語
 
-PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）・Database View の作成（Database View Editor）・レコード全削除（Truncate）を行える PowerShell (WinForms) ユーティリティです。
+PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）・添付ファイル回収（Attachment Harvester）・Database View の作成（Database View Editor）・レコード全削除（Truncate）を行える PowerShell (WinForms) ユーティリティです。
 
 ### タブ別の活用シーン
 
 - **Export**
   - データを CSV / JSON / Excel に出力し、各部署で自由に集計・加工・連携したいときに有効です。
   - 例：運用部門が Excel で一次分析し、別チームが JSON を使って別システム連携する並行利用。
+- **Attachment Harvester**
+  - 指定期間内に更新されたレコードに紐づく添付ファイルを一括取得したいときに有効です。
+  - ファイル名は「テーブル名_レコードキー(number/short_description/sys_id)_元ファイル名」形式で保存され、重複時は連番で衝突回避します。
 - **Database View Editor**
   - ServiceNow 標準 UI では操作しづらい Database View 作成を、GUI で手早く組み立てたいときに有効です。
   - テーブル/カラム候補を見ながら、ベーステーブルと JOIN を設計できます。
@@ -26,7 +29,8 @@ PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）�
 
 - Windows + PowerShell 5.1（WinForms 利用のため）
 - ServiceNow インスタンスにアクセスできるネットワーク
-- 対象テーブル参照権限（Export）および Database View 作成に必要な権限（View Editor）
+- 対象テーブル参照権限（Export / Attachment Harvester）および Database View 作成に必要な権限（View Editor）
+- 添付ファイル取得のため `sys_attachment` / 添付バイナリ API にアクセスできる権限（Attachment Harvester）
 
 ### 基本的な使い方
 
@@ -76,6 +80,16 @@ PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）�
 4. ログで各ファイルの出力状況を確認し、必要に応じて後続処理で結合・集計します。
 
 > 💡 使用シチュエーション：巨大テーブルを1ファイルで出力すると、ネットワークや処理時間の都合で途中で切れてしまう可能性がある場合に、分割して全件を安全に出力したいときに有効です。
+
+#### Attachment Harvester の手順
+
+1. **Attachment Harvester** タブで対象テーブルを選択（または手動入力）します。
+2. 判定対象の日付項目（例：`sys_updated_on`）と期間（開始・終了日時）を指定します。
+3. ダウンロード先フォルダを指定し、必要に応じて「テーブルごとにサブフォルダ作成」を有効化します。
+4. 実行すると、期間条件に一致したレコードに紐づく添付ファイルを取得し、重複内容はハッシュ比較でスキップします。
+5. ログで保存件数/スキップ件数/失敗件数を確認します。
+
+> 💡 使用シチュエーション：障害調査や監査対応で、特定期間に更新されたチケットの証跡ファイルをまとめて回収したいときに有効です。
 
 #### Database View Editor の手順
 
@@ -133,13 +147,16 @@ https://www.ixam.net
 
 ## English
 
-PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow table data, creating Database Views, and truncating table records with a guided GUI.
+PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow table data, harvesting attachments, creating Database Views, and truncating table records with a guided GUI.
 
 ### Useful situations by tab
 
 - **Export**
   - Best when you want to distribute data as CSV / JSON / Excel so each department can process it in its own workflow.
   - Example: the operations team analyzes in Excel while another team consumes JSON for system integration.
+- **Attachment Harvester**
+  - Useful when you need to bulk-download attachments linked to records updated within a specific time window.
+  - Files are saved as `table_recordKey(number/short_description/sys_id)_originalFileName`, and duplicate names are safely suffixed.
 - **Database View Editor**
   - Best when ServiceNow's native UI feels cumbersome for building Database Views.
   - You can design base tables and joins while checking table/column candidates.
@@ -153,7 +170,8 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
 
 - Windows + PowerShell 5.1 (WinForms-based UI)
 - Network access to your ServiceNow instance
-- Appropriate permissions for table reads (Export) and Database View creation (View Editor)
+- Appropriate permissions for table reads (Export / Attachment Harvester) and Database View creation (View Editor)
+- Access to `sys_attachment` and attachment binary APIs for downloading files (Attachment Harvester)
 
 ### Basic Usage
 
@@ -203,6 +221,16 @@ Or leave `instanceName` empty and provide a full URL with `https://` in `instanc
 4. Check logs for each generated file, then merge/process them as needed.
 
 > 💡 Typical use case: when exporting a huge table to a single file may get cut off due to network or processing limits, split CSV export helps you safely output the full dataset in chunks.
+
+#### Attachment Harvester workflow
+
+1. In the **Attachment Harvester** tab, select a target table (or type it manually).
+2. Choose the date field used for filtering (for example, `sys_updated_on`) and set start/end timestamps.
+3. Select a download directory and optionally enable **Create subfolder per table**.
+4. Run the harvester to download attachments linked to matched records; duplicate content is skipped using hash comparison.
+5. Review logs for saved/skipped/failed counts.
+
+> 💡 Typical use case: collect evidence files for incident review or audit requests across records updated during a defined period.
 
 #### Database View Editor workflow
 
