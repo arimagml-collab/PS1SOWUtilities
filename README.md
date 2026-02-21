@@ -48,6 +48,15 @@ PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）�
 }
 ```
 
+または、`instanceName` を空欄にして `instanceDomain` に `https://` から始まるフル URL を設定することもできます。
+
+```json
+{
+  "instanceName": "",
+  "instanceDomain": "https://example.com"
+}
+```
+
 - `instanceDomain` を設定した場合はそちらが優先されます。
 - `instanceDomain` には `example.com` または `https://example.com` のどちらでも指定できます（`https://` なしで記載した場合は自動補完）。
 - `instanceDomain` が未設定または空の場合は、従来どおり `instanceName` から `https://<instanceName>.service-now.com` を組み立てます。
@@ -163,6 +172,15 @@ Add `instanceDomain` to `settings.json` to explicitly control the API base URL.
 {
   "instanceName": "dev12345",
   "instanceDomain": "example.com"
+}
+```
+
+Or leave `instanceName` empty and provide a full URL with `https://` in `instanceDomain`.
+
+```json
+{
+  "instanceName": "",
+  "instanceDomain": "https://example.com"
 }
 ```
 
