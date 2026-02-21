@@ -22,7 +22,7 @@ function Unprotect-Secret {
 
 function New-DefaultSettings {
   return [pscustomobject]@{
-    settingsVersion = 2
+    settingsVersion = 3
     uiLanguage = "ja"
     instanceName = ""
     authType = "userpass"
@@ -50,6 +50,7 @@ function New-DefaultSettings {
     viewEditorSelectedColumnsJson = "[]"
     deleteTargetTable = ""
     deleteMaxRetries = 99
+    truncateAllowedInstances = "*dev*,*stg*"
   }
 }
 
@@ -112,6 +113,22 @@ function Migrate-SettingsV1ToV2 {
   return $Settings
 }
 
+function Migrate-SettingsV2ToV3 {
+  param([Parameter(Mandatory=$true)]$Settings)
+
+  if (-not ($Settings.PSObject.Properties.Name -contains 'truncateAllowedInstances')) {
+    $Settings | Add-Member -NotePropertyName truncateAllowedInstances -NotePropertyValue '*dev*,*stg*'
+  }
+
+  if ($Settings.PSObject.Properties.Name -contains 'settingsVersion') {
+    $Settings.settingsVersion = 3
+  } else {
+    $Settings | Add-Member -NotePropertyName settingsVersion -NotePropertyValue 3
+  }
+
+  return $Settings
+}
+
 function Migrate-Settings {
   param([Parameter(Mandatory=$true)]$Settings)
 
@@ -122,6 +139,11 @@ function Migrate-Settings {
   if ($currentVersion -lt 2) {
     $migrated = Migrate-SettingsV1ToV2 -Settings $migrated
     $currentVersion = 2
+  }
+
+  if ($currentVersion -lt 3) {
+    $migrated = Migrate-SettingsV2ToV3 -Settings $migrated
+    $currentVersion = 3
   }
 
   return [pscustomobject]@{

@@ -64,9 +64,10 @@ PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）�
 #### Truncate（全削除）の手順
 
 1. **Truncate（全削除）**タブで削除対象テーブルを選択（または手動入力）します。
-2. 最大再試行回数（1～999）を設定し、**全件削除実行** を押します。
-3. 表示される確認コード入力ダイアログで4文字コードを入力し、実行確認ダイアログで承認します。
-4. 進捗バーとログを確認し、必要に応じて再試行ログ（最大再試行回数まで）を確認します。
+2. Truncate許可インスタンス（読取専用）を確認します。編集は UI では行わず、`settings.json` の `truncateAllowedInstances` を直接編集してください（ワイルドカード指定・カンマ区切り複数指定可、既定値: `*dev*,*stg*`）。
+3. 最大再試行回数（1～999）を設定し、**全件削除実行** を押します。
+4. 表示される確認コード入力ダイアログで4文字コードを入力し、実行確認ダイアログで承認します。
+5. 進捗バーとログを確認し、必要に応じて再試行ログ（最大再試行回数まで）を確認します。
 
 > 💡 使用シチュエーション：開発環境で数万オーダーの大量データインポートテストを繰り返すために削除したいが、テーブル管理画面から実施するレコード削除では大変な時に使用します。
 
@@ -166,9 +167,10 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
 #### Truncate (Delete all) workflow
 
 1. In the **Truncate (Delete all)** tab, select the target table (or type it manually).
-2. Set max retry count (1-999), then click **Execute Delete All Records**.
-3. In the displayed verification-code dialog, enter the 4-character code, then approve the execution confirmation dialog.
-4. Check the progress bar and logs, and review retry logs as needed (up to the max retry count).
+2. Check the read-only allowed-instance setting in the UI. To edit it, modify `truncateAllowedInstances` directly in `settings.json` (wildcards and comma-separated multiple patterns are supported; default: `*dev*,*stg*`).
+3. Set max retry count (1-999), then click **Execute Delete All Records**.
+4. In the displayed verification-code dialog, enter the 4-character code, then approve the execution confirmation dialog.
+5. Check the progress bar and logs, and review retry logs as needed (up to the max retry count).
 
 > 💡 Typical use case: You want to repeatedly delete data after large-volume import tests (tens of thousands of records) in development, but record-by-record deletion from the table management screen is too time-consuming.
 
