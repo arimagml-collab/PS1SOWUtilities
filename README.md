@@ -174,6 +174,12 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
 
 > ⚠️ This feature is not recommended for production environments. Use it only for limited scenarios such as repeated large-volume import tests in development environments.
 
+#### How to exclude specific features for internal distribution
+
+- If you want to distribute the tool without high-risk features (for example, Truncate), exclude the corresponding feature file under `modules/Features` (for example, `TruncateFeature.psm1`) from the distribution package.
+- Excluded features are not loaded at startup, so the related tab/actions will not appear in the UI.
+- This allows you to ship a reduced-function build from the same codebase based on the target audience and operational policy.
+
 ### Notes (permissions and limitations)
 
 - The table list is retrieved from `sys_db_object`; if blocked by ACL, enter table names manually.
