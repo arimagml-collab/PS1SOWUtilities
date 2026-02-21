@@ -23,6 +23,8 @@
   "Log": "ログ",
   "UiLang": "UI言語",
   "Instance": "Servicenowインスタンス名",
+  "BaseUrlLabel": "接続先ベースURL",
+  "BaseUrlNotSet": "（未設定）",
   "AuthType": "認証方式",
   "AuthUserPass": "ユーザID＋パスワード",
   "AuthApiKey": "APIキー",

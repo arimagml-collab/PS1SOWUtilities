@@ -8,6 +8,18 @@ function UrlEncode {
 function Get-BaseUrl {
   param([Parameter(Mandatory=$true)]$Settings)
 
+  $domainVal = ""
+  if ($Settings.PSObject.Properties.Name -contains 'instanceDomain') {
+    $domainVal = $Settings.instanceDomain
+  }
+  if ($null -eq $domainVal) { $domainVal = "" }
+  $domain = ([string]$domainVal).Trim()
+
+  if (-not [string]::IsNullOrWhiteSpace($domain)) {
+    if ($domain -match '^https?://') { return $domain.TrimEnd('/') }
+    return ("https://{0}" -f $domain).TrimEnd('/')
+  }
+
   $instVal = $Settings.instanceName
   if ($null -eq $instVal) { $instVal = "" }
   $inst = ([string]$instVal).Trim()
