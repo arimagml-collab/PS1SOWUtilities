@@ -1400,6 +1400,8 @@ try {
         $cmbAttachmentTable.Text = $attachmentTableName
       }
     }
+
+    Refresh-DeleteExecuteButton
   }
 
   function Get-JoinDefinitions {
@@ -2390,6 +2392,7 @@ try {
   Update-FilterUI
   Apply-Language
   Set-DeleteProgress 0 "0%"
+  Refresh-DeleteExecuteButton
 
   # ----------------------------
   # Wire events for auto-save
