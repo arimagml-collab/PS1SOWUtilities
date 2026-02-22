@@ -75,7 +75,6 @@ function New-SnowHeaders {
 
   $headers = @{
     "Accept" = "application/json"
-    "Content-Type" = "application/json; charset=utf-8"
   }
 
   $authType = Resolve-SnowAuthType -AuthType $Settings.authType
@@ -132,6 +131,7 @@ function Invoke-SnowRequest {
   if ($PSBoundParameters.ContainsKey('Body') -and $null -ne $Body) {
     $jsonBody = ($Body | ConvertTo-Json -Depth 8)
     $requestParams.Body = [System.Text.Encoding]::UTF8.GetBytes($jsonBody)
+    $requestParams.ContentType = "application/json; charset=utf-8"
   }
 
   if ($WriteLog) {
