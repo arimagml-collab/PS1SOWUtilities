@@ -348,8 +348,8 @@ try {
       return @($items)
     }
 
-    $props = $InputObject.PSObject.Properties
-    if ($props -and $props.Count -gt 0) {
+    $props = @($InputObject.PSObject.Properties)
+    if ($props.Count -gt 0) {
       $result = [ordered]@{}
       foreach ($prop in $props) {
         $name = [string]$prop.Name
