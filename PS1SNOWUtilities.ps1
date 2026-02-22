@@ -1263,6 +1263,7 @@ try {
   $lnkCreatedViewDefinition.LinkBehavior = [System.Windows.Forms.LinkBehavior]::HoverUnderline
 
   $panelViewEditor.Controls.AddRange(@(
+    $lblViewInputSection, $lblViewExecuteSection,
     $lblViewName, $txtViewName,
     $lblViewLabel, $txtViewLabel,
     $lblBaseTable, $cmbBaseTable, $btnReloadColumns,
