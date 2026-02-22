@@ -341,6 +341,127 @@ try {
     return $dir
   }
 
+
+
+  function New-UiCardPanel {
+    param([int]$PaddingAll = 16)
+    $card = New-Object System.Windows.Forms.Panel
+    $card.Padding = New-Object System.Windows.Forms.Padding($PaddingAll)
+    $card.Margin = New-Object System.Windows.Forms.Padding(8)
+    $card.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+    return $card
+  }
+
+  function New-UiSectionTitle([string]$text) {
+    $lbl = New-Object System.Windows.Forms.Label
+    $lbl.Text = $text
+    $lbl.AutoSize = $true
+    $lbl.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+    $lbl.Margin = New-Object System.Windows.Forms.Padding(0,0,0,8)
+    return $lbl
+  }
+
+  function Set-Theme([string]$theme) {
+    $resolved = ([string]$theme).Trim().ToLowerInvariant()
+    if (@('light','dark') -notcontains $resolved) { $resolved = 'dark' }
+    $script:ThemeName = $resolved
+    if ($resolved -eq 'light') {
+      $script:ThemePalette = @{
+        Back = [System.Drawing.Color]::FromArgb(245,247,250)
+        Surface = [System.Drawing.Color]::White
+        Text = [System.Drawing.Color]::FromArgb(28,28,28)
+        Muted = [System.Drawing.Color]::FromArgb(92,92,92)
+        Accent = [System.Drawing.Color]::FromArgb(0,120,212)
+        AccentText = [System.Drawing.Color]::White
+        Danger = [System.Drawing.Color]::FromArgb(196,43,28)
+        DangerText = [System.Drawing.Color]::White
+        Border = [System.Drawing.Color]::FromArgb(220,223,230)
+      }
+    } else {
+      $script:ThemePalette = @{
+        Back = [System.Drawing.Color]::FromArgb(24,28,36)
+        Surface = [System.Drawing.Color]::FromArgb(36,41,52)
+        Text = [System.Drawing.Color]::FromArgb(240,242,246)
+        Muted = [System.Drawing.Color]::FromArgb(172,178,190)
+        Accent = [System.Drawing.Color]::FromArgb(74,158,255)
+        AccentText = [System.Drawing.Color]::White
+        Danger = [System.Drawing.Color]::FromArgb(224,86,73)
+        DangerText = [System.Drawing.Color]::White
+        Border = [System.Drawing.Color]::FromArgb(62,68,84)
+      }
+    }
+  }
+
+  function Apply-ThemeRecursive([System.Windows.Forms.Control]$control) {
+    if ($null -eq $control) { return }
+    $palette = $script:ThemePalette
+    $control.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+
+    if ($control -is [System.Windows.Forms.Form]) {
+      $control.BackColor = $palette.Back
+      $control.ForeColor = $palette.Text
+    } elseif ($control -is [System.Windows.Forms.TabControl]) {
+      $control.BackColor = $palette.Back
+      $control.ForeColor = $palette.Text
+    } elseif ($control -is [System.Windows.Forms.TabPage]) {
+      $control.BackColor = $palette.Back
+      $control.ForeColor = $palette.Text
+    } elseif ($control -is [System.Windows.Forms.Panel] -or $control -is [System.Windows.Forms.GroupBox]) {
+      $control.BackColor = $palette.Surface
+      $control.ForeColor = $palette.Text
+    } elseif ($control -is [System.Windows.Forms.Label] -or $control -is [System.Windows.Forms.LinkLabel] -or $control -is [System.Windows.Forms.RadioButton] -or $control -is [System.Windows.Forms.CheckBox]) {
+      $control.BackColor = [System.Drawing.Color]::Transparent
+      $control.ForeColor = $palette.Text
+    } elseif ($control -is [System.Windows.Forms.TextBox] -or $control -is [System.Windows.Forms.ComboBox] -or $control -is [System.Windows.Forms.NumericUpDown] -or $control -is [System.Windows.Forms.DateTimePicker] -or $control -is [System.Windows.Forms.ListBox]) {
+      $control.BackColor = $palette.Surface
+      $control.ForeColor = $palette.Text
+    } elseif ($control -is [System.Windows.Forms.Button]) {
+      $control.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+      $control.FlatAppearance.BorderSize = 1
+      $control.FlatAppearance.BorderColor = $palette.Border
+      $control.BackColor = $palette.Surface
+      $control.ForeColor = $palette.Text
+    } elseif ($control -is [System.Windows.Forms.DataGridView]) {
+      $control.BackgroundColor = $palette.Surface
+      $control.GridColor = $palette.Border
+      $control.DefaultCellStyle.BackColor = $palette.Surface
+      $control.DefaultCellStyle.ForeColor = $palette.Text
+      $control.DefaultCellStyle.SelectionBackColor = $palette.Accent
+      $control.DefaultCellStyle.SelectionForeColor = $palette.AccentText
+      $control.ColumnHeadersDefaultCellStyle.BackColor = $palette.Surface
+      $control.ColumnHeadersDefaultCellStyle.ForeColor = $palette.Text
+      $control.EnableHeadersVisualStyles = $false
+    }
+
+    foreach ($child in $control.Controls) { Apply-ThemeRecursive $child }
+  }
+
+  function Set-ButtonStyle([System.Windows.Forms.Button]$button, [string]$kind) {
+    if (-not $button) { return }
+    $palette = $script:ThemePalette
+    $button.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $button.FlatAppearance.BorderSize = 1
+    $resolvedKind = ''
+    if ($null -ne $kind) { $resolvedKind = ([string]$kind).ToLowerInvariant() }
+    switch ($resolvedKind) {
+      'primary' {
+        $button.BackColor = $palette.Accent
+        $button.ForeColor = $palette.AccentText
+        $button.FlatAppearance.BorderColor = $palette.Accent
+      }
+      'danger' {
+        $button.BackColor = $palette.Danger
+        $button.ForeColor = $palette.DangerText
+        $button.FlatAppearance.BorderColor = $palette.Danger
+      }
+      default {
+        $button.BackColor = $palette.Surface
+        $button.ForeColor = $palette.Text
+        $button.FlatAppearance.BorderColor = $palette.Border
+      }
+    }
+  }
+
   # ----------------------------
   # Build GUI
   # ----------------------------
@@ -348,8 +469,11 @@ try {
   $form.StartPosition = "CenterScreen"
   $form.Size = New-Object System.Drawing.Size(1120, 720)
   $form.MinimumSize = New-Object System.Drawing.Size(1040, 650)
+  $form.Padding = New-Object System.Windows.Forms.Padding(8)
+  $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 
   $tabs = New-Object System.Windows.Forms.TabControl
+  Set-Theme ([string]$script:Settings.uiTheme)
   $tabs.Dock = "Fill"
 
   $tabExport = New-Object System.Windows.Forms.TabPage
@@ -585,12 +709,33 @@ try {
   $btnLogBrowse.Location = New-Object System.Drawing.Point(740, 14)
   $btnLogBrowse.Size = New-Object System.Drawing.Size(180, 32)
 
+  $lblLogSearch = New-Object System.Windows.Forms.Label
+  $lblLogSearch.Location = New-Object System.Drawing.Point(20, 62)
+  $lblLogSearch.AutoSize = $true
+
+  $txtLogSearch = New-Object System.Windows.Forms.TextBox
+  $txtLogSearch.Location = New-Object System.Drawing.Point(80, 58)
+  $txtLogSearch.Size = New-Object System.Drawing.Size(180, 28)
+
+  $btnLogCopy = New-Object System.Windows.Forms.Button
+  $btnLogCopy.Location = New-Object System.Drawing.Point(270, 56)
+  $btnLogCopy.Size = New-Object System.Drawing.Size(100, 32)
+
+  $btnLogClear = New-Object System.Windows.Forms.Button
+  $btnLogClear.Location = New-Object System.Drawing.Point(378, 56)
+  $btnLogClear.Size = New-Object System.Drawing.Size(100, 32)
+
+  $chkLogAutoScroll = New-Object System.Windows.Forms.CheckBox
+  $chkLogAutoScroll.Location = New-Object System.Drawing.Point(490, 61)
+  $chkLogAutoScroll.AutoSize = $true
+  $chkLogAutoScroll.Checked = $true
+
   $script:txtLog = New-Object System.Windows.Forms.TextBox
   $script:txtLog.Multiline = $true
   $script:txtLog.ScrollBars = "Both"
   $script:txtLog.WordWrap = $false
-  $script:txtLog.Location = New-Object System.Drawing.Point(20, 58)
-  $script:txtLog.Size = New-Object System.Drawing.Size(900, 530)
+  $script:txtLog.Location = New-Object System.Drawing.Point(20, 96)
+  $script:txtLog.Size = New-Object System.Drawing.Size(900, 492)
   $script:txtLog.ReadOnly = $true
   $script:txtLog.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
 
@@ -599,6 +744,7 @@ try {
 
   $panelLogs.Controls.AddRange(@(
     $lblLogDir, $txtLogDir, $btnLogBrowse,
+    $lblLogSearch, $txtLogSearch, $btnLogCopy, $btnLogClear, $chkLogAutoScroll,
     $script:txtLog
   ))
 
@@ -778,10 +924,21 @@ try {
 
   $cmbLang = New-Object System.Windows.Forms.ComboBox
   $cmbLang.Location = New-Object System.Drawing.Point(220, 16)
-  $cmbLang.Size = New-Object System.Drawing.Size(220, 28)
+  $cmbLang.Size = New-Object System.Drawing.Size(160, 28)
   $cmbLang.DropDownStyle = "DropDownList"
   [void]$cmbLang.Items.Add("ja")
   [void]$cmbLang.Items.Add("en")
+
+  $lblTheme = New-Object System.Windows.Forms.Label
+  $lblTheme.Location = New-Object System.Drawing.Point(420, 20)
+  $lblTheme.AutoSize = $true
+
+  $cmbTheme = New-Object System.Windows.Forms.ComboBox
+  $cmbTheme.Location = New-Object System.Drawing.Point(560, 16)
+  $cmbTheme.Size = New-Object System.Drawing.Size(160, 28)
+  $cmbTheme.DropDownStyle = "DropDownList"
+  [void]$cmbTheme.Items.Add("dark")
+  [void]$cmbTheme.Items.Add("light")
 
   $lblInstance = New-Object System.Windows.Forms.Label
   $lblInstance.Location = New-Object System.Drawing.Point(20, 60)
@@ -865,7 +1022,7 @@ try {
   }
 
   $panelSettings.Controls.AddRange(@(
-    $lblUiLang, $cmbLang,
+    $lblUiLang, $cmbLang, $lblTheme, $cmbTheme,
     $lblInstance, $txtInstance, $lblBaseUrl,
     $lblAuthType, $rbUserPass, $rbApiKey,
     $lblUser, $txtUser,
@@ -987,6 +1144,10 @@ try {
 
     $lblLogDir.Text = T "LogOutputDir"
     $btnLogBrowse.Text = T "Browse"
+    $lblLogSearch.Text = T "LogSearch"
+    $btnLogCopy.Text = T "LogCopy"
+    $btnLogClear.Text = T "LogClear"
+    $chkLogAutoScroll.Text = T "LogAutoScroll"
 
     $lblAttachmentTable.Text = T "TargetTable"
     $lblAttachmentStart.Text = T "Start"
@@ -1000,9 +1161,9 @@ try {
     $lblDeleteTable.Text = T "DeleteTargetTable"
     $btnDeleteReloadTables.Text = T "ReloadTables"
     $lblDeleteMaxRetries.Text = T "DeleteMaxRetries"
-    $lblDeleteDangerHint.Text = T "DeleteDangerHint"
-    $lblDeleteUsageHint.Text = T "DeleteUsageHint"
-    $lblDeleteAllowedInstances.Text = T "DeleteAllowedInstances"
+    $lblDeleteDangerHint.Text = (T "DeleteStep1") + "  " + (T "DeleteDangerHint")
+    $lblDeleteUsageHint.Text = (T "DeleteStep2") + "  " + (T "DeleteUsageHint")
+        $lblDeleteAllowedInstances.Text = T "DeleteAllowedInstances"
     $lblDeleteAllowedInstancesHint.Text = T "DeleteAllowedInstancesHint"
     $lblDeleteProgress.Text = T "DeleteProgress"
     $btnDeleteExecute.Text = T "DeleteExecute"
@@ -1031,6 +1192,7 @@ try {
     }
 
     $lblUiLang.Text = T "UiLang"
+    $lblTheme.Text = T "UiTheme"
     $lblInstance.Text = T "Instance"
     Update-BaseUrlLabel
     $lblAuthType.Text = T "AuthType"
@@ -2153,7 +2315,7 @@ try {
     }
 
     $confirm = [System.Windows.Forms.MessageBox]::Show(
-      ([string]::Format((T "DeleteConfirmMessage"), $table, $expectedCode)),
+      ([string]::Format((T "DeleteConfirmMessage"), $table, $expectedCode, (Get-BaseUrl), [int]$maxRetries)),
       (T "DeleteConfirmTitle"),
       [System.Windows.Forms.MessageBoxButtons]::YesNo,
       [System.Windows.Forms.MessageBoxIcon]::Warning
@@ -2266,6 +2428,9 @@ try {
   # Initialize from settings
   # ----------------------------
   $cmbLang.SelectedItem = [string]$script:Settings.uiLanguage
+  $initialTheme = ([string]$script:Settings.uiTheme).Trim().ToLowerInvariant()
+  if (@("dark","light") -notcontains $initialTheme) { $initialTheme = "dark" }
+  $cmbTheme.SelectedItem = $initialTheme
   if (-not $cmbLang.SelectedItem) { $cmbLang.SelectedItem = "ja" }
 
   $txtInstance.Text = [string]$script:Settings.instanceName
@@ -2581,7 +2746,7 @@ try {
   })
 
   $script:txtLog.add_TextChanged({
-    Scroll-LogsToBottom
+    if ($chkLogAutoScroll.Checked) { Scroll-LogsToBottom }
   })
 
   $txtViewName.add_TextChanged({
@@ -2777,6 +2942,40 @@ try {
     if ($dlg.ShowDialog() -eq "OK") { $txtLogDir.Text = $dlg.SelectedPath }
   })
 
+  $btnLogCopy.add_Click({
+    if (-not [string]::IsNullOrEmpty($script:txtLog.Text)) {
+      [System.Windows.Forms.Clipboard]::SetText($script:txtLog.Text)
+      Add-Log (T "LogCopied")
+    }
+  })
+
+  $btnLogClear.add_Click({
+    $script:txtLog.Clear()
+  })
+
+  $txtLogSearch.add_TextChanged({
+    $needle = ([string]$txtLogSearch.Text).Trim()
+    if ([string]::IsNullOrWhiteSpace($needle)) { return }
+    $idx = $script:txtLog.Text.LastIndexOf($needle, [System.StringComparison]::OrdinalIgnoreCase)
+    if ($idx -ge 0) {
+      $script:txtLog.SelectionStart = $idx
+      $script:txtLog.SelectionLength = $needle.Length
+      $script:txtLog.ScrollToCaret()
+      $script:txtLog.Focus()
+    }
+  })
+
+  $cmbTheme.add_SelectedIndexChanged({
+    $script:Settings.uiTheme = [string]$cmbTheme.SelectedItem
+    Request-SaveSettings
+    Set-Theme $script:Settings.uiTheme
+    Apply-ThemeRecursive $form
+    Set-ButtonStyle $btnExecute "primary"
+    Set-ButtonStyle $btnAttachmentExecute "primary"
+    Set-ButtonStyle $btnCreateView "primary"
+    Set-ButtonStyle $btnDeleteExecute "danger"
+  })
+
   $btnLast30Days.add_Click({
     $now = Get-Date
     $dtStart.Value = $now.AddDays(-30)
@@ -2827,6 +3026,12 @@ try {
   foreach ($disabledMessage in @($script:DisabledFeatureMessages)) {
     Add-Log $disabledMessage
   }
+
+  Apply-ThemeRecursive $form
+  Set-ButtonStyle $btnExecute "primary"
+  Set-ButtonStyle $btnAttachmentExecute "primary"
+  Set-ButtonStyle $btnCreateView "primary"
+  Set-ButtonStyle $btnDeleteExecute "danger"
 
   Add-Log "Ready."
   Add-Log "Notice: MIT License / https://www.ixam.net"

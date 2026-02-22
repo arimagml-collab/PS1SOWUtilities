@@ -1,4 +1,4 @@
-﻿{
+{
   "AppTitle": "PS1 SNOW Utilities",
   "TabExport": "Export",
   "TabViewEditor": "DataBase View Editor",
@@ -95,7 +95,7 @@
   "DeleteProgress": "進捗",
   "DeleteFetchCount": "対象件数を確認中...",
   "DeleteConfirmTitle": "削除確認",
-  "DeleteConfirmMessage": "本当に実行しますか？\\n対象テーブル: {0}\\n確認コード: {1}",
+  "DeleteConfirmMessage": "本当に実行しますか？\\n対象テーブル: {0}\\n確認コード: {1}\\nインスタンスURL: {2}\\n最大再試行: {3}\\nこの操作は元に戻せません。",
   "DeleteDone": "全削除完了",
   "DeleteStopped": "最大再試行回数に到達したため停止",
   "DeleteNoRecord": "削除対象レコードはありません。",
@@ -111,5 +111,13 @@
   "AttachmentSetLastRunToNow": "前回取得～現在を設定",
   "AttachmentDownloadDir": "ダウンロードDirectory",
   "AttachmentCreateSubfolderPerTable": "取得元テーブル名毎にサブフォルダを作成",
-  "LogOutputDir": "ログ出力Directory"
+  "LogOutputDir": "ログ出力Directory",
+  "LogSearch": "検索",
+  "LogCopy": "コピー",
+  "LogClear": "クリア",
+  "LogAutoScroll": "自動スクロール",
+  "LogCopied": "ログをクリップボードにコピーしました。",
+  "UiTheme": "テーマ",
+  "DeleteStep1": "Step 1: 対象と危険性の確認",
+  "DeleteStep2": "Step 2: 許可インスタンスと確認コードの確認"
 }
