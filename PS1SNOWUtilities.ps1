@@ -1029,62 +1029,86 @@ try {
     $btnAttachmentExecute
   ))
 
+  function Build-LogsTab {
+    param([System.Windows.Forms.TabPage]$TabPage)
+
+    $panelLogs = New-Object System.Windows.Forms.Panel
+    $panelLogs.Dock = "Fill"
+    $panelLogs.Padding = New-Object System.Windows.Forms.Padding(12)
+    $panelLogs.AutoScroll = $true
+    $panelLogs.AutoScrollMinSize = New-Object System.Drawing.Size(940, 600)
+    $TabPage.Controls.Add($panelLogs)
+
+    $lblLogsExecuteSection = New-UiSectionTitle ""
+    $lblLogsExecuteSection.Location = New-Object System.Drawing.Point(20, 0)
+
+    $lblLogDir = New-Object System.Windows.Forms.Label
+    $lblLogDir.Location = New-Object System.Drawing.Point(20, 20)
+    $lblLogDir.AutoSize = $true
+
+    $txtLogDir = New-Object System.Windows.Forms.TextBox
+    $txtLogDir.Location = New-Object System.Drawing.Point(220, 16)
+    $txtLogDir.Size = New-Object System.Drawing.Size(500, 28)
+
+    $btnLogBrowse = New-Object System.Windows.Forms.Button
+    $btnLogBrowse.Location = New-Object System.Drawing.Point(740, 14)
+    $btnLogBrowse.Size = New-Object System.Drawing.Size(180, 32)
+
+    $btnLogCopy = New-Object System.Windows.Forms.Button
+    $btnLogCopy.Size = New-Object System.Drawing.Size(100, 32)
+
+    $btnLogClear = New-Object System.Windows.Forms.Button
+    $btnLogClear.Size = New-Object System.Drawing.Size(100, 32)
+
+    $flowLogActions = New-Object System.Windows.Forms.FlowLayoutPanel
+    $flowLogActions.FlowDirection = [System.Windows.Forms.FlowDirection]::LeftToRight
+    $flowLogActions.WrapContents = $false
+    $flowLogActions.Location = New-Object System.Drawing.Point(700, 54)
+    $flowLogActions.Size = New-Object System.Drawing.Size(220, 36)
+    $flowLogActions.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
+    [void]$flowLogActions.Controls.Add($btnLogCopy)
+    [void]$flowLogActions.Controls.Add($btnLogClear)
+
+    $txtLog = New-Object System.Windows.Forms.TextBox
+    $txtLog.Multiline = $true
+    $txtLog.ScrollBars = "Both"
+    $txtLog.WordWrap = $false
+    $txtLog.Location = New-Object System.Drawing.Point(20, 96)
+    $txtLog.Size = New-Object System.Drawing.Size(900, 492)
+    $txtLog.ReadOnly = $true
+    $txtLog.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
+
+    $txtLogDir.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
+    $btnLogBrowse.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
+
+    $panelLogs.Controls.AddRange(@(
+      $lblLogsExecuteSection,
+      $lblLogDir, $txtLogDir, $btnLogBrowse,
+      $flowLogActions,
+      $txtLog
+    ))
+
+    return @{
+      panelLogs = $panelLogs
+      lblLogsExecuteSection = $lblLogsExecuteSection
+      lblLogDir = $lblLogDir
+      txtLogDir = $txtLogDir
+      btnLogBrowse = $btnLogBrowse
+      btnLogCopy = $btnLogCopy
+      btnLogClear = $btnLogClear
+      txtLog = $txtLog
+    }
+  }
+
   # --- Logs tab layout
-  $panelLogs = New-Object System.Windows.Forms.Panel
-  $panelLogs.Dock = "Fill"
-  $panelLogs.Padding = New-Object System.Windows.Forms.Padding(12)
-  $panelLogs.AutoScroll = $true
-  $panelLogs.AutoScrollMinSize = New-Object System.Drawing.Size(940, 600)
-  $tabLogs.Controls.Add($panelLogs)
-
-  $lblLogsExecuteSection = New-UiSectionTitle ""
-  $lblLogsExecuteSection.Location = New-Object System.Drawing.Point(20, 0)
-
-  $lblLogDir = New-Object System.Windows.Forms.Label
-  $lblLogDir.Location = New-Object System.Drawing.Point(20, 20)
-  $lblLogDir.AutoSize = $true
-
-  $txtLogDir = New-Object System.Windows.Forms.TextBox
-  $txtLogDir.Location = New-Object System.Drawing.Point(220, 16)
-  $txtLogDir.Size = New-Object System.Drawing.Size(500, 28)
-
-  $btnLogBrowse = New-Object System.Windows.Forms.Button
-  $btnLogBrowse.Location = New-Object System.Drawing.Point(740, 14)
-  $btnLogBrowse.Size = New-Object System.Drawing.Size(180, 32)
-
-  $btnLogCopy = New-Object System.Windows.Forms.Button
-  $btnLogCopy.Size = New-Object System.Drawing.Size(100, 32)
-
-  $btnLogClear = New-Object System.Windows.Forms.Button
-  $btnLogClear.Size = New-Object System.Drawing.Size(100, 32)
-
-  $flowLogActions = New-Object System.Windows.Forms.FlowLayoutPanel
-  $flowLogActions.FlowDirection = [System.Windows.Forms.FlowDirection]::LeftToRight
-  $flowLogActions.WrapContents = $false
-  $flowLogActions.Location = New-Object System.Drawing.Point(700, 54)
-  $flowLogActions.Size = New-Object System.Drawing.Size(220, 36)
-  $flowLogActions.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
-  [void]$flowLogActions.Controls.Add($btnLogCopy)
-  [void]$flowLogActions.Controls.Add($btnLogClear)
-
-  $script:txtLog = New-Object System.Windows.Forms.TextBox
-  $script:txtLog.Multiline = $true
-  $script:txtLog.ScrollBars = "Both"
-  $script:txtLog.WordWrap = $false
-  $script:txtLog.Location = New-Object System.Drawing.Point(20, 96)
-  $script:txtLog.Size = New-Object System.Drawing.Size(900, 492)
-  $script:txtLog.ReadOnly = $true
-  $script:txtLog.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
-
-  $txtLogDir.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
-  $btnLogBrowse.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
-
-  $panelLogs.Controls.AddRange(@(
-    $lblLogsExecuteSection,
-    $lblLogDir, $txtLogDir, $btnLogBrowse,
-    $flowLogActions,
-    $script:txtLog
-  ))
+  $logsTabControls = Build-LogsTab -TabPage $tabLogs
+  foreach ($entry in $logsTabControls.GetEnumerator()) {
+    if ($entry.Key -eq 'txtLog') {
+      $script:txtLog = $entry.Value
+      continue
+    }
+    Set-Variable -Name $entry.Key -Value $entry.Value
+  }
 
   # --- DataBase View Editor tab layout
   $panelViewEditor = New-Object System.Windows.Forms.Panel
@@ -1249,126 +1273,160 @@ try {
     $btnCreateView
   ))
 
+  function Build-SettingsTab {
+    param([System.Windows.Forms.TabPage]$TabPage)
+
+    $panelSettings = New-Object System.Windows.Forms.Panel
+    $panelSettings.Dock = "Fill"
+    $panelSettings.AutoScroll = $true
+    $panelSettings.AutoScrollMinSize = New-Object System.Drawing.Size(940, 420)
+    $TabPage.Controls.Add($panelSettings)
+
+    $lblUiLang = New-Object System.Windows.Forms.Label
+    $lblUiLang.Location = New-Object System.Drawing.Point(20, 20)
+    $lblUiLang.AutoSize = $true
+
+    $cmbLang = New-Object System.Windows.Forms.ComboBox
+    $cmbLang.Location = New-Object System.Drawing.Point(220, 16)
+    $cmbLang.Size = New-Object System.Drawing.Size(160, 28)
+    $cmbLang.DropDownStyle = "DropDownList"
+    [void]$cmbLang.Items.Add("ja")
+    [void]$cmbLang.Items.Add("en")
+
+    $lblTheme = New-Object System.Windows.Forms.Label
+    $lblTheme.Location = New-Object System.Drawing.Point(420, 20)
+    $lblTheme.AutoSize = $true
+
+    $cmbTheme = New-Object System.Windows.Forms.ComboBox
+    $cmbTheme.Location = New-Object System.Drawing.Point(560, 16)
+    $cmbTheme.Size = New-Object System.Drawing.Size(160, 28)
+    $cmbTheme.DropDownStyle = "DropDownList"
+    [void]$cmbTheme.Items.Add("dark")
+    [void]$cmbTheme.Items.Add("light")
+
+    $lblInstance = New-Object System.Windows.Forms.Label
+    $lblInstance.Location = New-Object System.Drawing.Point(20, 60)
+    $lblInstance.AutoSize = $true
+
+    $txtInstance = New-Object System.Windows.Forms.TextBox
+    $txtInstance.Location = New-Object System.Drawing.Point(220, 56)
+    $txtInstance.Size = New-Object System.Drawing.Size(500, 28)
+
+    $lblBaseUrl = New-Object System.Windows.Forms.Label
+    $lblBaseUrl.Location = New-Object System.Drawing.Point(220, 88)
+    $lblBaseUrl.Size = New-Object System.Drawing.Size(700, 18)
+    $lblBaseUrl.Tag = 'tone-muted'
+
+    $lblAuthType = New-Object System.Windows.Forms.Label
+    $lblAuthType.Location = New-Object System.Drawing.Point(20, 125)
+    $lblAuthType.AutoSize = $true
+
+    $rbUserPass = New-Object System.Windows.Forms.RadioButton
+    $rbUserPass.Location = New-Object System.Drawing.Point(220, 123)
+    $rbUserPass.AutoSize = $true
+
+    $rbApiKey = New-Object System.Windows.Forms.RadioButton
+    $rbApiKey.Location = New-Object System.Drawing.Point(420, 123)
+    $rbApiKey.AutoSize = $true
+
+    $lblUser = New-Object System.Windows.Forms.Label
+    $lblUser.Location = New-Object System.Drawing.Point(20, 170)
+    $lblUser.AutoSize = $true
+
+    $txtUser = New-Object System.Windows.Forms.TextBox
+    $txtUser.Location = New-Object System.Drawing.Point(220, 166)
+    $txtUser.Size = New-Object System.Drawing.Size(260, 28)
+
+    $lblPass = New-Object System.Windows.Forms.Label
+    $lblPass.Location = New-Object System.Drawing.Point(20, 210)
+    $lblPass.AutoSize = $true
+
+    $txtPass = New-Object System.Windows.Forms.TextBox
+    $txtPass.Location = New-Object System.Drawing.Point(220, 206)
+    $txtPass.Size = New-Object System.Drawing.Size(360, 28)
+    $txtPass.UseSystemPasswordChar = $true
+
+    $btnTogglePass = New-Object System.Windows.Forms.Button
+    $btnTogglePass.Location = New-Object System.Drawing.Point(600, 204)
+    $btnTogglePass.Size = New-Object System.Drawing.Size(120, 32)
+
+    $lblKey = New-Object System.Windows.Forms.Label
+    $lblKey.Location = New-Object System.Drawing.Point(20, 250)
+    $lblKey.AutoSize = $true
+
+    $txtKey = New-Object System.Windows.Forms.TextBox
+    $txtKey.Location = New-Object System.Drawing.Point(220, 246)
+    $txtKey.Size = New-Object System.Drawing.Size(360, 28)
+    $txtKey.UseSystemPasswordChar = $true
+
+    $btnToggleKey = New-Object System.Windows.Forms.Button
+    $btnToggleKey.Location = New-Object System.Drawing.Point(600, 244)
+    $btnToggleKey.Size = New-Object System.Drawing.Size(120, 32)
+
+    $lblSaveHint = New-MutedLabel
+    $lblSaveHint.Location = New-Object System.Drawing.Point(20, 305)
+    $lblSaveHint.AutoSize = $true
+    $lblSaveHint.AutoEllipsis = $true
+
+    $lblTablesHint = New-MutedLabel
+    $lblTablesHint.Location = New-Object System.Drawing.Point(20, 335)
+    $lblTablesHint.Size = New-Object System.Drawing.Size(900, 60)
+    $lblTablesHint.AutoEllipsis = $true
+
+    $lnkCopyright = New-Object System.Windows.Forms.LinkLabel
+    $lnkCopyright.Location = New-Object System.Drawing.Point(20, 0)
+    $lnkCopyright.AutoSize = $true
+    $lnkCopyright.Anchor = [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Bottom
+    $lnkCopyright.LinkBehavior = [System.Windows.Forms.LinkBehavior]::HoverUnderline
+
+    $panelSettings.Controls.AddRange(@(
+      $lblUiLang, $cmbLang, $lblTheme, $cmbTheme,
+      $lblInstance, $txtInstance, $lblBaseUrl,
+      $lblAuthType, $rbUserPass, $rbApiKey,
+      $lblUser, $txtUser,
+      $lblPass, $txtPass, $btnTogglePass,
+      $lblKey,  $txtKey,  $btnToggleKey,
+      $lblSaveHint, $lblTablesHint,
+      $lnkCopyright
+    ))
+
+    return @{
+      panelSettings = $panelSettings
+      lblUiLang = $lblUiLang
+      cmbLang = $cmbLang
+      lblTheme = $lblTheme
+      cmbTheme = $cmbTheme
+      lblInstance = $lblInstance
+      txtInstance = $txtInstance
+      lblBaseUrl = $lblBaseUrl
+      lblAuthType = $lblAuthType
+      rbUserPass = $rbUserPass
+      rbApiKey = $rbApiKey
+      lblUser = $lblUser
+      txtUser = $txtUser
+      lblPass = $lblPass
+      txtPass = $txtPass
+      btnTogglePass = $btnTogglePass
+      lblKey = $lblKey
+      txtKey = $txtKey
+      btnToggleKey = $btnToggleKey
+      lblSaveHint = $lblSaveHint
+      lblTablesHint = $lblTablesHint
+      lnkCopyright = $lnkCopyright
+    }
+  }
+
   # --- Settings tab layout
-  $panelSettings = New-Object System.Windows.Forms.Panel
-  $panelSettings.Dock = "Fill"
-  $panelSettings.AutoScroll = $true
-  $panelSettings.AutoScrollMinSize = New-Object System.Drawing.Size(940, 420)
-  $tabSettings.Controls.Add($panelSettings)
-
-  $lblUiLang = New-Object System.Windows.Forms.Label
-  $lblUiLang.Location = New-Object System.Drawing.Point(20, 20)
-  $lblUiLang.AutoSize = $true
-
-  $cmbLang = New-Object System.Windows.Forms.ComboBox
-  $cmbLang.Location = New-Object System.Drawing.Point(220, 16)
-  $cmbLang.Size = New-Object System.Drawing.Size(160, 28)
-  $cmbLang.DropDownStyle = "DropDownList"
-  [void]$cmbLang.Items.Add("ja")
-  [void]$cmbLang.Items.Add("en")
-
-  $lblTheme = New-Object System.Windows.Forms.Label
-  $lblTheme.Location = New-Object System.Drawing.Point(420, 20)
-  $lblTheme.AutoSize = $true
-
-  $cmbTheme = New-Object System.Windows.Forms.ComboBox
-  $cmbTheme.Location = New-Object System.Drawing.Point(560, 16)
-  $cmbTheme.Size = New-Object System.Drawing.Size(160, 28)
-  $cmbTheme.DropDownStyle = "DropDownList"
-  [void]$cmbTheme.Items.Add("dark")
-  [void]$cmbTheme.Items.Add("light")
-
-  $lblInstance = New-Object System.Windows.Forms.Label
-  $lblInstance.Location = New-Object System.Drawing.Point(20, 60)
-  $lblInstance.AutoSize = $true
-
-  $txtInstance = New-Object System.Windows.Forms.TextBox
-  $txtInstance.Location = New-Object System.Drawing.Point(220, 56)
-  $txtInstance.Size = New-Object System.Drawing.Size(500, 28)
-
-  $lblBaseUrl = New-Object System.Windows.Forms.Label
-  $lblBaseUrl.Location = New-Object System.Drawing.Point(220, 88)
-  $lblBaseUrl.Size = New-Object System.Drawing.Size(700, 18)
-  $lblBaseUrl.Tag = 'tone-muted'
-
-  $lblAuthType = New-Object System.Windows.Forms.Label
-  $lblAuthType.Location = New-Object System.Drawing.Point(20, 125)
-  $lblAuthType.AutoSize = $true
-
-  $rbUserPass = New-Object System.Windows.Forms.RadioButton
-  $rbUserPass.Location = New-Object System.Drawing.Point(220, 123)
-  $rbUserPass.AutoSize = $true
-
-  $rbApiKey = New-Object System.Windows.Forms.RadioButton
-  $rbApiKey.Location = New-Object System.Drawing.Point(420, 123)
-  $rbApiKey.AutoSize = $true
-
-  $lblUser = New-Object System.Windows.Forms.Label
-  $lblUser.Location = New-Object System.Drawing.Point(20, 170)
-  $lblUser.AutoSize = $true
-
-  $txtUser = New-Object System.Windows.Forms.TextBox
-  $txtUser.Location = New-Object System.Drawing.Point(220, 166)
-  $txtUser.Size = New-Object System.Drawing.Size(260, 28)
-
-  $lblPass = New-Object System.Windows.Forms.Label
-  $lblPass.Location = New-Object System.Drawing.Point(20, 210)
-  $lblPass.AutoSize = $true
-
-  $txtPass = New-Object System.Windows.Forms.TextBox
-  $txtPass.Location = New-Object System.Drawing.Point(220, 206)
-  $txtPass.Size = New-Object System.Drawing.Size(360, 28)
-  $txtPass.UseSystemPasswordChar = $true
-
-  $btnTogglePass = New-Object System.Windows.Forms.Button
-  $btnTogglePass.Location = New-Object System.Drawing.Point(600, 204)
-  $btnTogglePass.Size = New-Object System.Drawing.Size(120, 32)
-
-  $lblKey = New-Object System.Windows.Forms.Label
-  $lblKey.Location = New-Object System.Drawing.Point(20, 250)
-  $lblKey.AutoSize = $true
-
-  $txtKey = New-Object System.Windows.Forms.TextBox
-  $txtKey.Location = New-Object System.Drawing.Point(220, 246)
-  $txtKey.Size = New-Object System.Drawing.Size(360, 28)
-  $txtKey.UseSystemPasswordChar = $true
-
-  $btnToggleKey = New-Object System.Windows.Forms.Button
-  $btnToggleKey.Location = New-Object System.Drawing.Point(600, 244)
-  $btnToggleKey.Size = New-Object System.Drawing.Size(120, 32)
-
-  $lblSaveHint = New-MutedLabel
-  $lblSaveHint.Location = New-Object System.Drawing.Point(20, 305)
-  $lblSaveHint.AutoSize = $true
-  $lblSaveHint.AutoEllipsis = $true
-
-  $lblTablesHint = New-MutedLabel
-  $lblTablesHint.Location = New-Object System.Drawing.Point(20, 335)
-  $lblTablesHint.Size = New-Object System.Drawing.Size(900, 60)
-  $lblTablesHint.AutoEllipsis = $true
-
-  $lnkCopyright = New-Object System.Windows.Forms.LinkLabel
-  $lnkCopyright.Location = New-Object System.Drawing.Point(20, 0)
-  $lnkCopyright.AutoSize = $true
-  $lnkCopyright.Anchor = [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Bottom
-  $lnkCopyright.LinkBehavior = [System.Windows.Forms.LinkBehavior]::HoverUnderline
+  $settingsTabControls = Build-SettingsTab -TabPage $tabSettings
+  foreach ($entry in $settingsTabControls.GetEnumerator()) {
+    Set-Variable -Name $entry.Key -Value $entry.Value
+  }
 
   function Position-CopyrightLink {
     $top = $panelSettings.ClientSize.Height - $lnkCopyright.Height - 16
     if ($top -lt 16) { $top = 16 }
     $lnkCopyright.Location = New-Object System.Drawing.Point(20, $top)
   }
-
-  $panelSettings.Controls.AddRange(@(
-    $lblUiLang, $cmbLang, $lblTheme, $cmbTheme,
-    $lblInstance, $txtInstance, $lblBaseUrl,
-    $lblAuthType, $rbUserPass, $rbApiKey,
-    $lblUser, $txtUser,
-    $lblPass, $txtPass, $btnTogglePass,
-    $lblKey,  $txtKey,  $btnToggleKey,
-    $lblSaveHint, $lblTablesHint,
-    $lnkCopyright
-  ))
 
   # --- Delete tab layout
   $panelDelete = New-Object System.Windows.Forms.Panel
