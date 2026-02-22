@@ -688,222 +688,261 @@ try {
   [void]$tabs.TabPages.Add($tabSettings)
   $form.Controls.Add($tabs)
 
+  function Build-ExportTab {
+    param([System.Windows.Forms.TabPage]$TabPage)
+
+    $panelExport = New-Object System.Windows.Forms.Panel
+    $panelExport.Dock = "Fill"
+    $panelExport.AutoScroll = $true
+    $TabPage.Controls.Add($panelExport)
+
+    $layoutExportRoot = New-Object System.Windows.Forms.TableLayoutPanel
+    $layoutExportRoot.Dock = "Top"
+    $layoutExportRoot.AutoSize = $true
+    $layoutExportRoot.AutoSizeMode = "GrowAndShrink"
+    $layoutExportRoot.Padding = New-Object System.Windows.Forms.Padding(16, 8, 16, 16)
+    $layoutExportRoot.ColumnCount = 2
+    [void]$layoutExportRoot.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+    [void]$layoutExportRoot.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 220)))
+    $panelExport.Controls.Add($layoutExportRoot)
+
+    $lblExportInputSection = New-UiSectionTitle ""
+    $lblExportOptionSection = New-UiSectionTitle ""
+    $lblExportExecuteSection = New-UiSectionTitle ""
+
+    $layoutExportInput = New-Object System.Windows.Forms.TableLayoutPanel
+    $layoutExportInput.Dock = "Top"
+    $layoutExportInput.AutoSize = $true
+    $layoutExportInput.AutoSizeMode = "GrowAndShrink"
+    $layoutExportInput.Margin = New-Object System.Windows.Forms.Padding(0, 0, 0, 12)
+    $layoutExportInput.ColumnCount = 3
+    [void]$layoutExportInput.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 140)))
+    [void]$layoutExportInput.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+    [void]$layoutExportInput.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 180)))
+
+    $lblTable = New-Object System.Windows.Forms.Label
+    $lblTable.AutoSize = $true
+    $lblTable.Anchor = [System.Windows.Forms.AnchorStyles]::Left
+
+    $cmbTable = New-Object System.Windows.Forms.ComboBox
+    $cmbTable.Dock = "Fill"
+    $cmbTable.DropDownStyle = "DropDown"
+
+    $btnReloadTables = New-Object System.Windows.Forms.Button
+    $btnReloadTables.Dock = "Fill"
+    $btnReloadTables.Size = New-Object System.Drawing.Size(180, 32)
+
+    $lblFilter = New-Object System.Windows.Forms.Label
+    $lblFilter.AutoSize = $true
+    $lblFilter.Anchor = [System.Windows.Forms.AnchorStyles]::Left
+
+    $flowExportFilter = New-Object System.Windows.Forms.FlowLayoutPanel
+    $flowExportFilter.Dock = "Fill"
+    $flowExportFilter.AutoSize = $true
+    $flowExportFilter.WrapContents = $false
+    $flowExportFilter.Margin = New-Object System.Windows.Forms.Padding(0)
+
+    $rbAll = New-Object System.Windows.Forms.RadioButton
+    $rbAll.AutoSize = $true
+    $rbAll.Margin = New-Object System.Windows.Forms.Padding(0, 4, 16, 0)
+
+    $rbBetween = New-Object System.Windows.Forms.RadioButton
+    $rbBetween.AutoSize = $true
+    $rbBetween.Margin = New-Object System.Windows.Forms.Padding(0, 4, 0, 0)
+
+    [void]$flowExportFilter.Controls.Add($rbAll)
+    [void]$flowExportFilter.Controls.Add($rbBetween)
+
+    $lblStart = New-Object System.Windows.Forms.Label
+    $lblStart.AutoSize = $true
+    $lblStart.Anchor = [System.Windows.Forms.AnchorStyles]::Left
+
+    $layoutExportRange = New-Object System.Windows.Forms.TableLayoutPanel
+    $layoutExportRange.Dock = "Fill"
+    $layoutExportRange.AutoSize = $true
+    $layoutExportRange.AutoSizeMode = "GrowAndShrink"
+    $layoutExportRange.Margin = New-Object System.Windows.Forms.Padding(0)
+    $layoutExportRange.ColumnCount = 3
+    [void]$layoutExportRange.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 50)))
+    [void]$layoutExportRange.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 32)))
+    [void]$layoutExportRange.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 50)))
+
+    $dtStart = New-Object System.Windows.Forms.DateTimePicker
+    $dtStart.Dock = "Fill"
+    $dtStart.Format = "Custom"
+    $dtStart.CustomFormat = "yyyy-MM-dd HH:mm:ss"
+    $dtStart.ShowUpDown = $true
+
+    $lblRangeSeparator = New-MutedLabel
+    $lblRangeSeparator.Text = "〜"
+    $lblRangeSeparator.AutoSize = $true
+    $lblRangeSeparator.Anchor = [System.Windows.Forms.AnchorStyles]::None
+
+    $dtEnd = New-Object System.Windows.Forms.DateTimePicker
+    $dtEnd.Dock = "Fill"
+    $dtEnd.Format = "Custom"
+    $dtEnd.CustomFormat = "yyyy-MM-dd HH:mm:ss"
+    $dtEnd.ShowUpDown = $true
+
+    $btnLast30Days = New-Object System.Windows.Forms.Button
+    $btnLast30Days.Dock = "Fill"
+    $btnLast30Days.Size = New-Object System.Drawing.Size(180, 32)
+
+    [void]$layoutExportRange.Controls.Add($dtStart, 0, 0)
+    [void]$layoutExportRange.Controls.Add($lblRangeSeparator, 1, 0)
+    [void]$layoutExportRange.Controls.Add($dtEnd, 2, 0)
+
+    $lblDir = New-Object System.Windows.Forms.Label
+    $lblDir.AutoSize = $true
+    $lblDir.Anchor = [System.Windows.Forms.AnchorStyles]::Left
+
+    $txtDir = New-Object System.Windows.Forms.TextBox
+    $txtDir.Dock = "Fill"
+
+    $btnBrowse = New-Object System.Windows.Forms.Button
+    $btnBrowse.Dock = "Fill"
+    $btnBrowse.Size = New-Object System.Drawing.Size(180, 32)
+
+    $lblExportMaxRows = New-Object System.Windows.Forms.Label
+    $lblExportMaxRows.AutoSize = $true
+    $lblExportMaxRows.Anchor = [System.Windows.Forms.AnchorStyles]::Left
+
+    $layoutExportMaxRows = New-Object System.Windows.Forms.TableLayoutPanel
+    $layoutExportMaxRows.Dock = "Fill"
+    $layoutExportMaxRows.AutoSize = $true
+    $layoutExportMaxRows.AutoSizeMode = "GrowAndShrink"
+    $layoutExportMaxRows.Margin = New-Object System.Windows.Forms.Padding(0)
+    $layoutExportMaxRows.ColumnCount = 2
+    [void]$layoutExportMaxRows.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 220)))
+    [void]$layoutExportMaxRows.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+
+    $numExportMaxRows = New-Object System.Windows.Forms.NumericUpDown
+    $numExportMaxRows.Dock = "Fill"
+    $numExportMaxRows.Minimum = 1
+    $numExportMaxRows.Maximum = 1000000
+    $numExportMaxRows.Value = 10000
+
+    $lblExportMaxRowsHint = New-MutedLabel
+    $lblExportMaxRowsHint.AutoSize = $true
+    $lblExportMaxRowsHint.MaximumSize = New-Object System.Drawing.Size(0, 0)
+    $lblExportMaxRowsHint.Margin = New-Object System.Windows.Forms.Padding(12, 4, 0, 0)
+
+    [void]$layoutExportMaxRows.Controls.Add($numExportMaxRows, 0, 0)
+    [void]$layoutExportMaxRows.Controls.Add($lblExportMaxRowsHint, 1, 0)
+
+    [void]$layoutExportInput.Controls.Add($lblTable, 0, 0)
+    [void]$layoutExportInput.Controls.Add($cmbTable, 1, 0)
+    [void]$layoutExportInput.Controls.Add($btnReloadTables, 2, 0)
+    [void]$layoutExportInput.Controls.Add($lblFilter, 0, 1)
+    [void]$layoutExportInput.Controls.Add($flowExportFilter, 1, 1)
+    $layoutExportInput.SetColumnSpan($flowExportFilter, 2)
+    [void]$layoutExportInput.Controls.Add($lblStart, 0, 2)
+    [void]$layoutExportInput.Controls.Add($layoutExportRange, 1, 2)
+    [void]$layoutExportInput.Controls.Add($btnLast30Days, 2, 2)
+    [void]$layoutExportInput.Controls.Add($lblDir, 0, 3)
+    [void]$layoutExportInput.Controls.Add($txtDir, 1, 3)
+    [void]$layoutExportInput.Controls.Add($btnBrowse, 2, 3)
+    [void]$layoutExportInput.Controls.Add($lblExportMaxRows, 0, 4)
+    [void]$layoutExportInput.Controls.Add($layoutExportMaxRows, 1, 4)
+    $layoutExportInput.SetColumnSpan($layoutExportMaxRows, 2)
+
+    $layoutExportOptions = New-Object System.Windows.Forms.TableLayoutPanel
+    $layoutExportOptions.Dock = "Top"
+    $layoutExportOptions.AutoSize = $true
+    $layoutExportOptions.AutoSizeMode = "GrowAndShrink"
+    $layoutExportOptions.Margin = New-Object System.Windows.Forms.Padding(0, 0, 0, 12)
+    $layoutExportOptions.ColumnCount = 2
+    [void]$layoutExportOptions.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 140)))
+    [void]$layoutExportOptions.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+
+    $lblOutputFormat = New-Object System.Windows.Forms.Label
+    $lblOutputFormat.AutoSize = $true
+    $lblOutputFormat.Anchor = [System.Windows.Forms.AnchorStyles]::Left
+
+    $flowExportOptions = New-Object System.Windows.Forms.FlowLayoutPanel
+    $flowExportOptions.Dock = "Fill"
+    $flowExportOptions.AutoSize = $true
+    $flowExportOptions.WrapContents = $false
+    $flowExportOptions.Margin = New-Object System.Windows.Forms.Padding(0)
+
+    $cmbOutputFormat = New-Object System.Windows.Forms.ComboBox
+    $cmbOutputFormat.Size = New-Object System.Drawing.Size(220, 28)
+    $cmbOutputFormat.DropDownStyle = "DropDownList"
+    [void]$cmbOutputFormat.Items.Add("csv")
+    [void]$cmbOutputFormat.Items.Add("json")
+    [void]$cmbOutputFormat.Items.Add("xlsx")
+
+    $chkOutputBom = New-Object System.Windows.Forms.CheckBox
+    $chkOutputBom.AutoSize = $true
+    $chkOutputBom.Margin = New-Object System.Windows.Forms.Padding(12, 6, 0, 0)
+
+    [void]$flowExportOptions.Controls.Add($cmbOutputFormat)
+    [void]$flowExportOptions.Controls.Add($chkOutputBom)
+    [void]$layoutExportOptions.Controls.Add($lblOutputFormat, 0, 0)
+    [void]$layoutExportOptions.Controls.Add($flowExportOptions, 1, 0)
+
+    $layoutExportActions = New-Object System.Windows.Forms.TableLayoutPanel
+    $layoutExportActions.Dock = "Top"
+    $layoutExportActions.AutoSize = $true
+    $layoutExportActions.AutoSizeMode = "GrowAndShrink"
+    $layoutExportActions.ColumnCount = 1
+    [void]$layoutExportActions.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+
+    $btnExecute = New-Object System.Windows.Forms.Button
+    $btnExecute.Dock = "Top"
+    $btnExecute.Size = New-Object System.Drawing.Size(180, 42)
+    $btnExecute.Margin = New-Object System.Windows.Forms.Padding(0, 0, 0, 8)
+
+    $btnOpenFolder = New-Object System.Windows.Forms.Button
+    $btnOpenFolder.Dock = "Top"
+    $btnOpenFolder.Size = New-Object System.Drawing.Size(180, 42)
+
+    [void]$layoutExportActions.Controls.Add($btnExecute, 0, 0)
+    [void]$layoutExportActions.Controls.Add($btnOpenFolder, 0, 1)
+
+    [void]$layoutExportRoot.Controls.Add($lblExportInputSection, 0, 0)
+    $layoutExportRoot.SetColumnSpan($lblExportInputSection, 2)
+    [void]$layoutExportRoot.Controls.Add($layoutExportInput, 0, 1)
+    $layoutExportRoot.SetColumnSpan($layoutExportInput, 2)
+    [void]$layoutExportRoot.Controls.Add($lblExportOptionSection, 0, 2)
+    [void]$layoutExportRoot.Controls.Add($lblExportExecuteSection, 1, 2)
+    [void]$layoutExportRoot.Controls.Add($layoutExportOptions, 0, 3)
+    [void]$layoutExportRoot.Controls.Add($layoutExportActions, 1, 3)
+
+    return @{
+      panelExport = $panelExport
+      lblExportInputSection = $lblExportInputSection
+      lblExportOptionSection = $lblExportOptionSection
+      lblExportExecuteSection = $lblExportExecuteSection
+      lblTable = $lblTable
+      cmbTable = $cmbTable
+      btnReloadTables = $btnReloadTables
+      lblFilter = $lblFilter
+      rbAll = $rbAll
+      rbBetween = $rbBetween
+      lblStart = $lblStart
+      dtStart = $dtStart
+      dtEnd = $dtEnd
+      btnLast30Days = $btnLast30Days
+      lblDir = $lblDir
+      txtDir = $txtDir
+      btnBrowse = $btnBrowse
+      lblExportMaxRows = $lblExportMaxRows
+      numExportMaxRows = $numExportMaxRows
+      lblExportMaxRowsHint = $lblExportMaxRowsHint
+      lblOutputFormat = $lblOutputFormat
+      cmbOutputFormat = $cmbOutputFormat
+      chkOutputBom = $chkOutputBom
+      btnExecute = $btnExecute
+      btnOpenFolder = $btnOpenFolder
+    }
+  }
+
   # --- Export tab layout
-  $panelExport = New-Object System.Windows.Forms.Panel
-  $panelExport.Dock = "Fill"
-  $panelExport.AutoScroll = $true
-  $tabExport.Controls.Add($panelExport)
-
-  $layoutExportRoot = New-Object System.Windows.Forms.TableLayoutPanel
-  $layoutExportRoot.Dock = "Top"
-  $layoutExportRoot.AutoSize = $true
-  $layoutExportRoot.AutoSizeMode = "GrowAndShrink"
-  $layoutExportRoot.Padding = New-Object System.Windows.Forms.Padding(16, 8, 16, 16)
-  $layoutExportRoot.ColumnCount = 2
-  [void]$layoutExportRoot.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
-  [void]$layoutExportRoot.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 220)))
-  $panelExport.Controls.Add($layoutExportRoot)
-
-  $lblExportInputSection = New-UiSectionTitle ""
-  $lblExportOptionSection = New-UiSectionTitle ""
-  $lblExportExecuteSection = New-UiSectionTitle ""
-
-  $layoutExportInput = New-Object System.Windows.Forms.TableLayoutPanel
-  $layoutExportInput.Dock = "Top"
-  $layoutExportInput.AutoSize = $true
-  $layoutExportInput.AutoSizeMode = "GrowAndShrink"
-  $layoutExportInput.Margin = New-Object System.Windows.Forms.Padding(0, 0, 0, 12)
-  $layoutExportInput.ColumnCount = 3
-  [void]$layoutExportInput.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 140)))
-  [void]$layoutExportInput.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
-  [void]$layoutExportInput.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 180)))
-
-  $lblTable = New-Object System.Windows.Forms.Label
-  $lblTable.AutoSize = $true
-  $lblTable.Anchor = [System.Windows.Forms.AnchorStyles]::Left
-
-  $cmbTable = New-Object System.Windows.Forms.ComboBox
-  $cmbTable.Dock = "Fill"
-  $cmbTable.DropDownStyle = "DropDown"
-
-  $btnReloadTables = New-Object System.Windows.Forms.Button
-  $btnReloadTables.Dock = "Fill"
-  $btnReloadTables.Size = New-Object System.Drawing.Size(180, 32)
-
-  $lblFilter = New-Object System.Windows.Forms.Label
-  $lblFilter.AutoSize = $true
-  $lblFilter.Anchor = [System.Windows.Forms.AnchorStyles]::Left
-
-  $flowExportFilter = New-Object System.Windows.Forms.FlowLayoutPanel
-  $flowExportFilter.Dock = "Fill"
-  $flowExportFilter.AutoSize = $true
-  $flowExportFilter.WrapContents = $false
-  $flowExportFilter.Margin = New-Object System.Windows.Forms.Padding(0)
-
-  $rbAll = New-Object System.Windows.Forms.RadioButton
-  $rbAll.AutoSize = $true
-  $rbAll.Margin = New-Object System.Windows.Forms.Padding(0, 4, 16, 0)
-
-  $rbBetween = New-Object System.Windows.Forms.RadioButton
-  $rbBetween.AutoSize = $true
-  $rbBetween.Margin = New-Object System.Windows.Forms.Padding(0, 4, 0, 0)
-
-  [void]$flowExportFilter.Controls.Add($rbAll)
-  [void]$flowExportFilter.Controls.Add($rbBetween)
-
-  $lblStart = New-Object System.Windows.Forms.Label
-  $lblStart.AutoSize = $true
-  $lblStart.Anchor = [System.Windows.Forms.AnchorStyles]::Left
-
-  $layoutExportRange = New-Object System.Windows.Forms.TableLayoutPanel
-  $layoutExportRange.Dock = "Fill"
-  $layoutExportRange.AutoSize = $true
-  $layoutExportRange.AutoSizeMode = "GrowAndShrink"
-  $layoutExportRange.Margin = New-Object System.Windows.Forms.Padding(0)
-  $layoutExportRange.ColumnCount = 3
-  [void]$layoutExportRange.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 50)))
-  [void]$layoutExportRange.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 32)))
-  [void]$layoutExportRange.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 50)))
-
-  $dtStart = New-Object System.Windows.Forms.DateTimePicker
-  $dtStart.Dock = "Fill"
-  $dtStart.Format = "Custom"
-  $dtStart.CustomFormat = "yyyy-MM-dd HH:mm:ss"
-  $dtStart.ShowUpDown = $true
-
-  $lblEnd = New-Object System.Windows.Forms.Label
-  $lblEnd.AutoSize = $true
-  $lblEnd.Anchor = [System.Windows.Forms.AnchorStyles]::Left
-
-  $dtEnd = New-Object System.Windows.Forms.DateTimePicker
-  $dtEnd.Dock = "Fill"
-  $dtEnd.Format = "Custom"
-  $dtEnd.CustomFormat = "yyyy-MM-dd HH:mm:ss"
-  $dtEnd.ShowUpDown = $true
-
-  $btnLast30Days = New-Object System.Windows.Forms.Button
-  $btnLast30Days.Dock = "Fill"
-  $btnLast30Days.Size = New-Object System.Drawing.Size(180, 32)
-
-  [void]$layoutExportRange.Controls.Add($dtStart, 0, 0)
-  [void]$layoutExportRange.Controls.Add($lblEnd, 1, 0)
-  [void]$layoutExportRange.Controls.Add($dtEnd, 2, 0)
-
-  $lblDir = New-Object System.Windows.Forms.Label
-  $lblDir.AutoSize = $true
-  $lblDir.Anchor = [System.Windows.Forms.AnchorStyles]::Left
-
-  $txtDir = New-Object System.Windows.Forms.TextBox
-  $txtDir.Dock = "Fill"
-
-  $btnBrowse = New-Object System.Windows.Forms.Button
-  $btnBrowse.Dock = "Fill"
-  $btnBrowse.Size = New-Object System.Drawing.Size(180, 32)
-
-  $lblExportMaxRows = New-Object System.Windows.Forms.Label
-  $lblExportMaxRows.AutoSize = $true
-  $lblExportMaxRows.Anchor = [System.Windows.Forms.AnchorStyles]::Left
-
-  $layoutExportMaxRows = New-Object System.Windows.Forms.TableLayoutPanel
-  $layoutExportMaxRows.Dock = "Fill"
-  $layoutExportMaxRows.AutoSize = $true
-  $layoutExportMaxRows.AutoSizeMode = "GrowAndShrink"
-  $layoutExportMaxRows.Margin = New-Object System.Windows.Forms.Padding(0)
-  $layoutExportMaxRows.ColumnCount = 2
-  [void]$layoutExportMaxRows.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 170)))
-  [void]$layoutExportMaxRows.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
-
-  $numExportMaxRows = New-Object System.Windows.Forms.NumericUpDown
-  $numExportMaxRows.Dock = "Fill"
-  $numExportMaxRows.Minimum = 1
-  $numExportMaxRows.Maximum = 1000000
-  $numExportMaxRows.Value = 10000
-
-  $lblExportMaxRowsHint = New-MutedLabel
-  $lblExportMaxRowsHint.AutoSize = $true
-  $lblExportMaxRowsHint.MaximumSize = New-Object System.Drawing.Size(0, 0)
-  $lblExportMaxRowsHint.Margin = New-Object System.Windows.Forms.Padding(12, 4, 0, 0)
-
-  [void]$layoutExportMaxRows.Controls.Add($numExportMaxRows, 0, 0)
-  [void]$layoutExportMaxRows.Controls.Add($lblExportMaxRowsHint, 1, 0)
-
-  [void]$layoutExportInput.Controls.Add($lblTable, 0, 0)
-  [void]$layoutExportInput.Controls.Add($cmbTable, 1, 0)
-  [void]$layoutExportInput.Controls.Add($btnReloadTables, 2, 0)
-  [void]$layoutExportInput.Controls.Add($lblFilter, 0, 1)
-  [void]$layoutExportInput.Controls.Add($flowExportFilter, 1, 1)
-  [void]$layoutExportInput.Controls.Add($lblStart, 0, 2)
-  [void]$layoutExportInput.Controls.Add($layoutExportRange, 1, 2)
-  [void]$layoutExportInput.Controls.Add($btnLast30Days, 2, 2)
-  [void]$layoutExportInput.Controls.Add($lblDir, 0, 3)
-  [void]$layoutExportInput.Controls.Add($txtDir, 1, 3)
-  [void]$layoutExportInput.Controls.Add($btnBrowse, 2, 3)
-  [void]$layoutExportInput.Controls.Add($lblExportMaxRows, 0, 4)
-  [void]$layoutExportInput.Controls.Add($layoutExportMaxRows, 1, 4)
-  $layoutExportInput.SetColumnSpan($layoutExportMaxRows, 2)
-
-  $layoutExportOptions = New-Object System.Windows.Forms.TableLayoutPanel
-  $layoutExportOptions.Dock = "Top"
-  $layoutExportOptions.AutoSize = $true
-  $layoutExportOptions.AutoSizeMode = "GrowAndShrink"
-  $layoutExportOptions.Margin = New-Object System.Windows.Forms.Padding(0, 0, 0, 12)
-  $layoutExportOptions.ColumnCount = 2
-  [void]$layoutExportOptions.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 140)))
-  [void]$layoutExportOptions.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
-
-  $lblOutputFormat = New-Object System.Windows.Forms.Label
-  $lblOutputFormat.AutoSize = $true
-  $lblOutputFormat.Anchor = [System.Windows.Forms.AnchorStyles]::Left
-
-  $flowExportOptions = New-Object System.Windows.Forms.FlowLayoutPanel
-  $flowExportOptions.Dock = "Fill"
-  $flowExportOptions.AutoSize = $true
-  $flowExportOptions.WrapContents = $false
-  $flowExportOptions.Margin = New-Object System.Windows.Forms.Padding(0)
-
-  $cmbOutputFormat = New-Object System.Windows.Forms.ComboBox
-  $cmbOutputFormat.Size = New-Object System.Drawing.Size(220, 28)
-  $cmbOutputFormat.DropDownStyle = "DropDownList"
-  [void]$cmbOutputFormat.Items.Add("csv")
-  [void]$cmbOutputFormat.Items.Add("json")
-  [void]$cmbOutputFormat.Items.Add("xlsx")
-
-  $chkOutputBom = New-Object System.Windows.Forms.CheckBox
-  $chkOutputBom.AutoSize = $true
-  $chkOutputBom.Margin = New-Object System.Windows.Forms.Padding(12, 6, 0, 0)
-
-  [void]$flowExportOptions.Controls.Add($cmbOutputFormat)
-  [void]$flowExportOptions.Controls.Add($chkOutputBom)
-  [void]$layoutExportOptions.Controls.Add($lblOutputFormat, 0, 0)
-  [void]$layoutExportOptions.Controls.Add($flowExportOptions, 1, 0)
-
-  $layoutExportActions = New-Object System.Windows.Forms.TableLayoutPanel
-  $layoutExportActions.Dock = "Top"
-  $layoutExportActions.AutoSize = $true
-  $layoutExportActions.AutoSizeMode = "GrowAndShrink"
-  $layoutExportActions.ColumnCount = 1
-  [void]$layoutExportActions.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
-
-  $btnExecute = New-Object System.Windows.Forms.Button
-  $btnExecute.Dock = "Top"
-  $btnExecute.Size = New-Object System.Drawing.Size(180, 42)
-  $btnExecute.Margin = New-Object System.Windows.Forms.Padding(0, 0, 0, 8)
-
-  $btnOpenFolder = New-Object System.Windows.Forms.Button
-  $btnOpenFolder.Dock = "Top"
-  $btnOpenFolder.Size = New-Object System.Drawing.Size(180, 42)
-
-  [void]$layoutExportActions.Controls.Add($btnExecute, 0, 0)
-  [void]$layoutExportActions.Controls.Add($btnOpenFolder, 0, 1)
-
-  [void]$layoutExportRoot.Controls.Add($lblExportInputSection, 0, 0)
-  $layoutExportRoot.SetColumnSpan($lblExportInputSection, 2)
-  [void]$layoutExportRoot.Controls.Add($layoutExportInput, 0, 1)
-  $layoutExportRoot.SetColumnSpan($layoutExportInput, 2)
-  [void]$layoutExportRoot.Controls.Add($lblExportOptionSection, 0, 2)
-  [void]$layoutExportRoot.Controls.Add($lblExportExecuteSection, 1, 2)
-  [void]$layoutExportRoot.Controls.Add($layoutExportOptions, 0, 3)
-  [void]$layoutExportRoot.Controls.Add($layoutExportActions, 1, 3)
+  $exportTabControls = Build-ExportTab -TabPage $tabExport
+  foreach ($entry in $exportTabControls.GetEnumerator()) {
+    Set-Variable -Name $entry.Key -Value $entry.Value
+  }
 
 
   # --- Attachment Harvester tab layout
