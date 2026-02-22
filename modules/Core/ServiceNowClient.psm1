@@ -41,6 +41,23 @@ function ConvertTo-BasicAuthHeaderValue {
   return ("Basic {0}" -f [System.Convert]::ToBase64String($bytes))
 }
 
+function New-SnowCredential {
+  param(
+    [Parameter(Mandatory=$true)]$Settings,
+    [Parameter(Mandatory=$true)][scriptblock]$UnprotectSecret,
+    [Parameter(Mandatory=$true)][scriptblock]$GetText
+  )
+
+  $user = ([string]$Settings.userId).Trim()
+  $pass = & $UnprotectSecret ([string]$Settings.passwordEnc)
+  if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($pass)) {
+    throw (& $GetText "WarnAuth")
+  }
+
+  $sec = ConvertTo-SecureString -String $pass -AsPlainText -Force
+  return New-Object System.Management.Automation.PSCredential($user, $sec)
+}
+
 function New-SnowHeaders {
   param(
     [Parameter(Mandatory=$true)]$Settings,
@@ -92,12 +109,17 @@ function Invoke-SnowRequest {
 
   $uri = $base + $Path
   $headers = New-SnowHeaders -Settings $Settings -UnprotectSecret $UnprotectSecret -GetText $GetText
+  $authType = ([string]$Settings.authType).Trim().ToLowerInvariant()
 
   $requestParams = @{
     Method = $Method
     Uri = $uri
     Headers = $headers
     TimeoutSec = $TimeoutSec
+  }
+
+  if ($authType -eq 'userpass') {
+    $requestParams.Credential = (New-SnowCredential -Settings $Settings -UnprotectSecret $UnprotectSecret -GetText $GetText)
   }
 
   if ($PSBoundParameters.ContainsKey('Body') -and $null -ne $Body) {
@@ -171,4 +193,4 @@ function Invoke-SnowBatchDelete {
   return @{ deletedCount = $ok; failedIds = @($failedIds) }
 }
 
-Export-ModuleMember -Function UrlEncode, Get-BaseUrl, ConvertTo-BasicAuthHeaderValue, New-SnowHeaders, Invoke-SnowRequest, Invoke-SnowBatchDelete
+Export-ModuleMember -Function UrlEncode, Get-BaseUrl, ConvertTo-BasicAuthHeaderValue, New-SnowCredential, New-SnowHeaders, Invoke-SnowRequest, Invoke-SnowBatchDelete
