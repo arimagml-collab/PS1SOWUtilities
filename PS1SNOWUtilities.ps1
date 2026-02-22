@@ -1466,15 +1466,13 @@ try {
   $numDeleteMaxRetries.Maximum = 999
   $numDeleteMaxRetries.Value = 99
 
-  $lblDeleteDangerHint = New-Object System.Windows.Forms.Label
+  $lblDeleteDangerHint = New-MutedLabel
   $lblDeleteDangerHint.Location = New-Object System.Drawing.Point(20, 105)
   $lblDeleteDangerHint.Size = New-Object System.Drawing.Size(900, 24)
-  $lblDeleteDangerHint.ForeColor = [System.Drawing.Color]::FromArgb(180,30,30)
 
-  $lblDeleteUsageHint = New-Object System.Windows.Forms.Label
+  $lblDeleteUsageHint = New-MutedLabel
   $lblDeleteUsageHint.Location = New-Object System.Drawing.Point(20, 130)
   $lblDeleteUsageHint.Size = New-Object System.Drawing.Size(900, 40)
-  $lblDeleteUsageHint.ForeColor = [System.Drawing.Color]::FromArgb(140,70,30)
 
   $lblDeleteAllowedInstances = New-Object System.Windows.Forms.Label
   $lblDeleteAllowedInstances.Location = New-Object System.Drawing.Point(20, 175)
@@ -1485,10 +1483,9 @@ try {
   $txtDeleteAllowedInstances.Size = New-Object System.Drawing.Size(700, 28)
   $txtDeleteAllowedInstances.ReadOnly = $true
 
-  $lblDeleteAllowedInstancesHint = New-Object System.Windows.Forms.Label
+  $lblDeleteAllowedInstancesHint = New-MutedLabel
   $lblDeleteAllowedInstancesHint.Location = New-Object System.Drawing.Point(20, 230)
   $lblDeleteAllowedInstancesHint.Size = New-Object System.Drawing.Size(900, 32)
-  $lblDeleteAllowedInstancesHint.ForeColor = [System.Drawing.Color]::FromArgb(110,70,70)
 
   $lblDeleteProgress = New-Object System.Windows.Forms.Label
   $lblDeleteProgress.Location = New-Object System.Drawing.Point(20, 278)
