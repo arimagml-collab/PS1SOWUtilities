@@ -42,6 +42,15 @@ PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）�
    - APIキー認証時の認証パラメータは `x-sn-apikey` ヘッダー（値: APIキー）です。
 3. 入力内容はアプリ初回実行後に生成される `settings.json` に自動保存されます（リポジトリには含めていません）。
 
+##### APIキーの設定方法（ServiceNow 側を含む）
+
+1. **ServiceNow 側で API キーを発行**します。`System Web Services > API Access Policies`（または運用中インスタンスの API キー管理画面）で、利用ユーザーに対して API キーを作成してください。
+2. 生成した API キー文字列を控え、必要に応じてアクセス対象（テーブル API / 添付 API など）に対する権限を持つロールを該当ユーザーへ付与します。
+3. 本ツールの **設定** タブで認証方式を **APIキー** に変更し、ヘッダー名 `x-sn-apikey`、値に発行済み API キーを設定します。
+4. 接続確認として、まず **Export** で小さなテーブル（例: `sys_user` の少量条件）を実行し、401/403 が出ないことを確認します。
+
+> ⚠️ API キーはパスワード同等の秘密情報です。`settings.json` を共有リポジトリやチャットへ貼り付けないでください。必要に応じて ServiceNow 側でキーのローテーション（再発行）を実施してください。
+
 ##### 独自ドメイン運用時の設定（`instance-name.service-now.com` 以外）
 
 `settings.json` に `instanceDomain` を追加すると、API 接続先 URL を明示指定できます。
@@ -183,6 +192,15 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
    - UI language if needed
    - For API Key authentication, set the auth parameter as `x-sn-apikey` header (value: API key).
 3. Inputs are auto-saved to `settings.json` generated after first run (the file is not tracked in this repository).
+
+##### API key setup (including ServiceNow-side configuration)
+
+1. **Generate an API key in ServiceNow** from `System Web Services > API Access Policies` (or your instance's API key management UI) for the target integration user.
+2. Copy the generated key and make sure the user has the required roles for the intended APIs (table API, attachment API, etc.).
+3. In this tool's **Settings** tab, switch authentication to **API Key** and set header name `x-sn-apikey` with the issued key as its value.
+4. Validate connectivity by running a small **Export** first (for example, a narrow query on `sys_user`) and confirm there is no 401/403 error.
+
+> ⚠️ Treat API keys as secrets equivalent to passwords. Do not share `settings.json` in repositories or chat. Rotate/reissue keys from ServiceNow when needed.
 
 ##### Custom domain setup (when not using `instance-name.service-now.com`)
 
