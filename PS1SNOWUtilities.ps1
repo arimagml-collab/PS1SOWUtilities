@@ -239,7 +239,7 @@ try {
     if ([string]::IsNullOrWhiteSpace($base)) { throw (T "WarnInstance") }
     $uri = "{0}/api/now/attachment/{1}/file" -f $base, $attachmentSysId
 
-    if (([string]$script:Settings.authType).Trim().ToLowerInvariant() -eq "userpass") {
+    if ((Resolve-CoreSnowAuthType -AuthType $script:Settings.authType) -eq "userpass") {
       $user = ([string]$script:Settings.userId).Trim()
       $pass = Unprotect-Secret ([string]$script:Settings.passwordEnc)
       if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($pass)) { throw (T "WarnAuth") }
@@ -2331,7 +2331,7 @@ try {
   $cmbAttachmentDateField.SelectedItem = $initialAttachmentDateField
   $chkAttachmentSubfolder.Checked = [bool]$script:Settings.attachmentCreateSubfolderPerTable
 
-  if (([string]$script:Settings.authType).Trim().ToLowerInvariant() -eq "apikey") { $rbApiKey.Checked = $true } else { $rbUserPass.Checked = $true }
+  if ((Resolve-CoreSnowAuthType -AuthType $script:Settings.authType) -eq "apikey") { $rbApiKey.Checked = $true } else { $rbUserPass.Checked = $true }
 
   $txtPass.Text = Unprotect-Secret ([string]$script:Settings.passwordEnc)
   $txtKey.Text  = Unprotect-Secret ([string]$script:Settings.apiKeyEnc)
