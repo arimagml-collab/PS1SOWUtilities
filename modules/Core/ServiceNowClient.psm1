@@ -44,7 +44,7 @@ function New-SnowHeaders {
   if ($Settings.authType -eq "apikey") {
     $key = & $UnprotectSecret ([string]$Settings.apiKeyEnc)
     if (-not [string]::IsNullOrWhiteSpace($key)) {
-      $headers["Authorization"] = "Bearer $key"
+      $headers["x-sn-apikey"] = $key
     }
   }
 
