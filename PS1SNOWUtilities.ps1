@@ -489,6 +489,7 @@ try {
     $lbl = New-Object System.Windows.Forms.Label
     $lbl.Text = $text
     $lbl.AutoSize = $true
+    $lbl.Tag = 'role-section-title'
     $lbl.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
     $lbl.Margin = New-Object System.Windows.Forms.Padding(0,0,0,8)
     return $lbl
@@ -548,7 +549,11 @@ try {
   function Apply-ThemeRecursive([System.Windows.Forms.Control]$control) {
     if ($null -eq $control) { return }
     $palette = $script:ThemePalette
-    $control.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    if ($control.Tag -eq 'role-section-title') {
+      $control.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+    } else {
+      $control.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    }
 
     if ($control -is [System.Windows.Forms.Form]) {
       $control.BackColor = $palette.Back
