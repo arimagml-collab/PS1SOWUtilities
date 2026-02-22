@@ -266,7 +266,7 @@ try {
     try {
       $logDir = Ensure-LogDir ([string]$script:Settings.logOutputDirectory)
       $script:Settings.logOutputDirectory = $logDir
-      $logPath = Join-Path $logDir ((Get-Date).ToString('yyyyMMdd') + '.log')
+      $logPath = Join-Path $logDir ("log_ps1snowutil_{0}.log" -f (Get-Date).ToString('yyyyMMdd'))
       [System.IO.File]::AppendAllText($logPath, $line + [Environment]::NewLine, (New-Object System.Text.UTF8Encoding($false)))
     } catch {
       # ignore file log failure
