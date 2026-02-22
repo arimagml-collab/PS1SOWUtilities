@@ -41,6 +41,14 @@ function ConvertTo-BasicAuthHeaderValue {
   return ("Basic {0}" -f [System.Convert]::ToBase64String($bytes))
 }
 
+function Resolve-SnowAuthType {
+  param($AuthType)
+
+  $normalized = ([string]$AuthType).Trim().ToLowerInvariant()
+  if ($normalized -eq 'idpw') { return 'userpass' }
+  return $normalized
+}
+
 function New-SnowCredential {
   param(
     [Parameter(Mandatory=$true)]$Settings,
@@ -70,7 +78,7 @@ function New-SnowHeaders {
     "Content-Type" = "application/json; charset=utf-8"
   }
 
-  $authType = ([string]$Settings.authType).Trim().ToLowerInvariant()
+  $authType = Resolve-SnowAuthType -AuthType $Settings.authType
   if ($authType -eq "userpass") {
     $user = ([string]$Settings.userId).Trim()
     $pass = & $UnprotectSecret ([string]$Settings.passwordEnc)
@@ -109,17 +117,13 @@ function Invoke-SnowRequest {
 
   $uri = $base + $Path
   $headers = New-SnowHeaders -Settings $Settings -UnprotectSecret $UnprotectSecret -GetText $GetText
-  $authType = ([string]$Settings.authType).Trim().ToLowerInvariant()
+  $authType = Resolve-SnowAuthType -AuthType $Settings.authType
 
   $requestParams = @{
     Method = $Method
     Uri = $uri
     Headers = $headers
     TimeoutSec = $TimeoutSec
-  }
-
-  if ($authType -eq 'userpass') {
-    $requestParams.Credential = (New-SnowCredential -Settings $Settings -UnprotectSecret $UnprotectSecret -GetText $GetText)
   }
 
   if ($PSBoundParameters.ContainsKey('Body') -and $null -ne $Body) {
@@ -193,4 +197,4 @@ function Invoke-SnowBatchDelete {
   return @{ deletedCount = $ok; failedIds = @($failedIds) }
 }
 
-Export-ModuleMember -Function UrlEncode, Get-BaseUrl, ConvertTo-BasicAuthHeaderValue, New-SnowCredential, New-SnowHeaders, Invoke-SnowRequest, Invoke-SnowBatchDelete
+Export-ModuleMember -Function UrlEncode, Get-BaseUrl, ConvertTo-BasicAuthHeaderValue, Resolve-SnowAuthType, New-SnowCredential, New-SnowHeaders, Invoke-SnowRequest, Invoke-SnowBatchDelete

@@ -17,6 +17,7 @@ function Validate-ExportInput {
   }
 
   $authType = ([string]$Settings.authType).Trim().ToLowerInvariant()
+  if ($authType -eq "idpw") { $authType = "userpass" }
   if ($authType -eq "userpass") {
     $user = [string]$Settings.userId
     $pass = & $UnprotectSecret ([string]$Settings.passwordEnc)
