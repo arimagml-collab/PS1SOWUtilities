@@ -574,15 +574,15 @@ try {
 
   $lblExportMaxRowsHint = New-Object System.Windows.Forms.Label
   $lblExportMaxRowsHint.Location = New-Object System.Drawing.Point(340, 194)
-  $lblExportMaxRowsHint.Size = New-Object System.Drawing.Size(580, 40)
+  $lblExportMaxRowsHint.Size = New-Object System.Drawing.Size(580, 72)
   $lblExportMaxRowsHint.ForeColor = [System.Drawing.Color]::FromArgb(90,90,90)
 
   $lblOutputFormat = New-Object System.Windows.Forms.Label
-  $lblOutputFormat.Location = New-Object System.Drawing.Point(20, 248)
+  $lblOutputFormat.Location = New-Object System.Drawing.Point(20, 282)
   $lblOutputFormat.AutoSize = $true
 
   $cmbOutputFormat = New-Object System.Windows.Forms.ComboBox
-  $cmbOutputFormat.Location = New-Object System.Drawing.Point(160, 244)
+  $cmbOutputFormat.Location = New-Object System.Drawing.Point(160, 278)
   $cmbOutputFormat.Size = New-Object System.Drawing.Size(220, 28)
   $cmbOutputFormat.DropDownStyle = "DropDownList"
   [void]$cmbOutputFormat.Items.Add("csv")
@@ -590,15 +590,15 @@ try {
   [void]$cmbOutputFormat.Items.Add("xlsx")
 
   $chkOutputBom = New-Object System.Windows.Forms.CheckBox
-  $chkOutputBom.Location = New-Object System.Drawing.Point(390, 246)
+  $chkOutputBom.Location = New-Object System.Drawing.Point(390, 280)
   $chkOutputBom.AutoSize = $true
 
   $btnExecute = New-Object System.Windows.Forms.Button
-  $btnExecute.Location = New-Object System.Drawing.Point(740, 236)
+  $btnExecute.Location = New-Object System.Drawing.Point(740, 270)
   $btnExecute.Size = New-Object System.Drawing.Size(180, 42)
 
   $btnOpenFolder = New-Object System.Windows.Forms.Button
-  $btnOpenFolder.Location = New-Object System.Drawing.Point(740, 284)
+  $btnOpenFolder.Location = New-Object System.Drawing.Point(740, 318)
   $btnOpenFolder.Size = New-Object System.Drawing.Size(180, 42)
 
   $panelExport.Controls.AddRange(@(
