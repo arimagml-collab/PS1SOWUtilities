@@ -2371,7 +2371,7 @@ try {
       $loadedJoinDefs = @(Normalize-JoinDefinitionsForLoad ($joinsText | ConvertFrom-Json))
       foreach ($j in $loadedJoinDefs) {
         if ($null -eq $j) { continue }
-        $rowIndex = $gridJoins.Rows.Add()
+        $rowIndex = $gridJoins.Rows.Add($null, "__base__", $null, $null, $null, $false)
         if ($rowIndex -lt 0) { continue }
         $gridJoins.Rows[$rowIndex].Cells[0].Value = Convert-DisplayTokenToName ([string]$j.joinTable)
         Populate-JoinColumnsForRow $rowIndex
@@ -2595,7 +2595,7 @@ try {
   $btnReloadColumns.add_Click({ Fetch-ColumnsForBaseTable })
 
   $btnAddJoin.add_Click({
-    $rowIndex = $gridJoins.Rows.Add()
+    $rowIndex = $gridJoins.Rows.Add($null, "__base__", $null, $null, $null, $false)
     if ($rowIndex -ge 0) {
       Populate-JoinColumnsForRow $rowIndex
       $gridJoins.Rows[$rowIndex].Cells[1].Value = "__base__"
