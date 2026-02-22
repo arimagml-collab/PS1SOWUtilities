@@ -28,7 +28,7 @@ PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）�
 ### UIの特徴
 
 - Settings タブでテーマ（**Dark / Light**）を切り替えできます。
-- Logs タブで **検索 / コピー / クリア / 自動スクロールON-OFF** を操作できます。
+- Logs タブで **コピー / クリア** を操作できます（タブを開いたときに最下部へスクロール）。
 - Truncate の確認ダイアログで、対象・確認コード・インスタンスURL・最大再試行・不可逆操作の注意を確認できます。
 
 ### 前提条件
@@ -185,7 +185,7 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
 ### UI characteristics
 
 - Theme switching (**Dark / Light**) is available in the Settings tab.
-- **Search / Copy / Clear / Auto-scroll ON-OFF** controls are available in the Logs tab.
+- **Copy / Clear** controls are available in the Logs tab (the view scrolls to the bottom when opening the tab).
 - The Truncate confirmation dialog shows target table, verification code, instance URL, max retries, and irreversible-operation warning.
 
 ### Prerequisites
