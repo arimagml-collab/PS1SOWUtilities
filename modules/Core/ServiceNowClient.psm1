@@ -80,7 +80,7 @@ function Invoke-SnowRequest {
     $requestParams.Body = [System.Text.Encoding]::UTF8.GetBytes($jsonBody)
   }
 
-  if ($Settings.authType -eq "userpass") {
+  if ($Settings.authType -ne "apikey") {
     $user = ([string]$Settings.userId).Trim()
     $pass = & $UnprotectSecret ([string]$Settings.passwordEnc)
     if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($pass)) {
