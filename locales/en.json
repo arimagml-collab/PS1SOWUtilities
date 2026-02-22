@@ -117,5 +117,9 @@
   "LogCopied": "Copied logs to clipboard.",
   "UiTheme": "Theme",
   "DeleteStep1": "Step 1: Review target and risk",
-  "DeleteStep2": "Step 2: Verify allowed instance and confirmation code"
+  "DeleteStep2": "Step 2: Verify allowed instance and confirmation code",
+  "SectionInput": "Input",
+  "SectionOptions": "Options",
+  "SectionExecute": "Execute",
+  "SectionResult": "Results"
 }

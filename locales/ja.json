@@ -117,5 +117,9 @@
   "LogCopied": "ログをクリップボードにコピーしました。",
   "UiTheme": "テーマ",
   "DeleteStep1": "Step 1: 対象と危険性の確認",
-  "DeleteStep2": "Step 2: 許可インスタンスと確認コードの確認"
+  "DeleteStep2": "Step 2: 許可インスタンスと確認コードの確認",
+  "SectionInput": "入力",
+  "SectionOptions": "オプション",
+  "SectionExecute": "実行",
+  "SectionResult": "実行結果"
 }
