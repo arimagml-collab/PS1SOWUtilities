@@ -209,6 +209,9 @@ try {
       Settings = $script:Settings
       UnprotectSecret = ${function:Unprotect-Secret}
       GetText = ${function:T}
+      WriteLog = ${function:Add-Log}
+      Feature = 'ServiceNowApi'
+      Actor = ([string]$script:Settings.userId)
       TimeoutSec = $TimeoutSec
     }
     if ($PSBoundParameters.ContainsKey('Body')) { $params.Body = $Body }
@@ -285,9 +288,127 @@ try {
   # ----------------------------
   # UI helpers
   # ----------------------------
-  function Add-Log([string]$msg) {
+  function Get-LogActorContext {
+    $userId = ""
+    $instance = ""
+    $authType = ""
+
+    if ($script:Settings) {
+      try { $userId = ([string]$script:Settings.userId).Trim() } catch { $userId = "" }
+      try {
+        $instance = Get-BaseUrl
+        if ([string]::IsNullOrWhiteSpace($instance)) {
+          $instance = ([string]$script:Settings.instanceName).Trim()
+        }
+      } catch {
+        $instance = ""
+      }
+      try { $authType = Resolve-CoreSnowAuthType -AuthType $script:Settings.authType } catch { $authType = "" }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($userId)) { $userId = "anonymous" }
+    if ([string]::IsNullOrWhiteSpace($instance)) { $instance = "n/a" }
+    if ([string]::IsNullOrWhiteSpace($authType)) { $authType = "n/a" }
+
+    return [ordered]@{
+      actor = $userId
+      authType = $authType
+      instance = $instance
+    }
+  }
+
+  function ConvertTo-SafeLogObject {
+    param([AllowNull()]$InputObject)
+
+    if ($null -eq $InputObject) { return $null }
+
+    if ($InputObject -is [string] -or $InputObject.GetType().IsPrimitive -or $InputObject -is [decimal] -or $InputObject -is [datetime] -or $InputObject -is [guid]) {
+      return $InputObject
+    }
+
+    if ($InputObject -is [System.Collections.IDictionary]) {
+      $result = [ordered]@{}
+      foreach ($key in $InputObject.Keys) {
+        $name = [string]$key
+        $value = $InputObject[$key]
+        if ($name -match '(?i)(pass(word)?|api[_-]?key|token|secret|authorization|credential)') {
+          $result[$name] = '***REDACTED***'
+        } else {
+          $result[$name] = ConvertTo-SafeLogObject -InputObject $value
+        }
+      }
+      return $result
+    }
+
+    if ($InputObject -is [System.Collections.IEnumerable] -and -not ($InputObject -is [string])) {
+      $items = New-Object System.Collections.Generic.List[object]
+      foreach ($item in $InputObject) {
+        $items.Add((ConvertTo-SafeLogObject -InputObject $item)) | Out-Null
+      }
+      return @($items)
+    }
+
+    $props = $InputObject.PSObject.Properties
+    if ($props -and $props.Count -gt 0) {
+      $result = [ordered]@{}
+      foreach ($prop in $props) {
+        $name = [string]$prop.Name
+        if ($name -match '(?i)(pass(word)?|api[_-]?key|token|secret|authorization|credential)') {
+          $result[$name] = '***REDACTED***'
+        } else {
+          $result[$name] = ConvertTo-SafeLogObject -InputObject $prop.Value
+        }
+      }
+      return $result
+    }
+
+    return [string]$InputObject
+  }
+
+  function ConvertTo-LogCompactJson {
+    param([AllowNull()]$InputObject)
+    if ($null -eq $InputObject) { return '' }
+    $safeObj = ConvertTo-SafeLogObject -InputObject $InputObject
+    try {
+      return ($safeObj | ConvertTo-Json -Depth 8 -Compress)
+    } catch {
+      return [string]$safeObj
+    }
+  }
+
+  function Add-Log {
+    param(
+      [Parameter(Mandatory=$true)][string]$Message,
+      [ValidateSet('Info','Error')][string]$Level = 'Info',
+      [string]$Feature = 'General',
+      [string]$Action = 'None',
+      [AllowNull()]$Details
+    )
+
+    $msg = $Message
+    if ([string]::IsNullOrWhiteSpace($msg)) { return }
+
+    if ($PSBoundParameters.ContainsKey('Level') -eq $false -or [string]::IsNullOrWhiteSpace([string]$Level)) {
+      if ($msg -match '(?i)(failed|error|exception)') { $Level = 'Error' } else { $Level = 'Info' }
+    }
+
+    $actorContext = Get-LogActorContext
+    $detailText = ConvertTo-LogCompactJson -InputObject $Details
+    $parts = @(
+      ('[{0}]' -f $Level.ToUpperInvariant()),
+      ('[{0}/{1}]' -f $Feature, $Action),
+      $msg,
+      ('actor={0}' -f $actorContext.actor),
+      ('auth={0}' -f $actorContext.authType),
+      ('instance={0}' -f $actorContext.instance)
+    )
+    if (-not [string]::IsNullOrWhiteSpace($detailText)) {
+      $parts += ('details={0}' -f $detailText)
+    }
+    $formattedMessage = ($parts -join ' | ')
+
     $ts = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-    $line = "[$ts] $msg"
+    $line = "[$ts] $formattedMessage"
 
     try {
       $logDir = Ensure-LogDir ([string]$script:Settings.logOutputDirectory)
@@ -299,7 +420,7 @@ try {
     }
 
     if (-not $script:txtLog) { return }
-    Write-CoreUiLog -LogTextBox $script:txtLog -Message $msg
+    Write-CoreUiLog -LogTextBox $script:txtLog -Message $formattedMessage
   }
 
   function Scroll-LogsToBottom {
@@ -309,11 +430,11 @@ try {
   }
 
   function Add-AttachmentLog([string]$msg) {
-    Add-Log $msg
+    Add-Log -Message $msg -Feature 'AttachmentHarvester'
   }
 
   function Invoke-Async([string]$name, [scriptblock]$work, [scriptblock]$onCompleted, $state = $null) {
-    Add-Log ("Running task: {0}" -f $name)
+    Add-Log -Message ("Running task: {0}" -f $name) -Feature 'AsyncTask' -Action $name
     try {
       $result = & $work $state
       & $onCompleted $result
@@ -325,7 +446,7 @@ try {
       } else {
         [string]$_
       }
-      Add-Log ("{0}: {1}" -f (T "Failed"), $errorMessage)
+      Add-Log -Message ("{0}: {1}" -f (T "Failed"), $errorMessage) -Level Error -Feature 'AsyncTask' -Action $name
     }
   }
 
