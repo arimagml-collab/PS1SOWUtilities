@@ -20,17 +20,20 @@ function Validate-AttachmentHarvesterInput {
     return [pscustomobject]@{ IsValid = $false; Errors = @("Download directory is required.") }
   }
 
-  if ($Settings.authType -eq "userpass") {
+  $authType = ([string]$Settings.authType).Trim().ToLowerInvariant()
+  if ($authType -eq "userpass") {
     $user = [string]$Settings.userId
     $pass = & $UnprotectSecret ([string]$Settings.passwordEnc)
     if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($pass)) {
       return [pscustomobject]@{ IsValid = $false; Errors = @((& $GetText "WarnAuth")) }
     }
-  } else {
+  } elseif ($authType -eq "apikey") {
     $key = & $UnprotectSecret ([string]$Settings.apiKeyEnc)
     if ([string]::IsNullOrWhiteSpace($key)) {
       return [pscustomobject]@{ IsValid = $false; Errors = @((& $GetText "WarnAuth")) }
     }
+  } else {
+    return [pscustomobject]@{ IsValid = $false; Errors = @((& $GetText "WarnAuth")) }
   }
 
   return [pscustomobject]@{ IsValid = $true; Errors = @() }
