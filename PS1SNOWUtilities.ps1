@@ -1422,7 +1422,7 @@ try {
     $btnDeleteExecute
   ))
 
-  function Apply-Language {
+  function Apply-TabTitlesLanguage {
     $form.Text = T "AppTitle"
     if ($script:IsExportFeatureEnabled) { $tabExport.Text = T "TabExport" }
     if ($script:IsAttachmentHarvesterFeatureEnabled) { $tabAttachmentHarvester.Text = T "TabAttachmentHarvester" }
@@ -1430,7 +1430,9 @@ try {
     $tabLogs.Text = T "TabLogs"
     $tabSettings.Text = T "TabSettings"
     if ($script:IsDeleteFeatureEnabled) { $tabDelete.Text = T "TabDelete" }
+  }
 
+  function Apply-ExportTabLanguage {
     $lblTable.Text = T "TargetTable"
     $lblExportInputSection.Text = T "SectionInput"
     $lblExportOptionSection.Text = T "SectionOptions"
@@ -1451,13 +1453,17 @@ try {
     $chkOutputBom.Text = T "OutputBom"
     $btnOpenFolder.Text = T "OpenFolder"
     $uiToolTip.SetToolTip($lblExportMaxRowsHint, (T "ExportMaxRowsCsvHint"))
+  }
 
+  function Apply-LogsTabLanguage {
     $lblLogDir.Text = T "LogOutputDir"
     $lblLogsExecuteSection.Text = T "SectionResult"
     $btnLogBrowse.Text = T "Browse"
     $btnLogCopy.Text = T "LogCopy"
     $btnLogClear.Text = T "LogClear"
+  }
 
+  function Apply-AttachmentTabLanguage {
     $lblAttachmentTable.Text = T "TargetTable"
     $lblAttachmentInputSection.Text = T "SectionInput"
     $lblAttachmentExecuteSection.Text = T "SectionExecute"
@@ -1468,7 +1474,9 @@ try {
     $btnAttachmentBrowse.Text = T "Browse"
     $chkAttachmentSubfolder.Text = T "AttachmentCreateSubfolderPerTable"
     $btnAttachmentExecute.Text = T "Execute"
+  }
 
+  function Apply-DeleteTabLanguage {
     $lblDeleteTable.Text = T "DeleteTargetTable"
     $lblDeleteInputSection.Text = T "SectionInput"
     $lblDeleteExecuteSection.Text = T "SectionExecute"
@@ -1481,7 +1489,9 @@ try {
     $uiToolTip.SetToolTip($lblDeleteAllowedInstancesHint, (T "DeleteAllowedInstancesHint"))
     $lblDeleteProgress.Text = T "DeleteProgress"
     $btnDeleteExecute.Text = T "DeleteExecute"
+  }
 
+  function Apply-ViewEditorTabLanguage {
     $lblViewName.Text = T "ViewName"
     $lblViewInputSection.Text = T "SectionInput"
     $lblViewExecuteSection.Text = T "SectionExecute"
@@ -1506,7 +1516,9 @@ try {
     if ($lnkCreatedViewDefinition.Visible) {
       $lnkCreatedViewDefinition.Text = "{0}: {1}" -f (T "CreatedViewDefinitionLink"), [string]$lnkCreatedViewDefinition.Tag
     }
+  }
 
+  function Apply-SettingsTabLanguage {
     $lblUiLang.Text = T "UiLang"
     $lblTheme.Text = T "UiTheme"
     $lblInstance.Text = T "Instance"
@@ -1535,6 +1547,16 @@ try {
     $lnkCopyright.Links.Clear()
     [void]$lnkCopyright.Links.Add(0, $lnkCopyright.Text.Length, "https://www.ixam.net")
     Position-CopyrightLink
+  }
+
+  function Apply-Language {
+    Apply-TabTitlesLanguage
+    Apply-ExportTabLanguage
+    Apply-LogsTabLanguage
+    Apply-AttachmentTabLanguage
+    Apply-DeleteTabLanguage
+    Apply-ViewEditorTabLanguage
+    Apply-SettingsTabLanguage
   }
 
   $lnkCopyright.add_LinkClicked({
