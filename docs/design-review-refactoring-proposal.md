@@ -27,20 +27,17 @@
 
 ## P0（最優先）
 
-### A. Application 層の導入（画面イベントからユースケース分離）
-**目的**: 保守性・テスト容易性の改善。
+### A. Feature 層中心の責務明確化（Application 新設は行わない）
+**目的**: 現行構成を維持しつつ、保守性・テスト容易性を改善。
 
-- `modules/Application/` を新設し、以下のようなユースケース関数を集約する。
-  - `Invoke-ExportApplicationService`
-  - `Invoke-AttachmentHarvestApplicationService`
-  - `Invoke-CreateViewApplicationService`
-  - `Invoke-TruncateApplicationService`
-- WinForms のイベントハンドラは「入力収集 + Application 呼び出し + UI反映」のみに限定。
-- 既存 `modules/Features` は UI 部品のバリデーション寄りに整理するか、逆に Application へ寄せるかを決めて責務を固定。
+- `modules/Application/` などの新規レイヤーは追加しない。
+- ユースケース実装は既存 `modules/Features/*.psm1` に集約し、機能単位の責務を明文化する。
+- WinForms のイベントハンドラは「入力収集 + Feature 呼び出し + UI反映」のみに限定する。
+- **Feature ファイルを省いた場合に機能なしとして扱える現行仕様を維持**し、`Import-OptionalFeatureModule` 前提の配布柔軟性を崩さない。
 
 **期待効果**:
-- UI刷新（WPF化、将来CLI追加）時の再利用性向上。
-- 機能追加時の実装場所が明確化。
+- レイヤー新設による構成の分散を避け、既存運用との整合性を維持。
+- 機能追加時の実装場所を `Features` に統一し、追跡性を向上。
 
 ### B. 重複・散在処理の統合
 **目的**: バグ混入余地の低減。
@@ -101,8 +98,8 @@
 ## 目安となる実行計画（3スプリント想定）
 
 1. **Sprint 1**
-   - P0-A/B 実施（Application 層導入、重複解消）
-   - 既存動作のスモークテストを手順化
+   - P0-A/B 実施（Feature 層の責務明確化、重複解消）
+   - Feature の有無による起動・動作差分を含むスモークテストを手順化
 2. **Sprint 2**
    - P1-C/D 実施（設定モデル、APIクライアント強化）
    - 失敗系テスト（認証失敗、タイムアウト、429）を追加
@@ -114,13 +111,14 @@
 
 ## 最小実装サンプル方針（参考）
 
-- まず Export だけ Application 層へ移し、設計パターンを固定。
+- まず Export だけ `Features` 内で責務分離し、設計パターンを固定。
 - 以降は Attachment Harvester / View Editor / Truncate を同型で横展開。
 - 1機能ずつ段階移行し、Big Bang 変更を避ける。
+- 各段階で「対象 Feature ファイルを除外した際に機能が読み込まれない」ことを確認する。
 
 ---
 
 ## 補足
 
 - 本提案は現行の WinForms 採用を前提にした「段階的改善」案。
-- 将来的に UI 技術を変更する場合も、Application / Core を先に安定化しておくと移行コストを抑えられる。
+- 将来的に UI 技術を変更する場合も、Features / Core の責務分離を先に安定化しておくと移行コストを抑えられる。
