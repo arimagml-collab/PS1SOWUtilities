@@ -656,6 +656,11 @@ try {
   Set-Theme ([string]$script:Settings.uiTheme)
   $tabs.Dock = "Fill"
 
+  $uiToolTip = New-Object System.Windows.Forms.ToolTip
+  $uiToolTip.AutoPopDelay = 12000
+  $uiToolTip.InitialDelay = 400
+  $uiToolTip.ReshowDelay = 150
+
   $tabExport = New-Object System.Windows.Forms.TabPage
   $tabAttachmentHarvester = New-Object System.Windows.Forms.TabPage
   $tabViewEditor = New-Object System.Windows.Forms.TabPage
@@ -677,6 +682,15 @@ try {
   $panelExport.AutoScroll = $true
   $panelExport.AutoScrollMinSize = New-Object System.Drawing.Size(940, 660)
   $tabExport.Controls.Add($panelExport)
+
+  $lblExportInputSection = New-UiSectionTitle ""
+  $lblExportInputSection.Location = New-Object System.Drawing.Point(20, 6)
+
+  $lblExportOptionSection = New-UiSectionTitle ""
+  $lblExportOptionSection.Location = New-Object System.Drawing.Point(20, 246)
+
+  $lblExportExecuteSection = New-UiSectionTitle ""
+  $lblExportExecuteSection.Location = New-Object System.Drawing.Point(740, 236)
 
   $lblTable = New-Object System.Windows.Forms.Label
   $lblTable.Location = New-Object System.Drawing.Point(20, 20)
@@ -782,6 +796,7 @@ try {
   $btnOpenFolder.Size = New-Object System.Drawing.Size(180, 42)
 
   $panelExport.Controls.AddRange(@(
+    $lblExportInputSection, $lblExportOptionSection, $lblExportExecuteSection,
     $lblTable, $cmbTable, $btnReloadTables,
     $lblFilter, $rbAll, $rbBetween,
     $lblStart, $dtStart, $lblEnd, $dtEnd, $btnLast30Days,
@@ -798,6 +813,12 @@ try {
   $panelAttachment.AutoScroll = $true
   $panelAttachment.AutoScrollMinSize = New-Object System.Drawing.Size(940, 660)
   $tabAttachmentHarvester.Controls.Add($panelAttachment)
+
+  $lblAttachmentInputSection = New-UiSectionTitle ""
+  $lblAttachmentInputSection.Location = New-Object System.Drawing.Point(20, 6)
+
+  $lblAttachmentExecuteSection = New-UiSectionTitle ""
+  $lblAttachmentExecuteSection.Location = New-Object System.Drawing.Point(740, 114)
 
   $lblAttachmentTable = New-Object System.Windows.Forms.Label
   $lblAttachmentTable.Location = New-Object System.Drawing.Point(20, 20)
@@ -862,6 +883,7 @@ try {
   $btnAttachmentExecute.Size = New-Object System.Drawing.Size(180, 42)
 
   $panelAttachment.Controls.AddRange(@(
+    $lblAttachmentInputSection, $lblAttachmentExecuteSection,
     $lblAttachmentTable, $cmbAttachmentTable, $cmbAttachmentDateField,
     $lblAttachmentStart, $dtAttachmentStart, $lblAttachmentEnd, $dtAttachmentEnd, $btnAttachmentLastRunToNow,
     $lblAttachmentDir, $txtAttachmentDir, $btnAttachmentBrowse,
@@ -877,6 +899,9 @@ try {
   $panelLogs.AutoScrollMinSize = New-Object System.Drawing.Size(940, 600)
   $tabLogs.Controls.Add($panelLogs)
 
+  $lblLogsExecuteSection = New-UiSectionTitle ""
+  $lblLogsExecuteSection.Location = New-Object System.Drawing.Point(20, 0)
+
   $lblLogDir = New-Object System.Windows.Forms.Label
   $lblLogDir.Location = New-Object System.Drawing.Point(20, 20)
   $lblLogDir.AutoSize = $true
@@ -890,12 +915,19 @@ try {
   $btnLogBrowse.Size = New-Object System.Drawing.Size(180, 32)
 
   $btnLogCopy = New-Object System.Windows.Forms.Button
-  $btnLogCopy.Location = New-Object System.Drawing.Point(20, 56)
   $btnLogCopy.Size = New-Object System.Drawing.Size(100, 32)
 
   $btnLogClear = New-Object System.Windows.Forms.Button
-  $btnLogClear.Location = New-Object System.Drawing.Point(128, 56)
   $btnLogClear.Size = New-Object System.Drawing.Size(100, 32)
+
+  $flowLogActions = New-Object System.Windows.Forms.FlowLayoutPanel
+  $flowLogActions.FlowDirection = [System.Windows.Forms.FlowDirection]::LeftToRight
+  $flowLogActions.WrapContents = $false
+  $flowLogActions.Location = New-Object System.Drawing.Point(700, 54)
+  $flowLogActions.Size = New-Object System.Drawing.Size(220, 36)
+  $flowLogActions.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
+  [void]$flowLogActions.Controls.Add($btnLogCopy)
+  [void]$flowLogActions.Controls.Add($btnLogClear)
 
   $script:txtLog = New-Object System.Windows.Forms.TextBox
   $script:txtLog.Multiline = $true
@@ -910,8 +942,9 @@ try {
   $btnLogBrowse.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
 
   $panelLogs.Controls.AddRange(@(
+    $lblLogsExecuteSection,
     $lblLogDir, $txtLogDir, $btnLogBrowse,
-    $btnLogCopy, $btnLogClear,
+    $flowLogActions,
     $script:txtLog
   ))
 
@@ -921,6 +954,12 @@ try {
   $panelViewEditor.AutoScroll = $true
   $panelViewEditor.AutoScrollMinSize = New-Object System.Drawing.Size(940, 560)
   $tabViewEditor.Controls.Add($panelViewEditor)
+
+  $lblViewInputSection = New-UiSectionTitle ""
+  $lblViewInputSection.Location = New-Object System.Drawing.Point(20, 6)
+
+  $lblViewExecuteSection = New-UiSectionTitle ""
+  $lblViewExecuteSection.Location = New-Object System.Drawing.Point(740, 468)
 
   $lblViewName = New-Object System.Windows.Forms.Label
   $lblViewName.Location = New-Object System.Drawing.Point(20, 20)
@@ -1200,6 +1239,12 @@ try {
   $panelDelete.AutoScrollMinSize = New-Object System.Drawing.Size(940, 420)
   $tabDelete.Controls.Add($panelDelete)
 
+  $lblDeleteInputSection = New-UiSectionTitle ""
+  $lblDeleteInputSection.Location = New-Object System.Drawing.Point(20, 6)
+
+  $lblDeleteExecuteSection = New-UiSectionTitle ""
+  $lblDeleteExecuteSection.Location = New-Object System.Drawing.Point(740, 300)
+
   $lblDeleteTable = New-Object System.Windows.Forms.Label
   $lblDeleteTable.Location = New-Object System.Drawing.Point(20, 20)
   $lblDeleteTable.AutoSize = $true
@@ -1269,6 +1314,7 @@ try {
   $btnDeleteExecute.Enabled = $false
 
   $panelDelete.Controls.AddRange(@(
+    $lblDeleteInputSection, $lblDeleteExecuteSection,
     $lblDeleteTable, $cmbDeleteTable, $btnDeleteReloadTables,
     $lblDeleteMaxRetries, $numDeleteMaxRetries,
     $lblDeleteDangerHint, $lblDeleteUsageHint,
@@ -1287,6 +1333,9 @@ try {
     if ($script:IsDeleteFeatureEnabled) { $tabDelete.Text = T "TabDelete" }
 
     $lblTable.Text = T "TargetTable"
+    $lblExportInputSection.Text = T "SectionInput"
+    $lblExportOptionSection.Text = T "SectionOptions"
+    $lblExportExecuteSection.Text = T "SectionExecute"
     $btnReloadTables.Text = T "ReloadTables"
     $lblFilter.Text = T "EasyFilter"
     $rbAll.Text = T "FilterAll"
@@ -1302,13 +1351,17 @@ try {
     $lblOutputFormat.Text = T "OutputFormat"
     $chkOutputBom.Text = T "OutputBom"
     $btnOpenFolder.Text = T "OpenFolder"
+    $uiToolTip.SetToolTip($lblExportMaxRowsHint, (T "ExportMaxRowsCsvHint"))
 
     $lblLogDir.Text = T "LogOutputDir"
+    $lblLogsExecuteSection.Text = T "SectionResult"
     $btnLogBrowse.Text = T "Browse"
     $btnLogCopy.Text = T "LogCopy"
     $btnLogClear.Text = T "LogClear"
 
     $lblAttachmentTable.Text = T "TargetTable"
+    $lblAttachmentInputSection.Text = T "SectionInput"
+    $lblAttachmentExecuteSection.Text = T "SectionExecute"
     $lblAttachmentStart.Text = T "Start"
     $lblAttachmentEnd.Text = T "End"
     $btnAttachmentLastRunToNow.Text = T "AttachmentSetLastRunToNow"
@@ -1318,16 +1371,21 @@ try {
     $btnAttachmentExecute.Text = T "Execute"
 
     $lblDeleteTable.Text = T "DeleteTargetTable"
+    $lblDeleteInputSection.Text = T "SectionInput"
+    $lblDeleteExecuteSection.Text = T "SectionExecute"
     $btnDeleteReloadTables.Text = T "ReloadTables"
     $lblDeleteMaxRetries.Text = T "DeleteMaxRetries"
     $lblDeleteDangerHint.Text = (T "DeleteStep1") + "  " + (T "DeleteDangerHint")
     $lblDeleteUsageHint.Text = (T "DeleteStep2") + "  " + (T "DeleteUsageHint")
         $lblDeleteAllowedInstances.Text = T "DeleteAllowedInstances"
     $lblDeleteAllowedInstancesHint.Text = T "DeleteAllowedInstancesHint"
+    $uiToolTip.SetToolTip($lblDeleteAllowedInstancesHint, (T "DeleteAllowedInstancesHint"))
     $lblDeleteProgress.Text = T "DeleteProgress"
     $btnDeleteExecute.Text = T "DeleteExecute"
 
     $lblViewName.Text = T "ViewName"
+    $lblViewInputSection.Text = T "SectionInput"
+    $lblViewExecuteSection.Text = T "SectionExecute"
     $lblViewLabel.Text = T "ViewLabel"
     $lblBaseTable.Text = T "BaseTable"
     $btnReloadColumns.Text = T "ReloadColumns"
@@ -1373,6 +1431,7 @@ try {
 
     $lblSaveHint.Text = T "SaveHint"
     $lblTablesHint.Text = T "TestTablesHint"
+    $uiToolTip.SetToolTip($lblTablesHint, (T "TestTablesHint"))
     $lnkCopyright.Text = T "CopyrightLink"
     $lnkCopyright.Links.Clear()
     [void]$lnkCopyright.Links.Add(0, $lnkCopyright.Text.Length, "https://www.ixam.net")
