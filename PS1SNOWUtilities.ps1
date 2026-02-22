@@ -276,6 +276,12 @@ try {
     Write-CoreUiLog -LogTextBox $script:txtLog -Message $msg
   }
 
+  function Scroll-LogsToBottom {
+    if (-not $script:txtLog) { return }
+    $script:txtLog.SelectionStart = $script:txtLog.TextLength
+    $script:txtLog.ScrollToCaret()
+  }
+
   function Add-AttachmentLog([string]$msg) {
     Add-Log $msg
   }
@@ -537,6 +543,8 @@ try {
   $panelLogs = New-Object System.Windows.Forms.Panel
   $panelLogs.Dock = "Fill"
   $panelLogs.Padding = New-Object System.Windows.Forms.Padding(12)
+  $panelLogs.AutoScroll = $true
+  $panelLogs.AutoScrollMinSize = New-Object System.Drawing.Size(940, 600)
   $tabLogs.Controls.Add($panelLogs)
 
   $lblLogDir = New-Object System.Windows.Forms.Label
@@ -554,6 +562,7 @@ try {
   $script:txtLog = New-Object System.Windows.Forms.TextBox
   $script:txtLog.Multiline = $true
   $script:txtLog.ScrollBars = "Both"
+  $script:txtLog.WordWrap = $false
   $script:txtLog.Location = New-Object System.Drawing.Point(20, 58)
   $script:txtLog.Size = New-Object System.Drawing.Size(900, 530)
   $script:txtLog.ReadOnly = $true
@@ -2541,6 +2550,14 @@ try {
     Request-SaveSettings
   })
 
+  $tabLogs.add_Enter({
+    Scroll-LogsToBottom
+  })
+
+  $script:txtLog.add_TextChanged({
+    Scroll-LogsToBottom
+  })
+
   $txtViewName.add_TextChanged({
     $script:Settings.viewEditorViewName = $txtViewName.Text
     Request-SaveSettings
@@ -2772,6 +2789,7 @@ try {
   # First-run export/log dir
   try { [void](Ensure-ExportDir $txtDir.Text) } catch { }
   try { [void](Ensure-LogDir $txtLogDir.Text) } catch { }
+  Scroll-LogsToBottom
 
   $form.add_FormClosing({
     Complete-GridCurrentEdit $gridJoins "Join"
