@@ -839,8 +839,6 @@ try {
   $colJoinTable.Name = "JoinTable"
   $colJoinTable.FlatStyle = "Popup"
   $colJoinTable.DisplayStyle = "DropDownButton"
-  $colJoinTable.DisplayMember = "display"
-  $colJoinTable.ValueMember = "name"
   $colJoinTable.FillWeight = 34
 
   $colJoinBaseColumn = New-Object System.Windows.Forms.DataGridViewComboBoxColumn
@@ -1412,6 +1410,17 @@ try {
     return ("{0} - {1}" -f [string]$columnName, [string]$columnLabel)
   }
 
+  function Resolve-DisplayTextFromItems([System.Windows.Forms.DataGridViewComboBoxCell]$cell, [string]$token) {
+    $name = Convert-DisplayTokenToName $token
+    if ([string]::IsNullOrWhiteSpace($name) -or $null -eq $cell) { return "" }
+    foreach ($item in $cell.Items) {
+      $text = [string]$item
+      if ([string]::IsNullOrWhiteSpace($text)) { continue }
+      if ($text -eq $name -or $text.StartsWith($name + " - ")) { return $text }
+    }
+    return $name
+  }
+
   function Get-TruncateAllowedInstancePatterns {
     $raw = [string]$script:Settings.truncateAllowedInstances
     if ([string]::IsNullOrWhiteSpace($raw)) { $raw = "*dev*,*stg*" }
@@ -1542,10 +1551,11 @@ try {
     }
     $cmbBaseTable.EndUpdate()
 
-    $colJoinTable.DataSource = $null
     $colJoinTable.Items.Clear()
     if ($tableChoices.Count -gt 0) {
-      $colJoinTable.DataSource = $tableChoices
+      foreach ($t in $tableChoices) {
+        [void]$colJoinTable.Items.Add([string]$t.display)
+      }
     }
     $cmbDeleteTable.BeginUpdate()
     $cmbDeleteTable.Items.Clear()
@@ -1960,28 +1970,23 @@ try {
 
     $baseCell = [System.Windows.Forms.DataGridViewComboBoxCell]$row.Cells[2]
     $targetCell = [System.Windows.Forms.DataGridViewComboBoxCell]$row.Cells[3]
-    $baseCell.DisplayMember = "display"
-    $baseCell.ValueMember = "name"
-    $targetCell.DisplayMember = "display"
-    $targetCell.ValueMember = "name"
-
     $selectedBase = if ($null -eq $baseCell.Value) { "" } else { [string]$baseCell.Value }
     $selectedTarget = if ($null -eq $targetCell.Value) { "" } else { [string]$targetCell.Value }
 
     $baseCell.Items.Clear()
     foreach ($c in $baseColumns) {
       $name = [string]$c.name
-      [void]$baseCell.Items.Add([pscustomobject]@{ name = $name; display = Build-ColumnDisplayText $name ([string]$c.label) })
+      [void]$baseCell.Items.Add((Build-ColumnDisplayText $name ([string]$c.label)))
     }
-    if (-not [string]::IsNullOrWhiteSpace($selectedBase)) { $baseCell.Value = Convert-DisplayTokenToName $selectedBase }
+    if (-not [string]::IsNullOrWhiteSpace($selectedBase)) { $baseCell.Value = Resolve-DisplayTextFromItems $baseCell $selectedBase }
     else { $baseCell.Value = $null }
 
     $targetCell.Items.Clear()
     foreach ($c in $joinColumns) {
       $name = [string]$c.name
-      [void]$targetCell.Items.Add([pscustomobject]@{ name = $name; display = Build-ColumnDisplayText $name ([string]$c.label) })
+      [void]$targetCell.Items.Add((Build-ColumnDisplayText $name ([string]$c.label)))
     }
-    if (-not [string]::IsNullOrWhiteSpace($selectedTarget)) { $targetCell.Value = Convert-DisplayTokenToName $selectedTarget }
+    if (-not [string]::IsNullOrWhiteSpace($selectedTarget)) { $targetCell.Value = Resolve-DisplayTextFromItems $targetCell $selectedTarget }
     else { $targetCell.Value = $null }
   }
 
@@ -2566,13 +2571,16 @@ try {
         if ($rowIndex -lt 0) { continue }
         $gridJoins.Rows[$rowIndex].Cells[1].Value = "__base__"
         $gridJoins.Rows[$rowIndex].Cells[5].Value = $false
-        $gridJoins.Rows[$rowIndex].Cells[0].Value = Convert-DisplayTokenToName ([string]$j.joinTable)
+        $joinTableCell = [System.Windows.Forms.DataGridViewComboBoxCell]$gridJoins.Rows[$rowIndex].Cells[0]
+        $gridJoins.Rows[$rowIndex].Cells[0].Value = Resolve-DisplayTextFromItems $joinTableCell ([string]$j.joinTable)
         Populate-JoinColumnsForRow $rowIndex
         if ($j.PSObject.Properties.Name -contains "joinSource") { $gridJoins.Rows[$rowIndex].Cells[1].Value = [string]$j.joinSource }
         else { $gridJoins.Rows[$rowIndex].Cells[1].Value = "__base__" }
         Populate-JoinColumnsForRow $rowIndex
-        $gridJoins.Rows[$rowIndex].Cells[2].Value = Convert-DisplayTokenToName ([string]$j.baseColumn)
-        $gridJoins.Rows[$rowIndex].Cells[3].Value = Convert-DisplayTokenToName ([string]$j.targetColumn)
+        $baseCell = [System.Windows.Forms.DataGridViewComboBoxCell]$gridJoins.Rows[$rowIndex].Cells[2]
+        $targetCell = [System.Windows.Forms.DataGridViewComboBoxCell]$gridJoins.Rows[$rowIndex].Cells[3]
+        $gridJoins.Rows[$rowIndex].Cells[2].Value = Resolve-DisplayTextFromItems $baseCell ([string]$j.baseColumn)
+        $gridJoins.Rows[$rowIndex].Cells[3].Value = Resolve-DisplayTextFromItems $targetCell ([string]$j.targetColumn)
         $gridJoins.Rows[$rowIndex].Cells[4].Value = [string]$j.joinPrefix
         if ($j.PSObject.Properties.Name -contains "leftJoin") { $gridJoins.Rows[$rowIndex].Cells[5].Value = [System.Convert]::ToBoolean($j.leftJoin) }
       }
