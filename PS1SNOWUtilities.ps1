@@ -494,32 +494,52 @@ try {
     return $lbl
   }
 
+  function New-MutedLabel {
+    $lbl = New-Object System.Windows.Forms.Label
+    $lbl.Tag = 'tone-muted'
+    return $lbl
+  }
+
   function Set-Theme([string]$theme) {
     $resolved = ([string]$theme).Trim().ToLowerInvariant()
     if (@('light','dark') -notcontains $resolved) { $resolved = 'dark' }
     $script:ThemeName = $resolved
     if ($resolved -eq 'light') {
       $script:ThemePalette = @{
+        # App/page background.
         Back = [System.Drawing.Color]::FromArgb(245,247,250)
+        # Surface for cards/inputs/buttons.
         Surface = [System.Drawing.Color]::White
+        # Primary text color.
         Text = [System.Drawing.Color]::FromArgb(28,28,28)
+        # Secondary/help text color.
         Muted = [System.Drawing.Color]::FromArgb(92,92,92)
+        # Accent for primary actions and selected state.
         Accent = [System.Drawing.Color]::FromArgb(0,120,212)
         AccentText = [System.Drawing.Color]::White
+        # Danger action/alert color.
         Danger = [System.Drawing.Color]::FromArgb(196,43,28)
         DangerText = [System.Drawing.Color]::White
+        # Border color for controls.
         Border = [System.Drawing.Color]::FromArgb(220,223,230)
       }
     } else {
       $script:ThemePalette = @{
+        # App/page background.
         Back = [System.Drawing.Color]::FromArgb(24,28,36)
+        # Surface for cards/inputs/buttons.
         Surface = [System.Drawing.Color]::FromArgb(36,41,52)
+        # Primary text color.
         Text = [System.Drawing.Color]::FromArgb(240,242,246)
+        # Secondary/help text color.
         Muted = [System.Drawing.Color]::FromArgb(172,178,190)
+        # Accent for primary actions and selected state.
         Accent = [System.Drawing.Color]::FromArgb(74,158,255)
         AccentText = [System.Drawing.Color]::White
+        # Danger action/alert color.
         Danger = [System.Drawing.Color]::FromArgb(224,86,73)
         DangerText = [System.Drawing.Color]::White
+        # Border color for controls.
         Border = [System.Drawing.Color]::FromArgb(62,68,84)
       }
     }
@@ -544,7 +564,11 @@ try {
       $control.ForeColor = $palette.Text
     } elseif ($control -is [System.Windows.Forms.Label] -or $control -is [System.Windows.Forms.LinkLabel] -or $control -is [System.Windows.Forms.RadioButton] -or $control -is [System.Windows.Forms.CheckBox]) {
       $control.BackColor = [System.Drawing.Color]::Transparent
-      $control.ForeColor = $palette.Text
+      if ($control.Tag -eq 'tone-muted') {
+        $control.ForeColor = $palette.Muted
+      } else {
+        $control.ForeColor = $palette.Text
+      }
     } elseif ($control -is [System.Windows.Forms.TextBox] -or $control -is [System.Windows.Forms.ComboBox] -or $control -is [System.Windows.Forms.NumericUpDown] -or $control -is [System.Windows.Forms.DateTimePicker] -or $control -is [System.Windows.Forms.ListBox]) {
       $control.BackColor = $palette.Surface
       $control.ForeColor = $palette.Text
@@ -593,6 +617,29 @@ try {
         $button.FlatAppearance.BorderColor = $palette.Border
       }
     }
+  }
+
+  function Apply-MainButtonStyles {
+    Set-ButtonStyle $btnExecute 'primary'
+    Set-ButtonStyle $btnAttachmentExecute 'primary'
+    Set-ButtonStyle $btnCreateView 'primary'
+    Set-ButtonStyle $btnDeleteExecute 'danger'
+
+    Set-ButtonStyle $btnReloadTables 'secondary'
+    Set-ButtonStyle $btnLast30Days 'secondary'
+    Set-ButtonStyle $btnBrowse 'secondary'
+    Set-ButtonStyle $btnOpenFolder 'secondary'
+    Set-ButtonStyle $btnAttachmentLastRunToNow 'secondary'
+    Set-ButtonStyle $btnAttachmentBrowse 'secondary'
+    Set-ButtonStyle $btnReloadColumns 'secondary'
+    Set-ButtonStyle $btnAddJoin 'secondary'
+    Set-ButtonStyle $btnRemoveJoin 'secondary'
+    Set-ButtonStyle $btnTogglePass 'secondary'
+    Set-ButtonStyle $btnToggleKey 'secondary'
+    Set-ButtonStyle $btnDeleteReloadTables 'secondary'
+    Set-ButtonStyle $btnLogBrowse 'secondary'
+    Set-ButtonStyle $btnLogCopy 'secondary'
+    Set-ButtonStyle $btnLogClear 'secondary'
   }
 
   # ----------------------------
@@ -705,7 +752,7 @@ try {
   $numExportMaxRows.Maximum = 1000000
   $numExportMaxRows.Value = 10000
 
-  $lblExportMaxRowsHint = New-Object System.Windows.Forms.Label
+  $lblExportMaxRowsHint = New-MutedLabel
   $lblExportMaxRowsHint.Location = New-Object System.Drawing.Point(340, 194)
   $lblExportMaxRowsHint.Size = New-Object System.Drawing.Size(580, 72)
   $lblExportMaxRowsHint.ForeColor = [System.Drawing.Color]::FromArgb(90,90,90)
@@ -1065,7 +1112,7 @@ try {
   $lblBaseUrl = New-Object System.Windows.Forms.Label
   $lblBaseUrl.Location = New-Object System.Drawing.Point(220, 88)
   $lblBaseUrl.Size = New-Object System.Drawing.Size(700, 18)
-  $lblBaseUrl.ForeColor = [System.Drawing.Color]::FromArgb(70,70,70)
+  $lblBaseUrl.Tag = 'tone-muted'
 
   $lblAuthType = New-Object System.Windows.Forms.Label
   $lblAuthType.Location = New-Object System.Drawing.Point(20, 125)
@@ -1113,15 +1160,15 @@ try {
   $btnToggleKey.Location = New-Object System.Drawing.Point(600, 244)
   $btnToggleKey.Size = New-Object System.Drawing.Size(120, 32)
 
-  $lblSaveHint = New-Object System.Windows.Forms.Label
+  $lblSaveHint = New-MutedLabel
   $lblSaveHint.Location = New-Object System.Drawing.Point(20, 305)
   $lblSaveHint.AutoSize = $true
-  $lblSaveHint.ForeColor = [System.Drawing.Color]::FromArgb(70,70,70)
+  $lblSaveHint.AutoEllipsis = $true
 
-  $lblTablesHint = New-Object System.Windows.Forms.Label
+  $lblTablesHint = New-MutedLabel
   $lblTablesHint.Location = New-Object System.Drawing.Point(20, 335)
   $lblTablesHint.Size = New-Object System.Drawing.Size(900, 60)
-  $lblTablesHint.ForeColor = [System.Drawing.Color]::FromArgb(70,70,70)
+  $lblTablesHint.AutoEllipsis = $true
 
   $lnkCopyright = New-Object System.Windows.Forms.LinkLabel
   $lnkCopyright.Location = New-Object System.Drawing.Point(20, 0)
@@ -3084,10 +3131,7 @@ try {
     Request-SaveSettings
     Set-Theme $script:Settings.uiTheme
     Apply-ThemeRecursive $form
-    Set-ButtonStyle $btnExecute "primary"
-    Set-ButtonStyle $btnAttachmentExecute "primary"
-    Set-ButtonStyle $btnCreateView "primary"
-    Set-ButtonStyle $btnDeleteExecute "danger"
+    Apply-MainButtonStyles
   })
 
   $btnLast30Days.add_Click({
@@ -3142,10 +3186,7 @@ try {
   }
 
   Apply-ThemeRecursive $form
-  Set-ButtonStyle $btnExecute "primary"
-  Set-ButtonStyle $btnAttachmentExecute "primary"
-  Set-ButtonStyle $btnCreateView "primary"
-  Set-ButtonStyle $btnDeleteExecute "danger"
+  Apply-MainButtonStyles
 
   Add-Log "Ready."
   Add-Log "Notice: MIT License / https://www.ixam.net"
