@@ -22,7 +22,7 @@ function Unprotect-Secret {
 
 function New-DefaultSettings {
   return [pscustomobject]@{
-    settingsVersion = 6
+    settingsVersion = 7
     uiLanguage = "ja"
     instanceName = ""
     instanceDomain = ""
@@ -60,6 +60,7 @@ function New-DefaultSettings {
     attachmentSelectedTableName = ""
     attachmentHarvesterLastRunMap = @{}
     logOutputDirectory = ""
+    uiTheme = "dark"
   }
 }
 
@@ -212,6 +213,20 @@ function Migrate-Settings {
     }
 
     $currentVersion = 6
+  }
+
+  if ($currentVersion -lt 7) {
+    if (-not ($migrated.PSObject.Properties.Name -contains 'uiTheme')) {
+      $migrated | Add-Member -NotePropertyName uiTheme -NotePropertyValue 'dark'
+    }
+
+    if ($migrated.PSObject.Properties.Name -contains 'settingsVersion') {
+      $migrated.settingsVersion = 7
+    } else {
+      $migrated | Add-Member -NotePropertyName settingsVersion -NotePropertyValue 7
+    }
+
+    $currentVersion = 7
   }
 
   return [pscustomobject]@{

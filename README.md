@@ -25,6 +25,12 @@ PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）�
 - **設定**
   - インスタンス名・認証方式・言語などを保存し、繰り返し作業の入力ミスやセットアップ時間を減らしたいときに有効です。
 
+### UI更新ポイント（モダン化）
+
+- テーマ切替（**Dark / Light**）を Settings タブに追加しました。
+- Logs タブに **検索 / コピー / クリア / 自動スクロールON-OFF** を追加しました。
+- Truncate の確認ダイアログに、対象・確認コード・インスタンスURL・最大再試行・不可逆操作の注意を表示します。
+
 ### 前提条件
 
 - Windows + PowerShell 5.1（WinForms 利用のため）
@@ -175,6 +181,12 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
   - **Not recommended for production use**.
 - **Settings**
   - Best when you want to persist instance/auth/language preferences and reduce repeated setup time and input mistakes.
+
+### UI refresh highlights
+
+- Added theme switching (**Dark / Light**) in the Settings tab.
+- Added **Search / Copy / Clear / Auto-scroll ON-OFF** controls in the Logs tab.
+- Truncate confirmation now includes target table, verification code, instance URL, max retries, and irreversible-operation warning.
 
 ### Prerequisites
 

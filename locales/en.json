@@ -1,4 +1,4 @@
-﻿{
+{
   "AppTitle": "PS1 SNOW Utilities",
   "TabExport": "Export",
   "TabViewEditor": "DataBase View Editor",
@@ -95,7 +95,7 @@
   "DeleteProgress": "Progress",
   "DeleteFetchCount": "Checking target record count...",
   "DeleteConfirmTitle": "Delete Confirmation",
-  "DeleteConfirmMessage": "Are you sure?\\nTarget table: {0}\\nVerification code: {1}",
+  "DeleteConfirmMessage": "Are you sure?\\nTarget table: {0}\\nVerification code: {1}\\nInstance URL: {2}\\nMax retries: {3}\\nThis action cannot be undone.",
   "DeleteDone": "Delete completed",
   "DeleteStopped": "Stopped because max retry count was reached",
   "DeleteNoRecord": "No records to delete.",
@@ -111,5 +111,13 @@
   "AttachmentSetLastRunToNow": "Set last run to now",
   "AttachmentDownloadDir": "Download Directory",
   "AttachmentCreateSubfolderPerTable": "Create subfolder per source table",
-  "LogOutputDir": "Log Output Directory"
+  "LogOutputDir": "Log Output Directory",
+  "LogSearch": "Search",
+  "LogCopy": "Copy",
+  "LogClear": "Clear",
+  "LogAutoScroll": "Auto-scroll",
+  "LogCopied": "Copied logs to clipboard.",
+  "UiTheme": "Theme",
+  "DeleteStep1": "Step 1: Review target and risk",
+  "DeleteStep2": "Step 2: Verify allowed instance and confirmation code"
 }
