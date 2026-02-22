@@ -177,6 +177,14 @@ try {
     return (New-CoreSnowHeaders -Settings $script:Settings -UnprotectSecret ${function:Unprotect-Secret})
   }
 
+  function Sync-AuthTypeFromSelection {
+    if ($rbUserPass -and $rbUserPass.Checked) {
+      $script:Settings.authType = "userpass"
+    } elseif ($rbApiKey -and $rbApiKey.Checked) {
+      $script:Settings.authType = "apikey"
+    }
+  }
+
   function Invoke-SnowRequest {
     param(
       [Parameter(Mandatory=$true)][ValidateSet('Get','Post','Patch','Delete')][string]$Method,
@@ -184,6 +192,8 @@ try {
       [AllowNull()]$Body,
       [int]$TimeoutSec = 120
     )
+
+    Sync-AuthTypeFromSelection
 
     $params = @{
       Method = $Method
@@ -215,6 +225,8 @@ try {
   }
 
   function Invoke-SnowDownloadAttachmentBytes([string]$attachmentSysId) {
+    Sync-AuthTypeFromSelection
+
     $base = Get-BaseUrl
     if ([string]::IsNullOrWhiteSpace($base)) { throw (T "WarnInstance") }
     $uri = "{0}/api/now/attachment/{1}/file" -f $base, $attachmentSysId
