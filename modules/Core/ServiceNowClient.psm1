@@ -41,7 +41,8 @@ function New-SnowHeaders {
     "Content-Type" = "application/json; charset=utf-8"
   }
 
-  if ($Settings.authType -eq "apikey") {
+  $authType = ([string]$Settings.authType).Trim().ToLowerInvariant()
+  if ($authType -eq "apikey") {
     $key = & $UnprotectSecret ([string]$Settings.apiKeyEnc)
     if (-not [string]::IsNullOrWhiteSpace($key)) {
       $headers["x-sn-apikey"] = $key
@@ -80,7 +81,8 @@ function Invoke-SnowRequest {
     $requestParams.Body = [System.Text.Encoding]::UTF8.GetBytes($jsonBody)
   }
 
-  if ($Settings.authType -ne "apikey") {
+  $authType = ([string]$Settings.authType).Trim().ToLowerInvariant()
+  if ($authType -eq "userpass") {
     $user = ([string]$Settings.userId).Trim()
     $pass = & $UnprotectSecret ([string]$Settings.passwordEnc)
     if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($pass)) {
@@ -89,6 +91,13 @@ function Invoke-SnowRequest {
 
     $sec = ConvertTo-SecureString $pass -AsPlainText -Force
     $requestParams.Credential = New-Object System.Management.Automation.PSCredential($user, $sec)
+  } elseif ($authType -eq "apikey") {
+    $key = & $UnprotectSecret ([string]$Settings.apiKeyEnc)
+    if ([string]::IsNullOrWhiteSpace($key)) {
+      throw (& $GetText "WarnAuth")
+    }
+  } else {
+    throw (& $GetText "WarnAuth")
   }
 
   return Invoke-RestMethod @requestParams

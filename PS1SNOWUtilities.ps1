@@ -219,7 +219,7 @@ try {
     if ([string]::IsNullOrWhiteSpace($base)) { throw (T "WarnInstance") }
     $uri = "{0}/api/now/attachment/{1}/file" -f $base, $attachmentSysId
 
-    if ($script:Settings.authType -eq "userpass") {
+    if (([string]$script:Settings.authType).Trim().ToLowerInvariant() -eq "userpass") {
       $user = ([string]$script:Settings.userId).Trim()
       $pass = Unprotect-Secret ([string]$script:Settings.passwordEnc)
       $sec = ConvertTo-SecureString $pass -AsPlainText -Force
@@ -2305,7 +2305,7 @@ try {
   $cmbAttachmentDateField.SelectedItem = $initialAttachmentDateField
   $chkAttachmentSubfolder.Checked = [bool]$script:Settings.attachmentCreateSubfolderPerTable
 
-  if ([string]$script:Settings.authType -eq "apikey") { $rbApiKey.Checked = $true } else { $rbUserPass.Checked = $true }
+  if (([string]$script:Settings.authType).Trim().ToLowerInvariant() -eq "apikey") { $rbApiKey.Checked = $true } else { $rbUserPass.Checked = $true }
 
   $txtPass.Text = Unprotect-Secret ([string]$script:Settings.passwordEnc)
   $txtKey.Text  = Unprotect-Secret ([string]$script:Settings.apiKeyEnc)
