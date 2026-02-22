@@ -842,26 +842,13 @@ try {
   $btnLogBrowse.Location = New-Object System.Drawing.Point(740, 14)
   $btnLogBrowse.Size = New-Object System.Drawing.Size(180, 32)
 
-  $lblLogSearch = New-Object System.Windows.Forms.Label
-  $lblLogSearch.Location = New-Object System.Drawing.Point(20, 62)
-  $lblLogSearch.AutoSize = $true
-
-  $txtLogSearch = New-Object System.Windows.Forms.TextBox
-  $txtLogSearch.Location = New-Object System.Drawing.Point(80, 58)
-  $txtLogSearch.Size = New-Object System.Drawing.Size(180, 28)
-
   $btnLogCopy = New-Object System.Windows.Forms.Button
-  $btnLogCopy.Location = New-Object System.Drawing.Point(270, 56)
+  $btnLogCopy.Location = New-Object System.Drawing.Point(20, 56)
   $btnLogCopy.Size = New-Object System.Drawing.Size(100, 32)
 
   $btnLogClear = New-Object System.Windows.Forms.Button
-  $btnLogClear.Location = New-Object System.Drawing.Point(378, 56)
+  $btnLogClear.Location = New-Object System.Drawing.Point(128, 56)
   $btnLogClear.Size = New-Object System.Drawing.Size(100, 32)
-
-  $chkLogAutoScroll = New-Object System.Windows.Forms.CheckBox
-  $chkLogAutoScroll.Location = New-Object System.Drawing.Point(490, 61)
-  $chkLogAutoScroll.AutoSize = $true
-  $chkLogAutoScroll.Checked = $true
 
   $script:txtLog = New-Object System.Windows.Forms.TextBox
   $script:txtLog.Multiline = $true
@@ -877,7 +864,7 @@ try {
 
   $panelLogs.Controls.AddRange(@(
     $lblLogDir, $txtLogDir, $btnLogBrowse,
-    $lblLogSearch, $txtLogSearch, $btnLogCopy, $btnLogClear, $chkLogAutoScroll,
+    $btnLogCopy, $btnLogClear,
     $script:txtLog
   ))
 
@@ -1271,10 +1258,8 @@ try {
 
     $lblLogDir.Text = T "LogOutputDir"
     $btnLogBrowse.Text = T "Browse"
-    $lblLogSearch.Text = T "LogSearch"
     $btnLogCopy.Text = T "LogCopy"
     $btnLogClear.Text = T "LogClear"
-    $chkLogAutoScroll.Text = T "LogAutoScroll"
 
     $lblAttachmentTable.Text = T "TargetTable"
     $lblAttachmentStart.Text = T "Start"
@@ -2888,10 +2873,6 @@ try {
     Scroll-LogsToBottom
   })
 
-  $script:txtLog.add_TextChanged({
-    if ($chkLogAutoScroll.Checked) { Scroll-LogsToBottom }
-  })
-
   $txtViewName.add_TextChanged({
     $script:Settings.viewEditorViewName = $txtViewName.Text
     Request-SaveSettings
@@ -3096,18 +3077,6 @@ try {
 
   $btnLogClear.add_Click({
     $script:txtLog.Clear()
-  })
-
-  $txtLogSearch.add_TextChanged({
-    $needle = ([string]$txtLogSearch.Text).Trim()
-    if ([string]::IsNullOrWhiteSpace($needle)) { return }
-    $idx = $script:txtLog.Text.LastIndexOf($needle, [System.StringComparison]::OrdinalIgnoreCase)
-    if ($idx -ge 0) {
-      $script:txtLog.SelectionStart = $idx
-      $script:txtLog.SelectionLength = $needle.Length
-      $script:txtLog.ScrollToCaret()
-      $script:txtLog.Focus()
-    }
   })
 
   $cmbTheme.add_SelectedIndexChanged({
