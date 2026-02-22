@@ -110,5 +110,6 @@
   "TabAttachmentHarvester": "Attachment Harvester",
   "AttachmentSetLastRunToNow": "前回取得～現在を設定",
   "AttachmentDownloadDir": "ダウンロードDirectory",
-  "AttachmentCreateSubfolderPerTable": "取得元テーブル名毎にサブフォルダを作成"
+  "AttachmentCreateSubfolderPerTable": "取得元テーブル名毎にサブフォルダを作成",
+  "LogOutputDir": "ログ出力Directory"
 }
