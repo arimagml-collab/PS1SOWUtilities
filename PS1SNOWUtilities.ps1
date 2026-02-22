@@ -1292,6 +1292,16 @@ try {
   $btnCreateView.Size = New-Object System.Drawing.Size(180, 42)
   $btnCreateView.Anchor = [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Right
 
+  function Update-ViewExecuteSectionPosition {
+    if (-not $lblViewExecuteSection -or -not $btnCreateView) { return }
+    $executeLabelX = $btnCreateView.Left + [Math]::Max([int](($btnCreateView.Width - $lblViewExecuteSection.Width) / 2), 0)
+    $executeLabelY = $btnCreateView.Top - $lblViewExecuteSection.Height - 8
+    if ($executeLabelY -lt 0) { $executeLabelY = 0 }
+    $lblViewExecuteSection.Location = New-Object System.Drawing.Point($executeLabelX, $executeLabelY)
+  }
+
+  $panelViewEditor.add_Resize({ Update-ViewExecuteSectionPosition })
+
   $lnkCreatedViewList = New-Object System.Windows.Forms.LinkLabel
   $lnkCreatedViewList.Location = New-Object System.Drawing.Point(190, 504)
   $lnkCreatedViewList.Size = New-Object System.Drawing.Size(540, 18)
@@ -1728,6 +1738,7 @@ try {
     $colJoinTargetColumn.HeaderText = T "JoinTargetColumn"
     $colJoinPrefix.HeaderText = T "JoinPrefix"
     $colJoinLeftJoin.HeaderText = T "LeftJoin"
+    Update-ViewExecuteSectionPosition
     if ($lnkCreatedViewList.Visible) {
       $lnkCreatedViewList.Text = "{0}: {1}" -f (T "CreatedViewListLink"), [string]$lnkCreatedViewList.Tag
     }
