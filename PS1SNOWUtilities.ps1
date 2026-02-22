@@ -174,7 +174,15 @@ try {
   }
 
   function New-SnowHeaders {
-    return (New-CoreSnowHeaders -Settings $script:Settings -UnprotectSecret ${function:Unprotect-Secret})
+    return (New-CoreSnowHeaders -Settings $script:Settings -UnprotectSecret ${function:Unprotect-Secret} -GetText ${function:T})
+  }
+
+  function Sync-AuthTypeFromSelection {
+    if ($rbUserPass -and $rbUserPass.Checked) {
+      $script:Settings.authType = "userpass"
+    } elseif ($rbApiKey -and $rbApiKey.Checked) {
+      $script:Settings.authType = "apikey"
+    }
   }
 
   function Sync-AuthTypeFromSelection {
@@ -234,11 +242,17 @@ try {
     if (([string]$script:Settings.authType).Trim().ToLowerInvariant() -eq "userpass") {
       $user = ([string]$script:Settings.userId).Trim()
       $pass = Unprotect-Secret ([string]$script:Settings.passwordEnc)
-      $sec = ConvertTo-SecureString $pass -AsPlainText -Force
-      $cred = New-Object System.Management.Automation.PSCredential($user, $sec)
-      $response = Invoke-WebRequest -Uri $uri -Method Get -Credential $cred -UseBasicParsing
+      if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($pass)) { throw (T "WarnAuth") }
+
+      $raw = "{0}:{1}" -f $user, $pass
+      $bytes = [System.Text.Encoding]::UTF8.GetBytes($raw)
+      $headers = @{ Authorization = ("Basic {0}" -f [System.Convert]::ToBase64String($bytes)) }
+      $response = Invoke-WebRequest -Uri $uri -Method Get -Headers $headers -UseBasicParsing
     } else {
-      $headers = @{ Authorization = ("Bearer {0}" -f (Unprotect-Secret ([string]$script:Settings.apiKeyEnc))) }
+      $key = Unprotect-Secret ([string]$script:Settings.apiKeyEnc)
+      if ([string]::IsNullOrWhiteSpace($key)) { throw (T "WarnAuth") }
+
+      $headers = @{ "x-sn-apikey" = $key }
       $response = Invoke-WebRequest -Uri $uri -Method Get -Headers $headers -UseBasicParsing
     }
 
