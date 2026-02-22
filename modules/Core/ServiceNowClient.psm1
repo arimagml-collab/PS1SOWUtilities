@@ -109,6 +109,9 @@ function Invoke-SnowRequest {
     [Parameter(Mandatory=$true)]$Settings,
     [Parameter(Mandatory=$true)][scriptblock]$UnprotectSecret,
     [Parameter(Mandatory=$true)][scriptblock]$GetText,
+    [scriptblock]$WriteLog,
+    [string]$Feature = "ServiceNowApi",
+    [string]$Actor = "system",
     [int]$TimeoutSec = 120
   )
 
@@ -131,7 +134,44 @@ function Invoke-SnowRequest {
     $requestParams.Body = [System.Text.Encoding]::UTF8.GetBytes($jsonBody)
   }
 
-  return Invoke-RestMethod @requestParams
+  if ($WriteLog) {
+    $requestDetail = [ordered]@{
+      method = $Method
+      path = $Path
+      uri = $uri
+      timeoutSec = $TimeoutSec
+      actor = $Actor
+      requestBody = $Body
+    }
+    & $WriteLog -Message "Request sent to ServiceNow" -Level Info -Feature $Feature -Action ("Request:{0}" -f $Method) -Details $requestDetail
+  }
+
+  try {
+    $response = Invoke-RestMethod @requestParams
+    if ($WriteLog) {
+      $responseDetail = [ordered]@{
+        method = $Method
+        path = $Path
+        actor = $Actor
+        responseType = if ($null -eq $response) { "null" } else { $response.GetType().FullName }
+        responsePayload = $response
+      }
+      & $WriteLog -Message "Response received from ServiceNow" -Level Info -Feature $Feature -Action ("Response:{0}" -f $Method) -Details $responseDetail
+    }
+    return $response
+  } catch {
+    if ($WriteLog) {
+      $errorDetail = [ordered]@{
+        method = $Method
+        path = $Path
+        actor = $Actor
+        exceptionType = $_.Exception.GetType().FullName
+        exceptionMessage = $_.Exception.Message
+      }
+      & $WriteLog -Message "ServiceNow request failed" -Level Error -Feature $Feature -Action ("Request:{0}" -f $Method) -Details $errorDetail
+    }
+    throw
+  }
 }
 
 function Invoke-SnowBatchDelete {
