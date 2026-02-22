@@ -39,7 +39,7 @@ PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）�
    - ServiceNow インスタンス名
    - 認証方式（ユーザID+パスワード または APIキー）
    - 必要に応じて UI 言語
-   - APIキー認証時の認証パラメータは `Authorization` ヘッダー（`Bearer <APIキー>`）です。
+   - APIキー認証時の認証パラメータは `x-sn-apikey` ヘッダー（値: APIキー）です。
 3. 入力内容はアプリ初回実行後に生成される `settings.json` に自動保存されます（リポジトリには含めていません）。
 
 ##### 独自ドメイン運用時の設定（`instance-name.service-now.com` 以外）
@@ -181,7 +181,7 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
    - ServiceNow instance name
    - Authentication method (User ID + Password or API Key)
    - UI language if needed
-   - For API Key authentication, set the auth parameter as `Authorization` header (`Bearer <API key>`).
+   - For API Key authentication, set the auth parameter as `x-sn-apikey` header (value: API key).
 3. Inputs are auto-saved to `settings.json` generated after first run (the file is not tracked in this repository).
 
 ##### Custom domain setup (when not using `instance-name.service-now.com`)
