@@ -847,8 +847,6 @@ try {
   $colJoinBaseColumn.Name = "JoinBaseColumn"
   $colJoinBaseColumn.FlatStyle = "Popup"
   $colJoinBaseColumn.DisplayStyle = "DropDownButton"
-  $colJoinBaseColumn.DisplayMember = "display"
-  $colJoinBaseColumn.ValueMember = "name"
   $colJoinBaseColumn.FillWeight = 26
 
   $colJoinSource = New-Object System.Windows.Forms.DataGridViewComboBoxColumn
@@ -861,8 +859,6 @@ try {
   $colJoinTargetColumn.Name = "JoinTargetColumn"
   $colJoinTargetColumn.FlatStyle = "Popup"
   $colJoinTargetColumn.DisplayStyle = "DropDownButton"
-  $colJoinTargetColumn.DisplayMember = "display"
-  $colJoinTargetColumn.ValueMember = "name"
   $colJoinTargetColumn.FillWeight = 20
 
   $colJoinPrefix = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
@@ -1964,6 +1960,10 @@ try {
 
     $baseCell = [System.Windows.Forms.DataGridViewComboBoxCell]$row.Cells[2]
     $targetCell = [System.Windows.Forms.DataGridViewComboBoxCell]$row.Cells[3]
+    $baseCell.DisplayMember = "display"
+    $baseCell.ValueMember = "name"
+    $targetCell.DisplayMember = "display"
+    $targetCell.ValueMember = "name"
 
     $selectedBase = if ($null -eq $baseCell.Value) { "" } else { [string]$baseCell.Value }
     $selectedTarget = if ($null -eq $targetCell.Value) { "" } else { [string]$targetCell.Value }
