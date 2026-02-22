@@ -110,5 +110,6 @@
   "TabAttachmentHarvester": "Attachment Harvester",
   "AttachmentSetLastRunToNow": "Set last run to now",
   "AttachmentDownloadDir": "Download Directory",
-  "AttachmentCreateSubfolderPerTable": "Create subfolder per source table"
+  "AttachmentCreateSubfolderPerTable": "Create subfolder per source table",
+  "LogOutputDir": "Log Output Directory"
 }

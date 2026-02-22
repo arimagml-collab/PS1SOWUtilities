@@ -22,7 +22,7 @@ function Unprotect-Secret {
 
 function New-DefaultSettings {
   return [pscustomobject]@{
-    settingsVersion = 5
+    settingsVersion = 6
     uiLanguage = "ja"
     instanceName = ""
     instanceDomain = ""
@@ -59,6 +59,7 @@ function New-DefaultSettings {
     attachmentEndDateTime = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
     attachmentSelectedTableName = ""
     attachmentHarvesterLastRunMap = @{}
+    logOutputDirectory = ""
   }
 }
 
@@ -197,6 +198,20 @@ function Migrate-Settings {
     }
 
     $currentVersion = 5
+  }
+
+  if ($currentVersion -lt 6) {
+    if (-not ($migrated.PSObject.Properties.Name -contains 'logOutputDirectory')) {
+      $migrated | Add-Member -NotePropertyName logOutputDirectory -NotePropertyValue ''
+    }
+
+    if ($migrated.PSObject.Properties.Name -contains 'settingsVersion') {
+      $migrated.settingsVersion = 6
+    } else {
+      $migrated | Add-Member -NotePropertyName settingsVersion -NotePropertyValue 6
+    }
+
+    $currentVersion = 6
   }
 
   return [pscustomobject]@{

@@ -46,6 +46,7 @@ try {
   $SettingsPath = Join-Path $ScriptDir "settings.json"
   $DefaultExportDir = Join-Path $ScriptDir "ExportedFiles"
   $DefaultAttachmentDir = Join-Path $ScriptDir "DownloadedAttachments"
+  $DefaultLogDir = Join-Path (Get-Location).Path "Logs"
 
   # ----------------------------
   # Core modules
@@ -259,6 +260,18 @@ try {
   # UI helpers
   # ----------------------------
   function Add-Log([string]$msg) {
+    $ts = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+    $line = "[$ts] $msg"
+
+    try {
+      $logDir = Ensure-LogDir ([string]$script:Settings.logOutputDirectory)
+      $script:Settings.logOutputDirectory = $logDir
+      $logPath = Join-Path $logDir ((Get-Date).ToString('yyyyMMdd') + '.log')
+      [System.IO.File]::AppendAllText($logPath, $line + [Environment]::NewLine, (New-Object System.Text.UTF8Encoding($false)))
+    } catch {
+      # ignore file log failure
+    }
+
     if (-not $script:txtLog) { return }
     Write-CoreUiLog -LogTextBox $script:txtLog -Message $msg
   }
@@ -286,6 +299,12 @@ try {
 
   function Ensure-ExportDir([string]$dir) {
     if ([string]::IsNullOrWhiteSpace($dir)) { $dir = $DefaultExportDir }
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
+    return $dir
+  }
+
+  function Ensure-LogDir([string]$dir) {
+    if ([string]::IsNullOrWhiteSpace($dir)) { $dir = $DefaultLogDir }
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
     return $dir
   }
@@ -520,12 +539,33 @@ try {
   $panelLogs.Padding = New-Object System.Windows.Forms.Padding(12)
   $tabLogs.Controls.Add($panelLogs)
 
+  $lblLogDir = New-Object System.Windows.Forms.Label
+  $lblLogDir.Location = New-Object System.Drawing.Point(20, 20)
+  $lblLogDir.AutoSize = $true
+
+  $txtLogDir = New-Object System.Windows.Forms.TextBox
+  $txtLogDir.Location = New-Object System.Drawing.Point(220, 16)
+  $txtLogDir.Size = New-Object System.Drawing.Size(500, 28)
+
+  $btnLogBrowse = New-Object System.Windows.Forms.Button
+  $btnLogBrowse.Location = New-Object System.Drawing.Point(740, 14)
+  $btnLogBrowse.Size = New-Object System.Drawing.Size(180, 32)
+
   $script:txtLog = New-Object System.Windows.Forms.TextBox
   $script:txtLog.Multiline = $true
   $script:txtLog.ScrollBars = "Both"
-  $script:txtLog.Dock = "Fill"
+  $script:txtLog.Location = New-Object System.Drawing.Point(20, 58)
+  $script:txtLog.Size = New-Object System.Drawing.Size(900, 530)
   $script:txtLog.ReadOnly = $true
-  $panelLogs.Controls.Add($script:txtLog)
+  $script:txtLog.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
+
+  $txtLogDir.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
+  $btnLogBrowse.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
+
+  $panelLogs.Controls.AddRange(@(
+    $lblLogDir, $txtLogDir, $btnLogBrowse,
+    $script:txtLog
+  ))
 
   # --- DataBase View Editor tab layout
   $panelViewEditor = New-Object System.Windows.Forms.Panel
@@ -901,6 +941,9 @@ try {
     $lblOutputFormat.Text = T "OutputFormat"
     $chkOutputBom.Text = T "OutputBom"
     $btnOpenFolder.Text = T "OpenFolder"
+
+    $lblLogDir.Text = T "LogOutputDir"
+    $btnLogBrowse.Text = T "Browse"
 
     $lblAttachmentTable.Text = T "TargetTable"
     $lblAttachmentStart.Text = T "Start"
@@ -2159,6 +2202,12 @@ try {
     $txtAttachmentDir.Text = [string]$script:Settings.attachmentDownloadDirectory
   }
 
+  if ([string]::IsNullOrWhiteSpace([string]$script:Settings.logOutputDirectory)) {
+    $txtLogDir.Text = $DefaultLogDir
+  } else {
+    $txtLogDir.Text = [string]$script:Settings.logOutputDirectory
+  }
+
   if ([string]$script:Settings.filterMode -eq "updated_between") { $rbBetween.Checked = $true } else { $rbAll.Checked = $true }
 
   $initialOutputFormat = ([string]$script:Settings.outputFormat).Trim().ToLowerInvariant()
@@ -2440,6 +2489,11 @@ try {
     Request-SaveSettings
   })
 
+  $txtLogDir.add_TextChanged({
+    $script:Settings.logOutputDirectory = $txtLogDir.Text
+    Request-SaveSettings
+  })
+
   $txtViewName.add_TextChanged({
     $script:Settings.viewEditorViewName = $txtViewName.Text
     Request-SaveSettings
@@ -2610,6 +2664,17 @@ try {
     if ($dlg.ShowDialog() -eq "OK") { $txtAttachmentDir.Text = $dlg.SelectedPath }
   })
 
+  $btnLogBrowse.add_Click({
+    $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
+    $dlg.Description = (T "LogOutputDir")
+    if (Test-Path $txtLogDir.Text) {
+      $dlg.SelectedPath = $txtLogDir.Text
+    } else {
+      $dlg.SelectedPath = $DefaultLogDir
+    }
+    if ($dlg.ShowDialog() -eq "OK") { $txtLogDir.Text = $dlg.SelectedPath }
+  })
+
   $btnLast30Days.add_Click({
     $now = Get-Date
     $dtStart.Value = $now.AddDays(-30)
@@ -2645,8 +2710,9 @@ try {
     })
   }
 
-  # First-run export dir
+  # First-run export/log dir
   try { [void](Ensure-ExportDir $txtDir.Text) } catch { }
+  try { [void](Ensure-LogDir $txtLogDir.Text) } catch { }
 
   $form.add_FormClosing({
     Complete-GridCurrentEdit $gridJoins "Join"
