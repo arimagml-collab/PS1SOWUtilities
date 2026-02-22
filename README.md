@@ -11,8 +11,8 @@ PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）�
 ### タブ別の活用シーン
 
 - **Export**
-  - データを CSV / JSON / Excel に出力し、各部署で自由に集計・加工・連携したいときに有効です。
-  - 例：運用部門が Excel で一次分析し、別チームが JSON を使って別システム連携する並行利用。
+  - テーブルの全カラムを CSV / JSON / Excel に一括エクスポートし、数万行オーダーのデータ出力にも対応します。
+  - 目的に応じて、CSV / JSON / Excel から出力形式を選択できます。
 - **Attachment Harvester**
   - 指定期間内に更新されたレコードに紐づく添付ファイルを一括取得したいときに有効です。
   - ファイル名は「テーブル名_レコードキー(number/short_description/sys_id)_元ファイル名」形式で保存され、重複時は連番で衝突回避します。
@@ -25,11 +25,11 @@ PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）�
 - **設定**
   - インスタンス名・認証方式・言語などを保存し、繰り返し作業の入力ミスやセットアップ時間を減らしたいときに有効です。
 
-### UI更新ポイント（モダン化）
+### UIの特徴
 
-- テーマ切替（**Dark / Light**）を Settings タブに追加しました。
-- Logs タブに **検索 / コピー / クリア / 自動スクロールON-OFF** を追加しました。
-- Truncate の確認ダイアログに、対象・確認コード・インスタンスURL・最大再試行・不可逆操作の注意を表示します。
+- Settings タブでテーマ（**Dark / Light**）を切り替えできます。
+- Logs タブで **検索 / コピー / クリア / 自動スクロールON-OFF** を操作できます。
+- Truncate の確認ダイアログで、対象・確認コード・インスタンスURL・最大再試行・不可逆操作の注意を確認できます。
 
 ### 前提条件
 
@@ -55,7 +55,7 @@ PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）�
 3. 本ツールの **設定** タブで認証方式を **APIキー** に変更し、ヘッダー名 `x-sn-apikey`、値に発行済み API キーを設定します。
 4. 接続確認として、まず **Export** で小さなテーブル（例: `sys_user` の少量条件）を実行し、401/403 が出ないことを確認します。
 
-> ⚠️ API キーはパスワード同等の秘密情報です。`settings.json` を共有リポジトリやチャットへ貼り付けないでください。必要に応じて ServiceNow 側でキーのローテーション（再発行）を実施してください。
+> ⚠️ API キーはパスワード同等の秘密情報です。必要に応じて ServiceNow 側でキーのローテーション（再発行）を実施してください。
 
 ##### 独自ドメイン運用時の設定（`instance-name.service-now.com` 以外）
 
@@ -95,7 +95,7 @@ PS1 SNOW Utilities は、ServiceNow テーブルのデータ抽出（Export）�
 3. 実行すると、連番付きの複数CSVファイルとして順次出力されます。
 4. ログで各ファイルの出力状況を確認し、必要に応じて後続処理で結合・集計します。
 
-> 💡 使用シチュエーション：巨大テーブルを1ファイルで出力すると、ネットワークや処理時間の都合で途中で切れてしまう可能性がある場合に、分割して全件を安全に出力したいときに有効です。
+> 💡 使用シチュエーション：巨大テーブルを扱う際に、1ファイルあたりのサイズを運用しやすい単位に分けて保存・配布・再処理したい場合に有効です。
 
 #### Attachment Harvester の手順
 
@@ -168,8 +168,8 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
 ### Useful situations by tab
 
 - **Export**
-  - Best when you want to distribute data as CSV / JSON / Excel so each department can process it in its own workflow.
-  - Example: the operations team analyzes in Excel while another team consumes JSON for system integration.
+  - Exports all columns of a table in one run to CSV / JSON / Excel, and supports large outputs on the order of tens of thousands of rows.
+  - You can choose CSV / JSON / Excel depending on your downstream use.
 - **Attachment Harvester**
   - Useful when you need to bulk-download attachments linked to records updated within a specific time window.
   - Files are saved as `table_recordKey(number/short_description/sys_id)_originalFileName`, and duplicate names are safely suffixed.
@@ -182,11 +182,11 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
 - **Settings**
   - Best when you want to persist instance/auth/language preferences and reduce repeated setup time and input mistakes.
 
-### UI refresh highlights
+### UI characteristics
 
-- Added theme switching (**Dark / Light**) in the Settings tab.
-- Added **Search / Copy / Clear / Auto-scroll ON-OFF** controls in the Logs tab.
-- Truncate confirmation now includes target table, verification code, instance URL, max retries, and irreversible-operation warning.
+- Theme switching (**Dark / Light**) is available in the Settings tab.
+- **Search / Copy / Clear / Auto-scroll ON-OFF** controls are available in the Logs tab.
+- The Truncate confirmation dialog shows target table, verification code, instance URL, max retries, and irreversible-operation warning.
 
 ### Prerequisites
 
@@ -212,7 +212,7 @@ PS1 SNOW Utilities is a PowerShell (WinForms) utility for exporting ServiceNow t
 3. In this tool's **Settings** tab, switch authentication to **API Key** and set header name `x-sn-apikey` with the issued key as its value.
 4. Validate connectivity by running a small **Export** first (for example, a narrow query on `sys_user`) and confirm there is no 401/403 error.
 
-> ⚠️ Treat API keys as secrets equivalent to passwords. Do not share `settings.json` in repositories or chat. Rotate/reissue keys from ServiceNow when needed.
+> ⚠️ Treat API keys as secrets equivalent to passwords. Rotate/reissue keys from ServiceNow when needed.
 
 ##### Custom domain setup (when not using `instance-name.service-now.com`)
 
@@ -252,7 +252,7 @@ Or leave `instanceName` empty and provide a full URL with `https://` in `instanc
 3. Run export to generate multiple numbered CSV files in sequence.
 4. Check logs for each generated file, then merge/process them as needed.
 
-> 💡 Typical use case: when exporting a huge table to a single file may get cut off due to network or processing limits, split CSV export helps you safely output the full dataset in chunks.
+> 💡 Typical use case: when handling very large tables, split output into manageable file sizes for easier storage, sharing, and reprocessing.
 
 #### Attachment Harvester workflow
 
