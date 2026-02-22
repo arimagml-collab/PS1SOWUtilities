@@ -30,10 +30,22 @@ function Get-BaseUrl {
   return ("https://{0}.service-now.com" -f $inst).TrimEnd('/')
 }
 
+function ConvertTo-BasicAuthHeaderValue {
+  param(
+    [Parameter(Mandatory=$true)][string]$User,
+    [Parameter(Mandatory=$true)][string]$Password
+  )
+
+  $raw = "{0}:{1}" -f $User, $Password
+  $bytes = [System.Text.Encoding]::UTF8.GetBytes($raw)
+  return ("Basic {0}" -f [System.Convert]::ToBase64String($bytes))
+}
+
 function New-SnowHeaders {
   param(
     [Parameter(Mandatory=$true)]$Settings,
-    [Parameter(Mandatory=$true)][scriptblock]$UnprotectSecret
+    [Parameter(Mandatory=$true)][scriptblock]$UnprotectSecret,
+    [Parameter(Mandatory=$true)][scriptblock]$GetText
   )
 
   $headers = @{
@@ -42,11 +54,23 @@ function New-SnowHeaders {
   }
 
   $authType = ([string]$Settings.authType).Trim().ToLowerInvariant()
-  if ($authType -eq "apikey") {
-    $key = & $UnprotectSecret ([string]$Settings.apiKeyEnc)
-    if (-not [string]::IsNullOrWhiteSpace($key)) {
-      $headers["x-sn-apikey"] = $key
+  if ($authType -eq "userpass") {
+    $user = ([string]$Settings.userId).Trim()
+    $pass = & $UnprotectSecret ([string]$Settings.passwordEnc)
+    if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($pass)) {
+      throw (& $GetText "WarnAuth")
     }
+
+    $headers["Authorization"] = (ConvertTo-BasicAuthHeaderValue -User $user -Password $pass)
+  } elseif ($authType -eq "apikey") {
+    $key = & $UnprotectSecret ([string]$Settings.apiKeyEnc)
+    if ([string]::IsNullOrWhiteSpace($key)) {
+      throw (& $GetText "WarnAuth")
+    }
+
+    $headers["x-sn-apikey"] = $key
+  } else {
+    throw (& $GetText "WarnAuth")
   }
 
   return $headers
@@ -67,7 +91,7 @@ function Invoke-SnowRequest {
   if ([string]::IsNullOrWhiteSpace($base)) { throw (& $GetText "WarnInstance") }
 
   $uri = $base + $Path
-  $headers = New-SnowHeaders -Settings $Settings -UnprotectSecret $UnprotectSecret
+  $headers = New-SnowHeaders -Settings $Settings -UnprotectSecret $UnprotectSecret -GetText $GetText
 
   $requestParams = @{
     Method = $Method
@@ -79,25 +103,6 @@ function Invoke-SnowRequest {
   if ($PSBoundParameters.ContainsKey('Body') -and $null -ne $Body) {
     $jsonBody = ($Body | ConvertTo-Json -Depth 8)
     $requestParams.Body = [System.Text.Encoding]::UTF8.GetBytes($jsonBody)
-  }
-
-  $authType = ([string]$Settings.authType).Trim().ToLowerInvariant()
-  if ($authType -eq "userpass") {
-    $user = ([string]$Settings.userId).Trim()
-    $pass = & $UnprotectSecret ([string]$Settings.passwordEnc)
-    if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($pass)) {
-      throw (& $GetText "WarnAuth")
-    }
-
-    $sec = ConvertTo-SecureString $pass -AsPlainText -Force
-    $requestParams.Credential = New-Object System.Management.Automation.PSCredential($user, $sec)
-  } elseif ($authType -eq "apikey") {
-    $key = & $UnprotectSecret ([string]$Settings.apiKeyEnc)
-    if ([string]::IsNullOrWhiteSpace($key)) {
-      throw (& $GetText "WarnAuth")
-    }
-  } else {
-    throw (& $GetText "WarnAuth")
   }
 
   return Invoke-RestMethod @requestParams
@@ -166,4 +171,4 @@ function Invoke-SnowBatchDelete {
   return @{ deletedCount = $ok; failedIds = @($failedIds) }
 }
 
-Export-ModuleMember -Function UrlEncode, Get-BaseUrl, New-SnowHeaders, Invoke-SnowRequest, Invoke-SnowBatchDelete
+Export-ModuleMember -Function UrlEncode, Get-BaseUrl, ConvertTo-BasicAuthHeaderValue, New-SnowHeaders, Invoke-SnowRequest, Invoke-SnowBatchDelete
