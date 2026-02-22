@@ -318,9 +318,17 @@ try {
   }
 
   function ConvertTo-SafeLogObject {
-    param([AllowNull()]$InputObject)
+    param(
+      [AllowNull()]$InputObject,
+      [int]$Depth = 0,
+      [int]$MaxDepth = 4
+    )
 
     if ($null -eq $InputObject) { return $null }
+
+    if ($Depth -ge $MaxDepth) {
+      return '[DepthLimit]'
+    }
 
     if ($InputObject -is [string] -or $InputObject.GetType().IsPrimitive -or $InputObject -is [decimal] -or $InputObject -is [datetime] -or $InputObject -is [guid]) {
       return $InputObject
@@ -334,7 +342,7 @@ try {
         if ($name -match '(?i)(pass(word)?|api[_-]?key|token|secret|authorization|credential)') {
           $result[$name] = '***REDACTED***'
         } else {
-          $result[$name] = ConvertTo-SafeLogObject -InputObject $value
+          $result[$name] = ConvertTo-SafeLogObject -InputObject $value -Depth ($Depth + 1) -MaxDepth $MaxDepth
         }
       }
       return $result
@@ -343,7 +351,7 @@ try {
     if ($InputObject -is [System.Collections.IEnumerable] -and -not ($InputObject -is [string])) {
       $items = New-Object System.Collections.Generic.List[object]
       foreach ($item in $InputObject) {
-        $items.Add((ConvertTo-SafeLogObject -InputObject $item)) | Out-Null
+        $items.Add((ConvertTo-SafeLogObject -InputObject $item -Depth ($Depth + 1) -MaxDepth $MaxDepth)) | Out-Null
       }
       return @($items)
     }
@@ -356,7 +364,11 @@ try {
         if ($name -match '(?i)(pass(word)?|api[_-]?key|token|secret|authorization|credential)') {
           $result[$name] = '***REDACTED***'
         } else {
-          $result[$name] = ConvertTo-SafeLogObject -InputObject $prop.Value
+          try {
+            $result[$name] = ConvertTo-SafeLogObject -InputObject $prop.Value -Depth ($Depth + 1) -MaxDepth $MaxDepth
+          } catch {
+            $result[$name] = '[Unavailable]'
+          }
         }
       }
       return $result
