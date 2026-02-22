@@ -2562,8 +2562,10 @@ try {
       $loadedJoinDefs = @(Normalize-JoinDefinitionsForLoad ($joinsText | ConvertFrom-Json))
       foreach ($j in $loadedJoinDefs) {
         if ($null -eq $j) { continue }
-        $rowIndex = $gridJoins.Rows.Add($null, "__base__", $null, $null, $null, $false)
+        $rowIndex = $gridJoins.Rows.Add()
         if ($rowIndex -lt 0) { continue }
+        $gridJoins.Rows[$rowIndex].Cells[1].Value = "__base__"
+        $gridJoins.Rows[$rowIndex].Cells[5].Value = $false
         $gridJoins.Rows[$rowIndex].Cells[0].Value = Convert-DisplayTokenToName ([string]$j.joinTable)
         Populate-JoinColumnsForRow $rowIndex
         if ($j.PSObject.Properties.Name -contains "joinSource") { $gridJoins.Rows[$rowIndex].Cells[1].Value = [string]$j.joinSource }
@@ -2786,8 +2788,10 @@ try {
   $btnReloadColumns.add_Click({ Fetch-ColumnsForBaseTable })
 
   $btnAddJoin.add_Click({
-    $rowIndex = $gridJoins.Rows.Add($null, "__base__", $null, $null, $null, $false)
+    $rowIndex = $gridJoins.Rows.Add()
     if ($rowIndex -ge 0) {
+      $gridJoins.Rows[$rowIndex].Cells[1].Value = "__base__"
+      $gridJoins.Rows[$rowIndex].Cells[5].Value = $false
       Populate-JoinColumnsForRow $rowIndex
       $gridJoins.Rows[$rowIndex].Cells[1].Value = "__base__"
       $gridJoins.Rows[$rowIndex].Cells[4].Value = ("t{0}" -f ($rowIndex + 1))
