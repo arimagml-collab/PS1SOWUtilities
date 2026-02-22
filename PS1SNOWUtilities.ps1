@@ -174,7 +174,15 @@ try {
   }
 
   function New-SnowHeaders {
-    return (New-CoreSnowHeaders -Settings $script:Settings -UnprotectSecret ${function:Unprotect-Secret})
+    return (New-CoreSnowHeaders -Settings $script:Settings -UnprotectSecret ${function:Unprotect-Secret} -GetText ${function:T})
+  }
+
+  function Sync-AuthTypeFromSelection {
+    if ($rbUserPass -and $rbUserPass.Checked) {
+      $script:Settings.authType = "userpass"
+    } elseif ($rbApiKey -and $rbApiKey.Checked) {
+      $script:Settings.authType = "apikey"
+    }
   }
 
   function Invoke-SnowRequest {
@@ -184,6 +192,8 @@ try {
       [AllowNull()]$Body,
       [int]$TimeoutSec = 120
     )
+
+    Sync-AuthTypeFromSelection
 
     $params = @{
       Method = $Method
@@ -215,6 +225,8 @@ try {
   }
 
   function Invoke-SnowDownloadAttachmentBytes([string]$attachmentSysId) {
+    Sync-AuthTypeFromSelection
+
     $base = Get-BaseUrl
     if ([string]::IsNullOrWhiteSpace($base)) { throw (T "WarnInstance") }
     $uri = "{0}/api/now/attachment/{1}/file" -f $base, $attachmentSysId
@@ -222,11 +234,16 @@ try {
     if (([string]$script:Settings.authType).Trim().ToLowerInvariant() -eq "userpass") {
       $user = ([string]$script:Settings.userId).Trim()
       $pass = Unprotect-Secret ([string]$script:Settings.passwordEnc)
+      if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($pass)) { throw (T "WarnAuth") }
+
       $sec = ConvertTo-SecureString $pass -AsPlainText -Force
       $cred = New-Object System.Management.Automation.PSCredential($user, $sec)
       $response = Invoke-WebRequest -Uri $uri -Method Get -Credential $cred -UseBasicParsing
     } else {
-      $headers = @{ Authorization = ("Bearer {0}" -f (Unprotect-Secret ([string]$script:Settings.apiKeyEnc))) }
+      $key = Unprotect-Secret ([string]$script:Settings.apiKeyEnc)
+      if ([string]::IsNullOrWhiteSpace($key)) { throw (T "WarnAuth") }
+
+      $headers = @{ "x-sn-apikey" = $key }
       $response = Invoke-WebRequest -Uri $uri -Method Get -Headers $headers -UseBasicParsing
     }
 

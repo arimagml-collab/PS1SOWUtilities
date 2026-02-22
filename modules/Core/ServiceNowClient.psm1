@@ -33,7 +33,8 @@ function Get-BaseUrl {
 function New-SnowHeaders {
   param(
     [Parameter(Mandatory=$true)]$Settings,
-    [Parameter(Mandatory=$true)][scriptblock]$UnprotectSecret
+    [Parameter(Mandatory=$true)][scriptblock]$UnprotectSecret,
+    [Parameter(Mandatory=$true)][scriptblock]$GetText
   )
 
   $headers = @{
@@ -44,9 +45,10 @@ function New-SnowHeaders {
   $authType = ([string]$Settings.authType).Trim().ToLowerInvariant()
   if ($authType -eq "apikey") {
     $key = & $UnprotectSecret ([string]$Settings.apiKeyEnc)
-    if (-not [string]::IsNullOrWhiteSpace($key)) {
-      $headers["x-sn-apikey"] = $key
+    if ([string]::IsNullOrWhiteSpace($key)) {
+      throw (& $GetText "WarnAuth")
     }
+    $headers["x-sn-apikey"] = $key
   }
 
   return $headers
@@ -67,7 +69,7 @@ function Invoke-SnowRequest {
   if ([string]::IsNullOrWhiteSpace($base)) { throw (& $GetText "WarnInstance") }
 
   $uri = $base + $Path
-  $headers = New-SnowHeaders -Settings $Settings -UnprotectSecret $UnprotectSecret
+  $headers = New-SnowHeaders -Settings $Settings -UnprotectSecret $UnprotectSecret -GetText $GetText
 
   $requestParams = @{
     Method = $Method
@@ -91,12 +93,7 @@ function Invoke-SnowRequest {
 
     $sec = ConvertTo-SecureString $pass -AsPlainText -Force
     $requestParams.Credential = New-Object System.Management.Automation.PSCredential($user, $sec)
-  } elseif ($authType -eq "apikey") {
-    $key = & $UnprotectSecret ([string]$Settings.apiKeyEnc)
-    if ([string]::IsNullOrWhiteSpace($key)) {
-      throw (& $GetText "WarnAuth")
-    }
-  } else {
+  } elseif ($authType -ne "apikey") {
     throw (& $GetText "WarnAuth")
   }
 
