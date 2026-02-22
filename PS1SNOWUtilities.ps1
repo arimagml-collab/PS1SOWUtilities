@@ -485,12 +485,19 @@ try {
     return $card
   }
 
+  function Get-UiFont([string]$role = 'body') {
+    if ($role -eq 'section-title') {
+      return New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+    }
+    return New-Object System.Drawing.Font("Segoe UI", 9)
+  }
+
   function New-UiSectionTitle([string]$text) {
     $lbl = New-Object System.Windows.Forms.Label
     $lbl.Text = $text
     $lbl.AutoSize = $true
     $lbl.Tag = 'role-section-title'
-    $lbl.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+    $lbl.Font = Get-UiFont 'section-title'
     $lbl.Margin = New-Object System.Windows.Forms.Padding(0,0,0,8)
     return $lbl
   }
@@ -550,9 +557,9 @@ try {
     if ($null -eq $control) { return }
     $palette = $script:ThemePalette
     if ($control.Tag -eq 'role-section-title') {
-      $control.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+      $control.Font = Get-UiFont 'section-title'
     } else {
-      $control.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+      $control.Font = Get-UiFont 'body'
     }
 
     if ($control -is [System.Windows.Forms.Form]) {
@@ -655,7 +662,7 @@ try {
   $form.Size = New-Object System.Drawing.Size(1120, 720)
   $form.MinimumSize = New-Object System.Drawing.Size(1040, 650)
   $form.Padding = New-Object System.Windows.Forms.Padding(8)
-  $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+  $form.Font = Get-UiFont 'body'
 
   $tabs = New-Object System.Windows.Forms.TabControl
   Set-Theme ([string]$script:Settings.uiTheme)
