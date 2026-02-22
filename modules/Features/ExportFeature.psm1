@@ -82,6 +82,7 @@ function Invoke-ExportUseCase {
   $all = New-Object System.Collections.Generic.List[object]
   $lastCreatedOn = $null
   $lastSysId = $null
+  $completed = $false
 
   function Resolve-OutputEncoding {
     param([Parameter(Mandatory=$true)]$State)
@@ -347,9 +348,25 @@ function Invoke-ExportUseCase {
         }
       }
     }
+
+    $completed = $true
   } finally {
     if ($jsonWriter) { $jsonWriter.Write("]"); $jsonWriter.Dispose() }
     if ($csvWriter) { $csvWriter.Dispose() }
+
+    if (-not $completed) {
+      foreach ($f in @($csvFiles)) {
+        $csvPart = [string]$f
+        if (-not [string]::IsNullOrWhiteSpace($csvPart) -and (Test-Path -LiteralPath $csvPart)) {
+          Remove-Item -LiteralPath $csvPart -Force -ErrorAction SilentlyContinue
+        }
+      }
+
+      $targetFile = [string]$Context.file
+      if (-not [string]::IsNullOrWhiteSpace($targetFile) -and (Test-Path -LiteralPath $targetFile)) {
+        Remove-Item -LiteralPath $targetFile -Force -ErrorAction SilentlyContinue
+      }
+    }
   }
 
   if ($Context.format -eq "csv" -and $csvFiles.Count -eq 1) {
