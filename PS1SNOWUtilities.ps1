@@ -949,85 +949,129 @@ try {
   $panelAttachment = New-Object System.Windows.Forms.Panel
   $panelAttachment.Dock = "Fill"
   $panelAttachment.AutoScroll = $true
-  $panelAttachment.AutoScrollMinSize = New-Object System.Drawing.Size(940, 660)
   $tabAttachmentHarvester.Controls.Add($panelAttachment)
 
-  $lblAttachmentInputSection = New-UiSectionTitle ""
-  $lblAttachmentInputSection.Location = New-Object System.Drawing.Point(20, 6)
+  $layoutAttachmentRoot = New-Object System.Windows.Forms.TableLayoutPanel
+  $layoutAttachmentRoot.Dock = "Top"
+  $layoutAttachmentRoot.AutoSize = $true
+  $layoutAttachmentRoot.AutoSizeMode = "GrowAndShrink"
+  $layoutAttachmentRoot.Padding = New-Object System.Windows.Forms.Padding(16, 8, 16, 16)
+  $layoutAttachmentRoot.ColumnCount = 2
+  [void]$layoutAttachmentRoot.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+  [void]$layoutAttachmentRoot.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 220)))
+  $panelAttachment.Controls.Add($layoutAttachmentRoot)
 
+  $lblAttachmentInputSection = New-UiSectionTitle ""
   $lblAttachmentExecuteSection = New-UiSectionTitle ""
-  $lblAttachmentExecuteSection.Location = New-Object System.Drawing.Point(740, 114)
+
+  $layoutAttachmentInput = New-Object System.Windows.Forms.TableLayoutPanel
+  $layoutAttachmentInput.Dock = "Top"
+  $layoutAttachmentInput.AutoSize = $true
+  $layoutAttachmentInput.AutoSizeMode = "GrowAndShrink"
+  $layoutAttachmentInput.Margin = New-Object System.Windows.Forms.Padding(0, 0, 0, 12)
+  $layoutAttachmentInput.ColumnCount = 3
+  [void]$layoutAttachmentInput.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 160)))
+  [void]$layoutAttachmentInput.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+  [void]$layoutAttachmentInput.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 180)))
 
   $lblAttachmentTable = New-Object System.Windows.Forms.Label
-  $lblAttachmentTable.Location = New-Object System.Drawing.Point(20, 20)
   $lblAttachmentTable.AutoSize = $true
+  $lblAttachmentTable.Anchor = [System.Windows.Forms.AnchorStyles]::Left
 
   $cmbAttachmentTable = New-Object System.Windows.Forms.ComboBox
-  $cmbAttachmentTable.Location = New-Object System.Drawing.Point(220, 16)
-  $cmbAttachmentTable.Size = New-Object System.Drawing.Size(500, 28)
+  $cmbAttachmentTable.Dock = "Fill"
   $cmbAttachmentTable.DropDownStyle = "DropDown"
 
   $cmbAttachmentDateField = New-Object System.Windows.Forms.ComboBox
-  $cmbAttachmentDateField.Location = New-Object System.Drawing.Point(740, 16)
-  $cmbAttachmentDateField.Size = New-Object System.Drawing.Size(180, 28)
+  $cmbAttachmentDateField.Dock = "Fill"
   $cmbAttachmentDateField.DropDownStyle = "DropDownList"
   [void]$cmbAttachmentDateField.Items.Add('sys_created_on')
   [void]$cmbAttachmentDateField.Items.Add('sys_updated_on')
 
   $lblAttachmentStart = New-Object System.Windows.Forms.Label
-  $lblAttachmentStart.Location = New-Object System.Drawing.Point(20, 65)
   $lblAttachmentStart.AutoSize = $true
+  $lblAttachmentStart.Anchor = [System.Windows.Forms.AnchorStyles]::Left
+
+  $layoutAttachmentRange = New-Object System.Windows.Forms.TableLayoutPanel
+  $layoutAttachmentRange.Dock = "Fill"
+  $layoutAttachmentRange.AutoSize = $true
+  $layoutAttachmentRange.AutoSizeMode = "GrowAndShrink"
+  $layoutAttachmentRange.Margin = New-Object System.Windows.Forms.Padding(0)
+  $layoutAttachmentRange.ColumnCount = 3
+  [void]$layoutAttachmentRange.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 50)))
+  [void]$layoutAttachmentRange.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 32)))
+  [void]$layoutAttachmentRange.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 50)))
 
   $dtAttachmentStart = New-Object System.Windows.Forms.DateTimePicker
-  $dtAttachmentStart.Location = New-Object System.Drawing.Point(220, 61)
-  $dtAttachmentStart.Size = New-Object System.Drawing.Size(250, 28)
+  $dtAttachmentStart.Dock = "Fill"
   $dtAttachmentStart.Format = "Custom"
   $dtAttachmentStart.CustomFormat = "yyyy-MM-dd HH:mm:ss"
   $dtAttachmentStart.ShowUpDown = $true
 
   $lblAttachmentEnd = New-Object System.Windows.Forms.Label
-  $lblAttachmentEnd.Location = New-Object System.Drawing.Point(490, 65)
   $lblAttachmentEnd.AutoSize = $true
+  $lblAttachmentEnd.Anchor = [System.Windows.Forms.AnchorStyles]::Left
+
+  $lblAttachmentRangeSeparator = New-MutedLabel
+  $lblAttachmentRangeSeparator.Text = "〜"
+  $lblAttachmentRangeSeparator.AutoSize = $true
+  $lblAttachmentRangeSeparator.Anchor = [System.Windows.Forms.AnchorStyles]::None
 
   $dtAttachmentEnd = New-Object System.Windows.Forms.DateTimePicker
-  $dtAttachmentEnd.Location = New-Object System.Drawing.Point(560, 61)
-  $dtAttachmentEnd.Size = New-Object System.Drawing.Size(160, 28)
+  $dtAttachmentEnd.Dock = "Fill"
   $dtAttachmentEnd.Format = "Custom"
   $dtAttachmentEnd.CustomFormat = "yyyy-MM-dd HH:mm:ss"
   $dtAttachmentEnd.ShowUpDown = $true
 
+  [void]$layoutAttachmentRange.Controls.Add($dtAttachmentStart, 0, 0)
+  [void]$layoutAttachmentRange.Controls.Add($lblAttachmentRangeSeparator, 1, 0)
+  [void]$layoutAttachmentRange.Controls.Add($dtAttachmentEnd, 2, 0)
+
   $btnAttachmentLastRunToNow = New-Object System.Windows.Forms.Button
-  $btnAttachmentLastRunToNow.Location = New-Object System.Drawing.Point(740, 59)
-  $btnAttachmentLastRunToNow.Size = New-Object System.Drawing.Size(180, 32)
+  $btnAttachmentLastRunToNow.Dock = "Fill"
 
   $lblAttachmentDir = New-Object System.Windows.Forms.Label
-  $lblAttachmentDir.Location = New-Object System.Drawing.Point(20, 108)
   $lblAttachmentDir.AutoSize = $true
+  $lblAttachmentDir.Anchor = [System.Windows.Forms.AnchorStyles]::Left
 
   $txtAttachmentDir = New-Object System.Windows.Forms.TextBox
-  $txtAttachmentDir.Location = New-Object System.Drawing.Point(220, 104)
-  $txtAttachmentDir.Size = New-Object System.Drawing.Size(500, 28)
+  $txtAttachmentDir.Dock = "Fill"
 
   $btnAttachmentBrowse = New-Object System.Windows.Forms.Button
-  $btnAttachmentBrowse.Location = New-Object System.Drawing.Point(740, 102)
-  $btnAttachmentBrowse.Size = New-Object System.Drawing.Size(180, 32)
+  $btnAttachmentBrowse.Dock = "Fill"
 
   $chkAttachmentSubfolder = New-Object System.Windows.Forms.CheckBox
-  $chkAttachmentSubfolder.Location = New-Object System.Drawing.Point(220, 145)
   $chkAttachmentSubfolder.AutoSize = $true
+  $chkAttachmentSubfolder.Anchor = [System.Windows.Forms.AnchorStyles]::Left
 
   $btnAttachmentExecute = New-Object System.Windows.Forms.Button
-  $btnAttachmentExecute.Location = New-Object System.Drawing.Point(740, 145)
-  $btnAttachmentExecute.Size = New-Object System.Drawing.Size(180, 42)
+  $btnAttachmentExecute.Dock = "Fill"
+  $btnAttachmentExecute.Height = 42
 
-  $panelAttachment.Controls.AddRange(@(
-    $lblAttachmentInputSection, $lblAttachmentExecuteSection,
-    $lblAttachmentTable, $cmbAttachmentTable, $cmbAttachmentDateField,
-    $lblAttachmentStart, $dtAttachmentStart, $lblAttachmentEnd, $dtAttachmentEnd, $btnAttachmentLastRunToNow,
-    $lblAttachmentDir, $txtAttachmentDir, $btnAttachmentBrowse,
-    $chkAttachmentSubfolder,
-    $btnAttachmentExecute
-  ))
+  [void]$layoutAttachmentInput.Controls.Add($lblAttachmentTable, 0, 0)
+  [void]$layoutAttachmentInput.Controls.Add($cmbAttachmentTable, 1, 0)
+  [void]$layoutAttachmentInput.Controls.Add($cmbAttachmentDateField, 2, 0)
+  [void]$layoutAttachmentInput.Controls.Add($lblAttachmentStart, 0, 1)
+  [void]$layoutAttachmentInput.Controls.Add($layoutAttachmentRange, 1, 1)
+  [void]$layoutAttachmentInput.Controls.Add($btnAttachmentLastRunToNow, 2, 1)
+  [void]$layoutAttachmentInput.Controls.Add($lblAttachmentDir, 0, 2)
+  [void]$layoutAttachmentInput.Controls.Add($txtAttachmentDir, 1, 2)
+  [void]$layoutAttachmentInput.Controls.Add($btnAttachmentBrowse, 2, 2)
+  [void]$layoutAttachmentInput.Controls.Add($chkAttachmentSubfolder, 1, 3)
+
+  $layoutAttachmentActions = New-Object System.Windows.Forms.TableLayoutPanel
+  $layoutAttachmentActions.Dock = "Top"
+  $layoutAttachmentActions.AutoSize = $true
+  $layoutAttachmentActions.AutoSizeMode = "GrowAndShrink"
+  $layoutAttachmentActions.Margin = New-Object System.Windows.Forms.Padding(0, 0, 0, 12)
+  $layoutAttachmentActions.ColumnCount = 1
+  [void]$layoutAttachmentActions.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+  [void]$layoutAttachmentActions.Controls.Add($btnAttachmentExecute, 0, 0)
+
+  [void]$layoutAttachmentRoot.Controls.Add($lblAttachmentInputSection, 0, 0)
+  [void]$layoutAttachmentRoot.Controls.Add($layoutAttachmentInput, 0, 1)
+  [void]$layoutAttachmentRoot.Controls.Add($lblAttachmentExecuteSection, 1, 0)
+  [void]$layoutAttachmentRoot.Controls.Add($layoutAttachmentActions, 1, 1)
 
   function Build-LogsTab {
     param([System.Windows.Forms.TabPage]$TabPage)
@@ -1280,116 +1324,155 @@ try {
     $panelSettings = New-Object System.Windows.Forms.Panel
     $panelSettings.Dock = "Fill"
     $panelSettings.AutoScroll = $true
-    $panelSettings.AutoScrollMinSize = New-Object System.Drawing.Size(940, 420)
     $TabPage.Controls.Add($panelSettings)
 
+    $layoutSettingsRoot = New-Object System.Windows.Forms.TableLayoutPanel
+    $layoutSettingsRoot.Dock = "Top"
+    $layoutSettingsRoot.AutoSize = $true
+    $layoutSettingsRoot.AutoSizeMode = "GrowAndShrink"
+    $layoutSettingsRoot.Padding = New-Object System.Windows.Forms.Padding(16, 8, 16, 16)
+    $layoutSettingsRoot.ColumnCount = 1
+    [void]$layoutSettingsRoot.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+    $panelSettings.Controls.Add($layoutSettingsRoot)
+
+    $layoutSettingsGrid = New-Object System.Windows.Forms.TableLayoutPanel
+    $layoutSettingsGrid.Dock = "Top"
+    $layoutSettingsGrid.AutoSize = $true
+    $layoutSettingsGrid.AutoSizeMode = "GrowAndShrink"
+    $layoutSettingsGrid.Margin = New-Object System.Windows.Forms.Padding(0)
+    $layoutSettingsGrid.ColumnCount = 4
+    [void]$layoutSettingsGrid.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 160)))
+    [void]$layoutSettingsGrid.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 50)))
+    [void]$layoutSettingsGrid.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 100)))
+    [void]$layoutSettingsGrid.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 50)))
+
     $lblUiLang = New-Object System.Windows.Forms.Label
-    $lblUiLang.Location = New-Object System.Drawing.Point(20, 20)
     $lblUiLang.AutoSize = $true
+    $lblUiLang.Anchor = [System.Windows.Forms.AnchorStyles]::Left
 
     $cmbLang = New-Object System.Windows.Forms.ComboBox
-    $cmbLang.Location = New-Object System.Drawing.Point(220, 16)
-    $cmbLang.Size = New-Object System.Drawing.Size(160, 28)
+    $cmbLang.Dock = "Fill"
     $cmbLang.DropDownStyle = "DropDownList"
     [void]$cmbLang.Items.Add("ja")
     [void]$cmbLang.Items.Add("en")
 
     $lblTheme = New-Object System.Windows.Forms.Label
-    $lblTheme.Location = New-Object System.Drawing.Point(420, 20)
     $lblTheme.AutoSize = $true
+    $lblTheme.Anchor = [System.Windows.Forms.AnchorStyles]::Left
 
     $cmbTheme = New-Object System.Windows.Forms.ComboBox
-    $cmbTheme.Location = New-Object System.Drawing.Point(560, 16)
-    $cmbTheme.Size = New-Object System.Drawing.Size(160, 28)
+    $cmbTheme.Dock = "Fill"
     $cmbTheme.DropDownStyle = "DropDownList"
     [void]$cmbTheme.Items.Add("dark")
     [void]$cmbTheme.Items.Add("light")
 
     $lblInstance = New-Object System.Windows.Forms.Label
-    $lblInstance.Location = New-Object System.Drawing.Point(20, 60)
     $lblInstance.AutoSize = $true
+    $lblInstance.Anchor = [System.Windows.Forms.AnchorStyles]::Left
 
     $txtInstance = New-Object System.Windows.Forms.TextBox
-    $txtInstance.Location = New-Object System.Drawing.Point(220, 56)
-    $txtInstance.Size = New-Object System.Drawing.Size(500, 28)
+    $txtInstance.Dock = "Fill"
 
     $lblBaseUrl = New-Object System.Windows.Forms.Label
-    $lblBaseUrl.Location = New-Object System.Drawing.Point(220, 88)
-    $lblBaseUrl.Size = New-Object System.Drawing.Size(700, 18)
+    $lblBaseUrl.Dock = "Top"
+    $lblBaseUrl.AutoSize = $true
     $lblBaseUrl.Tag = 'tone-muted'
 
     $lblAuthType = New-Object System.Windows.Forms.Label
-    $lblAuthType.Location = New-Object System.Drawing.Point(20, 125)
     $lblAuthType.AutoSize = $true
+    $lblAuthType.Anchor = [System.Windows.Forms.AnchorStyles]::Left
+
+    $flowAuthType = New-Object System.Windows.Forms.FlowLayoutPanel
+    $flowAuthType.Dock = "Fill"
+    $flowAuthType.AutoSize = $true
+    $flowAuthType.WrapContents = $false
+    $flowAuthType.Margin = New-Object System.Windows.Forms.Padding(0)
 
     $rbUserPass = New-Object System.Windows.Forms.RadioButton
-    $rbUserPass.Location = New-Object System.Drawing.Point(220, 123)
     $rbUserPass.AutoSize = $true
+    $rbUserPass.Margin = New-Object System.Windows.Forms.Padding(0, 4, 20, 0)
 
     $rbApiKey = New-Object System.Windows.Forms.RadioButton
-    $rbApiKey.Location = New-Object System.Drawing.Point(420, 123)
     $rbApiKey.AutoSize = $true
+    $rbApiKey.Margin = New-Object System.Windows.Forms.Padding(0, 4, 0, 0)
+
+    [void]$flowAuthType.Controls.Add($rbUserPass)
+    [void]$flowAuthType.Controls.Add($rbApiKey)
 
     $lblUser = New-Object System.Windows.Forms.Label
-    $lblUser.Location = New-Object System.Drawing.Point(20, 170)
     $lblUser.AutoSize = $true
+    $lblUser.Anchor = [System.Windows.Forms.AnchorStyles]::Left
 
     $txtUser = New-Object System.Windows.Forms.TextBox
-    $txtUser.Location = New-Object System.Drawing.Point(220, 166)
-    $txtUser.Size = New-Object System.Drawing.Size(260, 28)
+    $txtUser.Dock = "Fill"
 
     $lblPass = New-Object System.Windows.Forms.Label
-    $lblPass.Location = New-Object System.Drawing.Point(20, 210)
     $lblPass.AutoSize = $true
+    $lblPass.Anchor = [System.Windows.Forms.AnchorStyles]::Left
 
     $txtPass = New-Object System.Windows.Forms.TextBox
-    $txtPass.Location = New-Object System.Drawing.Point(220, 206)
-    $txtPass.Size = New-Object System.Drawing.Size(360, 28)
+    $txtPass.Dock = "Fill"
     $txtPass.UseSystemPasswordChar = $true
 
     $btnTogglePass = New-Object System.Windows.Forms.Button
-    $btnTogglePass.Location = New-Object System.Drawing.Point(600, 204)
-    $btnTogglePass.Size = New-Object System.Drawing.Size(120, 32)
+    $btnTogglePass.Dock = "Fill"
 
     $lblKey = New-Object System.Windows.Forms.Label
-    $lblKey.Location = New-Object System.Drawing.Point(20, 250)
     $lblKey.AutoSize = $true
+    $lblKey.Anchor = [System.Windows.Forms.AnchorStyles]::Left
 
     $txtKey = New-Object System.Windows.Forms.TextBox
-    $txtKey.Location = New-Object System.Drawing.Point(220, 246)
-    $txtKey.Size = New-Object System.Drawing.Size(360, 28)
+    $txtKey.Dock = "Fill"
     $txtKey.UseSystemPasswordChar = $true
 
     $btnToggleKey = New-Object System.Windows.Forms.Button
-    $btnToggleKey.Location = New-Object System.Drawing.Point(600, 244)
-    $btnToggleKey.Size = New-Object System.Drawing.Size(120, 32)
+    $btnToggleKey.Dock = "Fill"
 
     $lblSaveHint = New-MutedLabel
-    $lblSaveHint.Location = New-Object System.Drawing.Point(20, 305)
     $lblSaveHint.AutoSize = $true
-    $lblSaveHint.AutoEllipsis = $true
+    $lblSaveHint.Margin = New-Object System.Windows.Forms.Padding(0, 16, 0, 0)
 
     $lblTablesHint = New-MutedLabel
-    $lblTablesHint.Location = New-Object System.Drawing.Point(20, 335)
-    $lblTablesHint.Size = New-Object System.Drawing.Size(900, 60)
-    $lblTablesHint.AutoEllipsis = $true
+    $lblTablesHint.AutoSize = $true
+    $lblTablesHint.Margin = New-Object System.Windows.Forms.Padding(0, 8, 0, 0)
 
     $lnkCopyright = New-Object System.Windows.Forms.LinkLabel
-    $lnkCopyright.Location = New-Object System.Drawing.Point(20, 0)
     $lnkCopyright.AutoSize = $true
-    $lnkCopyright.Anchor = [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Bottom
     $lnkCopyright.LinkBehavior = [System.Windows.Forms.LinkBehavior]::HoverUnderline
+    $lnkCopyright.Margin = New-Object System.Windows.Forms.Padding(0, 24, 0, 0)
 
-    $panelSettings.Controls.AddRange(@(
-      $lblUiLang, $cmbLang, $lblTheme, $cmbTheme,
-      $lblInstance, $txtInstance, $lblBaseUrl,
-      $lblAuthType, $rbUserPass, $rbApiKey,
-      $lblUser, $txtUser,
-      $lblPass, $txtPass, $btnTogglePass,
-      $lblKey,  $txtKey,  $btnToggleKey,
-      $lblSaveHint, $lblTablesHint,
-      $lnkCopyright
-    ))
+    [void]$layoutSettingsGrid.Controls.Add($lblUiLang, 0, 0)
+    [void]$layoutSettingsGrid.Controls.Add($cmbLang, 1, 0)
+    [void]$layoutSettingsGrid.Controls.Add($lblTheme, 2, 0)
+    [void]$layoutSettingsGrid.Controls.Add($cmbTheme, 3, 0)
+
+    [void]$layoutSettingsGrid.Controls.Add($lblInstance, 0, 1)
+    [void]$layoutSettingsGrid.Controls.Add($txtInstance, 1, 1)
+    $layoutSettingsGrid.SetColumnSpan($txtInstance, 3)
+
+    [void]$layoutSettingsGrid.Controls.Add($lblBaseUrl, 1, 2)
+    $layoutSettingsGrid.SetColumnSpan($lblBaseUrl, 3)
+
+    [void]$layoutSettingsGrid.Controls.Add($lblAuthType, 0, 3)
+    [void]$layoutSettingsGrid.Controls.Add($flowAuthType, 1, 3)
+    $layoutSettingsGrid.SetColumnSpan($flowAuthType, 3)
+
+    [void]$layoutSettingsGrid.Controls.Add($lblUser, 0, 4)
+    [void]$layoutSettingsGrid.Controls.Add($txtUser, 1, 4)
+    $layoutSettingsGrid.SetColumnSpan($txtUser, 2)
+
+    [void]$layoutSettingsGrid.Controls.Add($lblPass, 0, 5)
+    [void]$layoutSettingsGrid.Controls.Add($txtPass, 1, 5)
+    [void]$layoutSettingsGrid.Controls.Add($btnTogglePass, 2, 5)
+
+    [void]$layoutSettingsGrid.Controls.Add($lblKey, 0, 6)
+    [void]$layoutSettingsGrid.Controls.Add($txtKey, 1, 6)
+    [void]$layoutSettingsGrid.Controls.Add($btnToggleKey, 2, 6)
+
+    [void]$layoutSettingsRoot.Controls.Add($layoutSettingsGrid, 0, 0)
+    [void]$layoutSettingsRoot.Controls.Add($lblSaveHint, 0, 1)
+    [void]$layoutSettingsRoot.Controls.Add($lblTablesHint, 0, 2)
+    [void]$layoutSettingsRoot.Controls.Add($lnkCopyright, 0, 3)
 
     return @{
       panelSettings = $panelSettings
@@ -1424,98 +1507,139 @@ try {
   }
 
   function Position-CopyrightLink {
-    $top = $panelSettings.ClientSize.Height - $lnkCopyright.Height - 16
-    if ($top -lt 16) { $top = 16 }
-    $lnkCopyright.Location = New-Object System.Drawing.Point(20, $top)
+    return
   }
 
   # --- Delete tab layout
   $panelDelete = New-Object System.Windows.Forms.Panel
   $panelDelete.Dock = "Fill"
   $panelDelete.AutoScroll = $true
-  $panelDelete.AutoScrollMinSize = New-Object System.Drawing.Size(940, 420)
   $tabDelete.Controls.Add($panelDelete)
 
-  $lblDeleteInputSection = New-UiSectionTitle ""
-  $lblDeleteInputSection.Location = New-Object System.Drawing.Point(20, 6)
+  $layoutDeleteRoot = New-Object System.Windows.Forms.TableLayoutPanel
+  $layoutDeleteRoot.Dock = "Top"
+  $layoutDeleteRoot.AutoSize = $true
+  $layoutDeleteRoot.AutoSizeMode = "GrowAndShrink"
+  $layoutDeleteRoot.Padding = New-Object System.Windows.Forms.Padding(16, 8, 16, 16)
+  $layoutDeleteRoot.ColumnCount = 2
+  [void]$layoutDeleteRoot.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+  [void]$layoutDeleteRoot.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 220)))
+  $panelDelete.Controls.Add($layoutDeleteRoot)
 
+  $lblDeleteInputSection = New-UiSectionTitle ""
   $lblDeleteExecuteSection = New-UiSectionTitle ""
-  $lblDeleteExecuteSection.Location = New-Object System.Drawing.Point(740, 300)
+
+  $layoutDeleteInput = New-Object System.Windows.Forms.TableLayoutPanel
+  $layoutDeleteInput.Dock = "Top"
+  $layoutDeleteInput.AutoSize = $true
+  $layoutDeleteInput.AutoSizeMode = "GrowAndShrink"
+  $layoutDeleteInput.Margin = New-Object System.Windows.Forms.Padding(0, 0, 0, 12)
+  $layoutDeleteInput.ColumnCount = 3
+  [void]$layoutDeleteInput.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 160)))
+  [void]$layoutDeleteInput.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+  [void]$layoutDeleteInput.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 180)))
 
   $lblDeleteTable = New-Object System.Windows.Forms.Label
-  $lblDeleteTable.Location = New-Object System.Drawing.Point(20, 20)
   $lblDeleteTable.AutoSize = $true
+  $lblDeleteTable.Anchor = [System.Windows.Forms.AnchorStyles]::Left
 
   $cmbDeleteTable = New-Object System.Windows.Forms.ComboBox
-  $cmbDeleteTable.Location = New-Object System.Drawing.Point(220, 16)
-  $cmbDeleteTable.Size = New-Object System.Drawing.Size(500, 28)
+  $cmbDeleteTable.Dock = "Fill"
   $cmbDeleteTable.DropDownStyle = "DropDown"
 
   $btnDeleteReloadTables = New-Object System.Windows.Forms.Button
-  $btnDeleteReloadTables.Location = New-Object System.Drawing.Point(740, 14)
-  $btnDeleteReloadTables.Size = New-Object System.Drawing.Size(180, 32)
+  $btnDeleteReloadTables.Dock = "Fill"
 
   $lblDeleteMaxRetries = New-Object System.Windows.Forms.Label
-  $lblDeleteMaxRetries.Location = New-Object System.Drawing.Point(20, 65)
   $lblDeleteMaxRetries.AutoSize = $true
+  $lblDeleteMaxRetries.Anchor = [System.Windows.Forms.AnchorStyles]::Left
 
   $numDeleteMaxRetries = New-Object System.Windows.Forms.NumericUpDown
-  $numDeleteMaxRetries.Location = New-Object System.Drawing.Point(220, 62)
-  $numDeleteMaxRetries.Size = New-Object System.Drawing.Size(140, 28)
+  $numDeleteMaxRetries.Dock = "Left"
+  $numDeleteMaxRetries.Width = 140
   $numDeleteMaxRetries.Minimum = 1
   $numDeleteMaxRetries.Maximum = 999
   $numDeleteMaxRetries.Value = 99
 
   $lblDeleteDangerHint = New-MutedLabel
-  $lblDeleteDangerHint.Location = New-Object System.Drawing.Point(20, 105)
-  $lblDeleteDangerHint.Size = New-Object System.Drawing.Size(900, 24)
+  $lblDeleteDangerHint.AutoSize = $true
 
   $lblDeleteUsageHint = New-MutedLabel
-  $lblDeleteUsageHint.Location = New-Object System.Drawing.Point(20, 130)
-  $lblDeleteUsageHint.Size = New-Object System.Drawing.Size(900, 40)
+  $lblDeleteUsageHint.AutoSize = $true
 
   $lblDeleteAllowedInstances = New-Object System.Windows.Forms.Label
-  $lblDeleteAllowedInstances.Location = New-Object System.Drawing.Point(20, 175)
   $lblDeleteAllowedInstances.AutoSize = $true
+  $lblDeleteAllowedInstances.Anchor = [System.Windows.Forms.AnchorStyles]::Left
 
   $txtDeleteAllowedInstances = New-Object System.Windows.Forms.TextBox
-  $txtDeleteAllowedInstances.Location = New-Object System.Drawing.Point(220, 196)
-  $txtDeleteAllowedInstances.Size = New-Object System.Drawing.Size(700, 28)
+  $txtDeleteAllowedInstances.Dock = "Fill"
   $txtDeleteAllowedInstances.ReadOnly = $true
 
   $lblDeleteAllowedInstancesHint = New-MutedLabel
-  $lblDeleteAllowedInstancesHint.Location = New-Object System.Drawing.Point(20, 230)
-  $lblDeleteAllowedInstancesHint.Size = New-Object System.Drawing.Size(900, 32)
+  $lblDeleteAllowedInstancesHint.AutoSize = $true
 
   $lblDeleteProgress = New-Object System.Windows.Forms.Label
-  $lblDeleteProgress.Location = New-Object System.Drawing.Point(20, 278)
   $lblDeleteProgress.AutoSize = $true
+  $lblDeleteProgress.Anchor = [System.Windows.Forms.AnchorStyles]::Left
+
+  $layoutDeleteProgress = New-Object System.Windows.Forms.TableLayoutPanel
+  $layoutDeleteProgress.Dock = "Fill"
+  $layoutDeleteProgress.AutoSize = $true
+  $layoutDeleteProgress.AutoSizeMode = "GrowAndShrink"
+  $layoutDeleteProgress.Margin = New-Object System.Windows.Forms.Padding(0)
+  $layoutDeleteProgress.ColumnCount = 2
+  [void]$layoutDeleteProgress.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+  [void]$layoutDeleteProgress.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 80)))
 
   $prgDelete = New-Object System.Windows.Forms.ProgressBar
-  $prgDelete.Location = New-Object System.Drawing.Point(220, 275)
-  $prgDelete.Size = New-Object System.Drawing.Size(500, 24)
+  $prgDelete.Dock = "Fill"
   $prgDelete.Minimum = 0
   $prgDelete.Maximum = 100
   $prgDelete.Value = 0
 
   $lblDeleteProgressValue = New-Object System.Windows.Forms.Label
-  $lblDeleteProgressValue.Location = New-Object System.Drawing.Point(740, 278)
-  $lblDeleteProgressValue.Size = New-Object System.Drawing.Size(180, 24)
+  $lblDeleteProgressValue.Dock = "Fill"
+  $lblDeleteProgressValue.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+
+  [void]$layoutDeleteProgress.Controls.Add($prgDelete, 0, 0)
+  [void]$layoutDeleteProgress.Controls.Add($lblDeleteProgressValue, 1, 0)
 
   $btnDeleteExecute = New-Object System.Windows.Forms.Button
-  $btnDeleteExecute.Location = New-Object System.Drawing.Point(740, 333)
-  $btnDeleteExecute.Size = New-Object System.Drawing.Size(180, 42)
+  $btnDeleteExecute.Dock = "Fill"
+  $btnDeleteExecute.Height = 42
   $btnDeleteExecute.Enabled = $false
 
-  $panelDelete.Controls.AddRange(@(
-    $lblDeleteInputSection, $lblDeleteExecuteSection,
-    $lblDeleteTable, $cmbDeleteTable, $btnDeleteReloadTables,
-    $lblDeleteMaxRetries, $numDeleteMaxRetries,
-    $lblDeleteDangerHint, $lblDeleteUsageHint,
-    $lblDeleteAllowedInstances, $txtDeleteAllowedInstances, $lblDeleteAllowedInstancesHint,
-    $lblDeleteProgress, $prgDelete, $lblDeleteProgressValue,
-    $btnDeleteExecute
-  ))
+  [void]$layoutDeleteInput.Controls.Add($lblDeleteTable, 0, 0)
+  [void]$layoutDeleteInput.Controls.Add($cmbDeleteTable, 1, 0)
+  [void]$layoutDeleteInput.Controls.Add($btnDeleteReloadTables, 2, 0)
+  [void]$layoutDeleteInput.Controls.Add($lblDeleteMaxRetries, 0, 1)
+  [void]$layoutDeleteInput.Controls.Add($numDeleteMaxRetries, 1, 1)
+  [void]$layoutDeleteInput.Controls.Add($lblDeleteDangerHint, 0, 2)
+  $layoutDeleteInput.SetColumnSpan($lblDeleteDangerHint, 3)
+  [void]$layoutDeleteInput.Controls.Add($lblDeleteUsageHint, 0, 3)
+  $layoutDeleteInput.SetColumnSpan($lblDeleteUsageHint, 3)
+  [void]$layoutDeleteInput.Controls.Add($lblDeleteAllowedInstances, 0, 4)
+  $layoutDeleteInput.SetColumnSpan($lblDeleteAllowedInstances, 3)
+  [void]$layoutDeleteInput.Controls.Add($txtDeleteAllowedInstances, 1, 5)
+  [void]$layoutDeleteInput.Controls.Add($lblDeleteAllowedInstancesHint, 0, 6)
+  $layoutDeleteInput.SetColumnSpan($lblDeleteAllowedInstancesHint, 3)
+  [void]$layoutDeleteInput.Controls.Add($lblDeleteProgress, 0, 7)
+  [void]$layoutDeleteInput.Controls.Add($layoutDeleteProgress, 1, 7)
+  $layoutDeleteInput.SetColumnSpan($layoutDeleteProgress, 2)
+
+  $layoutDeleteActions = New-Object System.Windows.Forms.TableLayoutPanel
+  $layoutDeleteActions.Dock = "Top"
+  $layoutDeleteActions.AutoSize = $true
+  $layoutDeleteActions.AutoSizeMode = "GrowAndShrink"
+  $layoutDeleteActions.Margin = New-Object System.Windows.Forms.Padding(0, 0, 0, 12)
+  $layoutDeleteActions.ColumnCount = 1
+  [void]$layoutDeleteActions.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+  [void]$layoutDeleteActions.Controls.Add($btnDeleteExecute, 0, 0)
+
+  [void]$layoutDeleteRoot.Controls.Add($lblDeleteInputSection, 0, 0)
+  [void]$layoutDeleteRoot.Controls.Add($layoutDeleteInput, 0, 1)
+  [void]$layoutDeleteRoot.Controls.Add($lblDeleteExecuteSection, 1, 0)
+  [void]$layoutDeleteRoot.Controls.Add($layoutDeleteActions, 1, 1)
 
   function Apply-TabTitlesLanguage {
     $form.Text = T "AppTitle"
