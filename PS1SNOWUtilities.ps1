@@ -598,6 +598,8 @@ try {
   $cmbBaseTable.Location = New-Object System.Drawing.Point(190, 56)
   $cmbBaseTable.Size = New-Object System.Drawing.Size(520, 28)
   $cmbBaseTable.DropDownStyle = "DropDown"
+  $cmbBaseTable.AutoCompleteMode = [System.Windows.Forms.AutoCompleteMode]::SuggestAppend
+  $cmbBaseTable.AutoCompleteSource = [System.Windows.Forms.AutoCompleteSource]::ListItems
 
   $btnReloadColumns = New-Object System.Windows.Forms.Button
   $btnReloadColumns.Location = New-Object System.Drawing.Point(740, 54)
@@ -656,12 +658,16 @@ try {
   $colJoinTable.Name = "JoinTable"
   $colJoinTable.FlatStyle = "Popup"
   $colJoinTable.DisplayStyle = "DropDownButton"
+  $colJoinTable.DisplayMember = "display"
+  $colJoinTable.ValueMember = "name"
   $colJoinTable.FillWeight = 34
 
   $colJoinBaseColumn = New-Object System.Windows.Forms.DataGridViewComboBoxColumn
   $colJoinBaseColumn.Name = "JoinBaseColumn"
   $colJoinBaseColumn.FlatStyle = "Popup"
   $colJoinBaseColumn.DisplayStyle = "DropDownButton"
+  $colJoinBaseColumn.DisplayMember = "display"
+  $colJoinBaseColumn.ValueMember = "name"
   $colJoinBaseColumn.FillWeight = 26
 
   $colJoinSource = New-Object System.Windows.Forms.DataGridViewComboBoxColumn
@@ -674,6 +680,8 @@ try {
   $colJoinTargetColumn.Name = "JoinTargetColumn"
   $colJoinTargetColumn.FlatStyle = "Popup"
   $colJoinTargetColumn.DisplayStyle = "DropDownButton"
+  $colJoinTargetColumn.DisplayMember = "display"
+  $colJoinTargetColumn.ValueMember = "name"
   $colJoinTargetColumn.FillWeight = 20
 
   $colJoinPrefix = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
@@ -1193,6 +1201,24 @@ try {
     return $text.Trim()
   }
 
+  function Convert-DisplayTokenToName([string]$text) {
+    $value = ([string]$text).Trim()
+    if ([string]::IsNullOrWhiteSpace($value)) { return "" }
+    $idx = $value.IndexOf(" - ")
+    if ($idx -gt 0) { return $value.Substring(0, $idx).Trim() }
+    return $value
+  }
+
+  function Build-TableDisplayText([string]$tableName, [string]$tableLabel) {
+    if ([string]::IsNullOrWhiteSpace([string]$tableLabel)) { return [string]$tableName }
+    return ("{0} - {1}" -f [string]$tableName, [string]$tableLabel)
+  }
+
+  function Build-ColumnDisplayText([string]$columnName, [string]$columnLabel) {
+    if ([string]::IsNullOrWhiteSpace([string]$columnLabel)) { return [string]$columnName }
+    return ("{0} - {1}" -f [string]$columnName, [string]$columnLabel)
+  }
+
   function Get-TruncateAllowedInstancePatterns {
     $raw = [string]$script:Settings.truncateAllowedInstances
     if ([string]::IsNullOrWhiteSpace($raw)) { $raw = "*dev*,*stg*" }
@@ -1305,23 +1331,35 @@ try {
   }
 
   function Refresh-BaseTableItems {
-    $cmbBaseTable.BeginUpdate()
-    $cmbBaseTable.Items.Clear()
+    $tableChoices = @()
     if ($script:Settings.cachedTables) {
       foreach ($t in @($script:Settings.cachedTables)) {
-        [void]$cmbBaseTable.Items.Add(("{0} - {1}" -f $t.name, $t.label))
+        $name = [string]$t.name
+        $tableChoices += [pscustomobject]@{
+          name = $name
+          display = Build-TableDisplayText $name ([string]$t.label)
+        }
       }
+    }
+
+    $cmbBaseTable.BeginUpdate()
+    $cmbBaseTable.Items.Clear()
+    foreach ($t in $tableChoices) {
+      [void]$cmbBaseTable.Items.Add([string]$t.display)
     }
     $cmbBaseTable.EndUpdate()
 
+    $colJoinTable.DataSource = $null
     $colJoinTable.Items.Clear()
+    if ($tableChoices.Count -gt 0) {
+      $colJoinTable.DataSource = $tableChoices
+    }
     $cmbDeleteTable.BeginUpdate()
     $cmbDeleteTable.Items.Clear()
     $cmbAttachmentTable.BeginUpdate()
     $cmbAttachmentTable.Items.Clear()
     if ($script:Settings.cachedTables) {
       foreach ($t in @($script:Settings.cachedTables)) {
-        [void]$colJoinTable.Items.Add([string]$t.name)
         [void]$cmbDeleteTable.Items.Add(("{0} - {1}" -f $t.name, $t.label))
         [void]$cmbAttachmentTable.Items.Add(("{0} - {1}" -f $t.name, $t.label))
       }
@@ -1377,9 +1415,9 @@ try {
         $leftJoinCell = $row.Cells[5].Value
 
         $joinSource = if ($null -eq $sourceCell) { "" } else { ([string]$sourceCell).Trim() }
-        $joinTable = if ($null -eq $tableCell) { "" } else { ([string]$tableCell).Trim() }
-        $baseColumn = if ($null -eq $baseCell) { "" } else { ([string]$baseCell).Trim() }
-        $targetColumn = if ($null -eq $targetCell) { "" } else { ([string]$targetCell).Trim() }
+        $joinTable = if ($null -eq $tableCell) { "" } else { Convert-DisplayTokenToName ([string]$tableCell) }
+        $baseColumn = if ($null -eq $baseCell) { "" } else { Convert-DisplayTokenToName ([string]$baseCell) }
+        $targetColumn = if ($null -eq $targetCell) { "" } else { Convert-DisplayTokenToName ([string]$targetCell) }
         $joinPrefix = if ($null -eq $prefixCell) { "" } else { ([string]$prefixCell).Trim() }
 
         $leftJoin = $false
@@ -1622,7 +1660,7 @@ try {
       $joinRow = $gridJoins.Rows[$i]
       if ($joinRow.IsNewRow) { continue }
       $joinTableCell = $joinRow.Cells[0].Value
-      $joinTable = if ($null -eq $joinTableCell) { "" } else { ([string]$joinTableCell).Trim() }
+      $joinTable = if ($null -eq $joinTableCell) { "" } else { Convert-DisplayTokenToName ([string]$joinTableCell) }
       if ([string]::IsNullOrWhiteSpace($joinTable)) { continue }
       $prefix = Get-JoinRowPrefix $i
       if ([string]::IsNullOrWhiteSpace($prefix)) { continue }
@@ -1672,7 +1710,7 @@ try {
     for ($i = 0; $i -lt $rowIndex; $i++) {
       if ((Get-JoinRowPrefix $i) -ne $sourcePrefix) { continue }
       $joinTableCell = $gridJoins.Rows[$i].Cells[0].Value
-      $joinTable = if ($null -eq $joinTableCell) { "" } else { ([string]$joinTableCell).Trim() }
+      $joinTable = if ($null -eq $joinTableCell) { "" } else { Convert-DisplayTokenToName ([string]$joinTableCell) }
       if (-not [string]::IsNullOrWhiteSpace($joinTable)) { return $joinTable }
     }
     return ""
@@ -1688,7 +1726,7 @@ try {
     [void]$sources.Add("__base__")
     for ($i = 0; $i -lt $rowIndex; $i++) {
       $joinTableCell = $gridJoins.Rows[$i].Cells[0].Value
-      $joinTable = if ($null -eq $joinTableCell) { "" } else { ([string]$joinTableCell).Trim() }
+      $joinTable = if ($null -eq $joinTableCell) { "" } else { Convert-DisplayTokenToName ([string]$joinTableCell) }
       if ([string]::IsNullOrWhiteSpace($joinTable)) { continue }
       $prefix = Get-JoinRowPrefix $i
       if ([string]::IsNullOrWhiteSpace($prefix)) { continue }
@@ -1718,7 +1756,7 @@ try {
 
     $baseTable = Resolve-JoinSourceTable $rowIndex $sourcePrefix
     $joinTableCell = $row.Cells[0].Value
-    $joinTable = if ($null -eq $joinTableCell) { "" } else { ([string]$joinTableCell).Trim() }
+    $joinTable = if ($null -eq $joinTableCell) { "" } else { Convert-DisplayTokenToName ([string]$joinTableCell) }
 
     $baseColumns = @()
     $joinColumns = @()
@@ -1732,13 +1770,19 @@ try {
     $selectedTarget = if ($null -eq $targetCell.Value) { "" } else { [string]$targetCell.Value }
 
     $baseCell.Items.Clear()
-    foreach ($c in $baseColumns) { [void]$baseCell.Items.Add([string]$c.name) }
-    if (-not [string]::IsNullOrWhiteSpace($selectedBase) -and $baseCell.Items.Contains($selectedBase)) { $baseCell.Value = $selectedBase }
+    foreach ($c in $baseColumns) {
+      $name = [string]$c.name
+      [void]$baseCell.Items.Add([pscustomobject]@{ name = $name; display = Build-ColumnDisplayText $name ([string]$c.label) })
+    }
+    if (-not [string]::IsNullOrWhiteSpace($selectedBase)) { $baseCell.Value = Convert-DisplayTokenToName $selectedBase }
     else { $baseCell.Value = $null }
 
     $targetCell.Items.Clear()
-    foreach ($c in $joinColumns) { [void]$targetCell.Items.Add([string]$c.name) }
-    if (-not [string]::IsNullOrWhiteSpace($selectedTarget) -and $targetCell.Items.Contains($selectedTarget)) { $targetCell.Value = $selectedTarget }
+    foreach ($c in $joinColumns) {
+      $name = [string]$c.name
+      [void]$targetCell.Items.Add([pscustomobject]@{ name = $name; display = Build-ColumnDisplayText $name ([string]$c.label) })
+    }
+    if (-not [string]::IsNullOrWhiteSpace($selectedTarget)) { $targetCell.Value = Convert-DisplayTokenToName $selectedTarget }
     else { $targetCell.Value = $null }
   }
 
@@ -2318,13 +2362,13 @@ try {
         if ($null -eq $j) { continue }
         $rowIndex = $gridJoins.Rows.Add()
         if ($rowIndex -lt 0) { continue }
-        $gridJoins.Rows[$rowIndex].Cells[0].Value = [string]$j.joinTable
+        $gridJoins.Rows[$rowIndex].Cells[0].Value = Convert-DisplayTokenToName ([string]$j.joinTable)
         Populate-JoinColumnsForRow $rowIndex
         if ($j.PSObject.Properties.Name -contains "joinSource") { $gridJoins.Rows[$rowIndex].Cells[1].Value = [string]$j.joinSource }
         else { $gridJoins.Rows[$rowIndex].Cells[1].Value = "__base__" }
         Populate-JoinColumnsForRow $rowIndex
-        $gridJoins.Rows[$rowIndex].Cells[2].Value = [string]$j.baseColumn
-        $gridJoins.Rows[$rowIndex].Cells[3].Value = [string]$j.targetColumn
+        $gridJoins.Rows[$rowIndex].Cells[2].Value = Convert-DisplayTokenToName ([string]$j.baseColumn)
+        $gridJoins.Rows[$rowIndex].Cells[3].Value = Convert-DisplayTokenToName ([string]$j.targetColumn)
         $gridJoins.Rows[$rowIndex].Cells[4].Value = [string]$j.joinPrefix
         if ($j.PSObject.Properties.Name -contains "leftJoin") { $gridJoins.Rows[$rowIndex].Cells[5].Value = [System.Convert]::ToBoolean($j.leftJoin) }
       }
@@ -2552,6 +2596,18 @@ try {
 
 
 
+
+  $gridJoins.add_EditingControlShowing({
+    param($sender, $e)
+    if ($gridJoins.CurrentCell -and ($gridJoins.CurrentCell.ColumnIndex -eq 0 -or $gridJoins.CurrentCell.ColumnIndex -eq 2 -or $gridJoins.CurrentCell.ColumnIndex -eq 3)) {
+      $combo = $e.Control -as [System.Windows.Forms.ComboBox]
+      if ($combo) {
+        $combo.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDown
+        $combo.AutoCompleteMode = [System.Windows.Forms.AutoCompleteMode]::SuggestAppend
+        $combo.AutoCompleteSource = [System.Windows.Forms.AutoCompleteSource]::ListItems
+      }
+    }
+  })
 
   $gridJoins.add_CellValueChanged({
     param($sender, $e)
