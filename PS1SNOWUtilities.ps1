@@ -1537,7 +1537,6 @@ try {
     $rbAll.Text = T "FilterAll"
     $rbBetween.Text = T "FilterUpdatedBetween"
     $lblStart.Text = T "Start"
-    $lblEnd.Text = T "End"
     $btnLast30Days.Text = T "Last30Days"
     $lblDir.Text = T "ExportDir"
     $lblExportMaxRows.Text = T "ExportMaxRows"
