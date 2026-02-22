@@ -1,9 +1,10 @@
-{
+﻿{
   "AppTitle": "PS1 SNOW Utilities",
   "TabExport": "Export",
   "TabViewEditor": "DataBase View Editor",
   "TabSettings": "Settings",
   "TabDelete": "Truncate",
+  "TabLogs": "Logs",
   "TargetTable": "Target Table",
   "ReloadTables": "Reload Tables",
   "EasyFilter": "Easy Filter",

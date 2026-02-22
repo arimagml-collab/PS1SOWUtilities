@@ -264,8 +264,7 @@ try {
   }
 
   function Add-AttachmentLog([string]$msg) {
-    if (-not $txtAttachmentLog) { return }
-    Write-CoreUiLog -LogTextBox $txtAttachmentLog -Message $msg
+    Add-Log $msg
   }
 
   function Invoke-Async([string]$name, [scriptblock]$work, [scriptblock]$onCompleted, $state = $null) {
@@ -307,11 +306,13 @@ try {
   $tabViewEditor = New-Object System.Windows.Forms.TabPage
   $tabSettings = New-Object System.Windows.Forms.TabPage
   $tabDelete = New-Object System.Windows.Forms.TabPage
+  $tabLogs = New-Object System.Windows.Forms.TabPage
 
   if ($script:IsExportFeatureEnabled) { [void]$tabs.TabPages.Add($tabExport) }
   if ($script:IsAttachmentHarvesterFeatureEnabled) { [void]$tabs.TabPages.Add($tabAttachmentHarvester) }
   if ($script:IsViewEditorFeatureEnabled) { [void]$tabs.TabPages.Add($tabViewEditor) }
   if ($script:IsDeleteFeatureEnabled) { [void]$tabs.TabPages.Add($tabDelete) }
+  [void]$tabs.TabPages.Add($tabLogs)
   [void]$tabs.TabPages.Add($tabSettings)
   $form.Controls.Add($tabs)
 
@@ -425,17 +426,6 @@ try {
   $btnOpenFolder.Location = New-Object System.Drawing.Point(740, 284)
   $btnOpenFolder.Size = New-Object System.Drawing.Size(180, 42)
 
-  $grpLog = New-Object System.Windows.Forms.GroupBox
-  $grpLog.Location = New-Object System.Drawing.Point(20, 325)
-  $grpLog.Size = New-Object System.Drawing.Size(900, 360)
-
-  $script:txtLog = New-Object System.Windows.Forms.TextBox
-  $script:txtLog.Multiline = $true
-  $script:txtLog.ScrollBars = "Both"
-  $script:txtLog.Dock = "Fill"
-  $script:txtLog.ReadOnly = $true
-  $grpLog.Controls.Add($script:txtLog)
-
   $panelExport.Controls.AddRange(@(
     $lblTable, $cmbTable, $btnReloadTables,
     $lblFilter, $rbAll, $rbBetween,
@@ -443,8 +433,7 @@ try {
     $lblDir, $txtDir, $btnBrowse,
     $lblExportMaxRows, $numExportMaxRows, $lblExportMaxRowsHint,
     $lblOutputFormat, $cmbOutputFormat, $chkOutputBom,
-    $btnOpenFolder, $btnExecute,
-    $grpLog
+    $btnOpenFolder, $btnExecute
   ))
 
 
@@ -517,25 +506,26 @@ try {
   $btnAttachmentExecute.Location = New-Object System.Drawing.Point(740, 145)
   $btnAttachmentExecute.Size = New-Object System.Drawing.Size(180, 42)
 
-  $grpAttachmentLog = New-Object System.Windows.Forms.GroupBox
-  $grpAttachmentLog.Location = New-Object System.Drawing.Point(20, 200)
-  $grpAttachmentLog.Size = New-Object System.Drawing.Size(900, 485)
-
-  $txtAttachmentLog = New-Object System.Windows.Forms.TextBox
-  $txtAttachmentLog.Multiline = $true
-  $txtAttachmentLog.ScrollBars = "Both"
-  $txtAttachmentLog.Dock = "Fill"
-  $txtAttachmentLog.ReadOnly = $true
-  $grpAttachmentLog.Controls.Add($txtAttachmentLog)
-
   $panelAttachment.Controls.AddRange(@(
     $lblAttachmentTable, $cmbAttachmentTable, $cmbAttachmentDateField,
     $lblAttachmentStart, $dtAttachmentStart, $lblAttachmentEnd, $dtAttachmentEnd, $btnAttachmentLastRunToNow,
     $lblAttachmentDir, $txtAttachmentDir, $btnAttachmentBrowse,
     $chkAttachmentSubfolder,
-    $btnAttachmentExecute,
-    $grpAttachmentLog
+    $btnAttachmentExecute
   ))
+
+  # --- Logs tab layout
+  $panelLogs = New-Object System.Windows.Forms.Panel
+  $panelLogs.Dock = "Fill"
+  $panelLogs.Padding = New-Object System.Windows.Forms.Padding(12)
+  $tabLogs.Controls.Add($panelLogs)
+
+  $script:txtLog = New-Object System.Windows.Forms.TextBox
+  $script:txtLog.Multiline = $true
+  $script:txtLog.ScrollBars = "Both"
+  $script:txtLog.Dock = "Fill"
+  $script:txtLog.ReadOnly = $true
+  $panelLogs.Controls.Add($script:txtLog)
 
   # --- DataBase View Editor tab layout
   $panelViewEditor = New-Object System.Windows.Forms.Panel
@@ -891,6 +881,7 @@ try {
     if ($script:IsExportFeatureEnabled) { $tabExport.Text = T "TabExport" }
     if ($script:IsAttachmentHarvesterFeatureEnabled) { $tabAttachmentHarvester.Text = T "TabAttachmentHarvester" }
     if ($script:IsViewEditorFeatureEnabled) { $tabViewEditor.Text = T "TabViewEditor" }
+    $tabLogs.Text = T "TabLogs"
     $tabSettings.Text = T "TabSettings"
     if ($script:IsDeleteFeatureEnabled) { $tabDelete.Text = T "TabDelete" }
 
@@ -909,7 +900,6 @@ try {
     $btnExecute.Text = T "Execute"
     $lblOutputFormat.Text = T "OutputFormat"
     $chkOutputBom.Text = T "OutputBom"
-    $grpLog.Text = T "Log"
     $btnOpenFolder.Text = T "OpenFolder"
 
     $lblAttachmentTable.Text = T "TargetTable"
@@ -920,7 +910,6 @@ try {
     $btnAttachmentBrowse.Text = T "Browse"
     $chkAttachmentSubfolder.Text = T "AttachmentCreateSubfolderPerTable"
     $btnAttachmentExecute.Text = T "Execute"
-    $grpAttachmentLog.Text = T "Log"
 
     $lblDeleteTable.Text = T "DeleteTargetTable"
     $btnDeleteReloadTables.Text = T "ReloadTables"
